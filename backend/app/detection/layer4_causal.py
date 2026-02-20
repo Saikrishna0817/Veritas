@@ -459,11 +459,11 @@ class CausalProofEngine:
     def _null_result(reason, n_flagged=0):
         return {"suspicion_score":0.0,"causal_effect":0.0,"degradation_score":0.0,
                 "proxy_effects":{},"proxy_accuracies_with":{},"proxy_accuracies_wo":{},
-                "n_proxies_agree":0,"acc_with_poison":None,"acc_without_poison":None,
+                "n_proxies_agree":0,"acc_with_poison":0.0,"acc_without_poison":0.0,
                 "proof_valid":False,"bootstrap_ci":[0.0,0.0],"bootstrap_mean":0.0,
                 "p_value":1.0,"significant":False,"placebo_effect":0.0,"placebo_ratio":1.0,
                 "placebo_valid":False,"ci_excludes_zero":False,"n_flagged":n_flagged,
-                "n_total":0,"projections":{"day_30":None,"day_60":None,"day_90":None},
+                "n_total":0,"projections":{"day_30":0.0,"day_60":0.0,"day_90":0.0},
                 "interpretation":f"Skipped: {reason}","skip_reason":reason,
                 "poisoning_fingerprint":{"fingerprint":"not_run","status":"SKIPPED",
                                          "confidence":0.0,"votes":{},"signals":{},

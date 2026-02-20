@@ -166,9 +166,17 @@ class StatisticalShiftDetector:
         fed_score, fed_alarm, fed_detail = self._client_trust_detection(X, ground_truth)
 
         # ── Suspicion score ──
-        kl_contrib      = self._sigmoid_scale(kl_score,  KL_ALARM_THRESHOLD * 1.5,    spread=1.5) * 0.10
-        mhd_contrib     = self._sigmoid_scale(mhd_score, MAHAL_ALARM_THRESHOLD * 1.5, spread=2.0) * 0.10
-        w1_contrib      = self._sigmoid_scale(w1_score,  WASSERSTEIN_ALARM * 1.5,     spread=0.2) * 0.10
+        # Subtract the sigmoid's zero-point so that score=0 → contribution=0.
+        # Without this, sigmoid_scale(0, threshold, spread) ≈ 0.07–0.15,
+        # creating a ~3% floor in suspicion even for perfectly clean data.
+        def _zeroed_sigmoid(value, threshold, spread, weight):
+            raw = self._sigmoid_scale(value, threshold, spread)
+            baseline = self._sigmoid_scale(0.0, threshold, spread)
+            return max(0.0, raw - baseline) * weight
+
+        kl_contrib      = _zeroed_sigmoid(kl_score,  KL_ALARM_THRESHOLD * 1.5,    1.5, 0.10)
+        mhd_contrib     = _zeroed_sigmoid(mhd_score, MAHAL_ALARM_THRESHOLD * 1.5, 2.0, 0.10)
+        w1_contrib      = _zeroed_sigmoid(w1_score,  WASSERSTEIN_ALARM * 1.5,     0.2, 0.10)
         label_contrib   = float(label_alarm) * 0.35
         trigger_contrib = float(trigger_alarm) * 0.40
         grad_contrib    = float(grad_alarm) * 0.25

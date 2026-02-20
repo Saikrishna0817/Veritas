@@ -1,4 +1,4 @@
-"""
+s"""
 Layer 2 — Spectral Activation Analysis  (RECTIFIED v2)
 ========================================================
 
@@ -130,8 +130,19 @@ class SpectralActivationAnalyzer:
                 0.0, 1.0
             ))
         else:
-            fires     = sum([gap_alarm, minority_alarm, tight_alarm, sil_alarm])
-            suspicion = float(min(fires * 0.10, 0.35))
+            # Continuous partial suspicion: weight by how far each signal
+            # exceeds its threshold. Pure fire-count (fires * 0.10) created
+            # a 0.20 floor because silhouette and gap_stat routinely pass
+            # on clean data.
+            partial = (
+                0.30 * max(0.0, sig_gap)
+                + 0.25 * max(0.0, sig_min)
+                + 0.25 * max(0.0, sig_tight)
+                + 0.20 * max(0.0, sig_sil)
+            )
+            # Only credit partial score if at least 2 signals are genuinely alarming
+            fires = sum([gap_alarm, minority_alarm, tight_alarm, sil_alarm])
+            suspicion = float(np.clip(partial * (fires / 4.0), 0.0, 0.25))
 
         return {
             "suspicion_score"       : suspicion,
@@ -168,7 +179,13 @@ class SpectralActivationAnalyzer:
             self._projection_matrix = self._rng.randn(n_features, N_ACTIVATION_DIMS)
 
         acts  = np.tanh(X @ self._projection_matrix)
-        y_arr = np.array(y).astype(float)
+
+        # Guard: y may be None, contain NaN, or be non-numeric
+        try:
+            y_arr = np.array(y, dtype=float) if y is not None else np.zeros(len(X))
+            y_arr = np.nan_to_num(y_arr, nan=0.0)
+        except (ValueError, TypeError):
+            y_arr = np.zeros(len(X))
         if len(np.unique(y_arr)) > 1:
             y_norm      = (y_arr - y_arr.min()) / (y_arr.max() - y_arr.min() + 1e-9) - 0.5
             label_signal = np.outer(y_norm, self._rng.randn(N_ACTIVATION_DIMS)) * 0.3

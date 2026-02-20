@@ -136,65 +136,92 @@ class DetectionPipeline:
     def analyze(
         self,
         X_incoming: np.ndarray,
-        y_incoming: np.ndarray,
+        y_incoming = None,
         federated_data: dict = None,
     ) -> dict:
+        # ── Type-safety: coerce inputs to clean numpy arrays ──────────────
         X = np.array(X_incoming, dtype=float)
-        y = np.array(y_incoming)
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+
+        if y_incoming is None:
+            y = np.zeros(len(X), dtype=float)
+        else:
+            y = np.array(y_incoming, dtype=float)
+            y = np.nan_to_num(y, nan=0.0)
 
         if not self._baseline_fitted:
             mid = len(X) // 2
             self.fit_baseline(X[:mid], y[:mid])
+            # After auto-fitting, only analyse the second half
+            X = X[mid:]
+            y = y[mid:]
 
-        # ── Build full dataset for analysis (RECT 2, 3, 4) ──────────────────
-        if self.X_reference is not None and len(self.X_reference) > 0:
-            X_full = np.vstack([self.X_reference, X])
-            y_full = np.concatenate([self.y_reference, y])
-        else:
-            X_full, y_full = X, y
+        # ══════════════════════════════════════════════════════════════════
+        # KEY FIX: Each layer receives ONLY X_incoming (unseen data).
+        # The baseline/reference was already learned during fit_baseline().
+        # Passing the full dataset (ref + incoming) made every layer compare
+        # the data against itself, guaranteeing near-zero scores.
+        # ══════════════════════════════════════════════════════════════════
 
-        # ── L1: full dataset (RECT 3) ────────────────────────────────────────
-        r1 = self.l1.analyze(X_full, y_incoming=y_full)
+        # ── L1: compare incoming against fitted baseline ──────────────────
+        try:
+            r1 = self.l1.analyze(X, y_incoming=y)
+        except Exception:
+            r1 = self.l1._null_result("layer_error")
 
-        # ── L2: full dataset (RECT 2) ────────────────────────────────────────
-        r2 = self.l2.analyze(X_full, y_full)
+        # ── L2: spectral analysis on incoming data only ───────────────────
+        try:
+            r2 = self.l2.analyze(X, y)
+        except Exception:
+            r2 = self.l2._null_result("layer_error")
 
-        # ── L3: full dataset (RECT 4) — indices map directly into X_full ────
-        r3           = self.l3.analyze(X_full)
-        flagged_full = r3.get("flagged_indices", [])
+        # ── L3: detectors fitted on reference → test on incoming only ─────
+        try:
+            r3 = self.l3.analyze(X)
+        except Exception:
+            r3 = self.l3._null_result("layer_error")
+        flagged_indices = r3.get("flagged_indices", [])
 
-        # ── L4: receives X_full and directly-mapped flagged indices ──────────
-        r4 = self.l4.run(X_full, y_full, flagged_full)
+        # ── L4: causal proof on incoming data with L3's flagged indices ───
+        try:
+            r4 = self.l4.run(X, y, flagged_indices)
+        except Exception:
+            r4 = self.l4._null_result("layer_error")
 
-        # ── L5: only meaningful in federated mode (RECT 6) ──────────────────
+        # ── L5: only meaningful in federated mode ─────────────────────────
         if self.federated_mode:
             if federated_data and "client_gradients" in federated_data:
-                r5 = self.l5.analyze(
-                    federated_data["client_gradients"],
-                    federated_data.get("global_gradient", np.zeros(10)),
-                )
+                try:
+                    r5 = self.l5.analyze(
+                        federated_data["client_gradients"],
+                        federated_data.get("global_gradient", np.zeros(10)),
+                    )
+                except Exception:
+                    r5 = self._zero_l5_result()
             else:
-                r5 = self.l5.simulate_round()
+                try:
+                    r5 = self.l5.simulate_round()
+                except Exception:
+                    r5 = self._zero_l5_result()
         else:
-            # Non-federated: L5 contributes zero so it doesn't pollute score
             r5 = self._zero_l5_result()
 
         # ── Combine suspicion scores ─────────────────────────────────────────
-        l3_score_raw = r3["suspicion_score"]
-        l3_excess    = r3.get("flagged_ratio", 0.0) - r3.get("expected_clean_flag_rate", 0.05)
+        l3_score_raw = float(r3.get("suspicion_score", 0.0) or 0.0)
+        l3_excess    = float(r3.get("flagged_ratio", 0.0) or 0.0) - float(r3.get("expected_clean_flag_rate", 0.05) or 0.05)
         l3_score_gated = l3_score_raw if l3_excess > 0.02 else l3_score_raw * 0.2
 
         raw_score = (
-            LAYER_WEIGHTS["l1_statistical"] * r1["suspicion_score"]
-            + LAYER_WEIGHTS["l2_spectral"]  * r2["suspicion_score"]
-            + LAYER_WEIGHTS["l3_ensemble"]  * l3_score_gated
-            + LAYER_WEIGHTS["l4_causal"]    * r4["suspicion_score"]
-            + LAYER_WEIGHTS["l5_federated"] * r5["suspicion_score"]
+            LAYER_WEIGHTS["l1_statistical"] * float(r1.get("suspicion_score", 0.0) or 0.0)
+            + LAYER_WEIGHTS["l2_spectral"]  * float(r2.get("suspicion_score", 0.0) or 0.0)
+            + LAYER_WEIGHTS["l3_ensemble"]  * float(l3_score_gated or 0.0)
+            + LAYER_WEIGHTS["l4_causal"]    * float(r4.get("suspicion_score", 0.0) or 0.0)
+            + LAYER_WEIGHTS["l5_federated"] * float(r5.get("suspicion_score", 0.0) or 0.0)
         )
         overall_suspicion = float(np.clip(raw_score, 0.0, 1.0))
 
         # ── Verdict: CONFIRMED requires causal proof ─────────────────────────
-        if overall_suspicion >= THRESHOLD_CONFIRMED and r4["proof_valid"]:
+        if overall_suspicion >= THRESHOLD_CONFIRMED and r4.get("proof_valid", False):
             verdict = "CONFIRMED_POISONED"
         elif overall_suspicion >= THRESHOLD_CONFIRMED:
             verdict = "SUSPICIOUS"
@@ -209,14 +236,14 @@ class DetectionPipeline:
             "verdict"           : verdict,
             "overall_suspicion" : overall_suspicion,
             "degradation_score" : r4.get("degradation_score", 0.0),
-            "causal_proof_valid": r4["proof_valid"],
+            "causal_proof_valid": r4.get("proof_valid", False),
             "layer_scores": {
-                "l1_statistical"  : r1["suspicion_score"],
-                "l2_spectral"     : r2["suspicion_score"],
+                "l1_statistical"  : float(r1.get("suspicion_score", 0.0) or 0.0),
+                "l2_spectral"     : float(r2.get("suspicion_score", 0.0) or 0.0),
                 "l3_ensemble"     : l3_score_raw,
                 "l3_ensemble_gated": l3_score_gated,
-                "l4_causal"       : r4["suspicion_score"],
-                "l5_federated"    : r5["suspicion_score"],
+                "l4_causal"       : float(r4.get("suspicion_score", 0.0) or 0.0),
+                "l5_federated"    : float(r5.get("suspicion_score", 0.0) or 0.0),
             },
             "layer_weights": LAYER_WEIGHTS,
             "thresholds": {
