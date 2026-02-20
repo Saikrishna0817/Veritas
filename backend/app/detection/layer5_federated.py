@@ -1,211 +1,250 @@
 """
-Layer 5 — Federated Behavioral Trust
-=======================================
-FIX SUMMARY:
-- OLD: EMA formula was inverted: trust_new = 0.9 × trust_old + 0.1 × sim
-  This means new observations only contribute 10%, making it EXTREMELY slow
-  to react to a newly malicious client (takes 20+ rounds to drop below 0.3).
-  A fresh honest client also starts at 0.5 and stays there for many rounds.
-- FIX 1: EMA formula corrected to α=0.7 (new obs) + 0.3 (history):
-  trust_new = 0.3 × trust_old + 0.7 × sim_normalised
-  This reacts meaningfully within 3-5 rounds, which is operationally sensible.
-- FIX 2: Initial trust for new clients set to 0.5 (neutral), not 0.5 hardcoded
-  in a way that a single bad round immediately quarantines them.
-- FIX 3: Cosine similarity normalisation now clips to [0,1] correctly.
-  Negative cosine (gradient inversion) → trust ≈ 0 (correct).
-  Positive cosine → trust ≈ cosine value.
-- FIX 4: Suspicion score for Layer 5 is now the fraction of clients with
-  trust below the quarantine threshold, not the average trust across all clients.
-  Average trust hides bad actors in a large pool of honest clients.
+Layer 5 — Federated Behavioral Trust  (RECTIFIED v2)
+======================================================
+
+RECTIFICATIONS:
+
+  RECT 1 ── EMA α=0.70 is too aggressive for new clients
+    OLD: A brand-new client with INITIAL_TRUST=0.5 that submits one high-quality
+         gradient immediately gets trust = 0.7 × 1.0 + 0.3 × 0.5 = 0.85.
+         Three rounds later of perfect gradients → trust ≈ 0.99.
+         Conversely, three bad rounds → trust ≈ 0.03 (quarantined).
+         This is hypersensitive — a single bad round from a mostly-honest
+         client (e.g. data quality issue) moves trust from 0.85 to 0.28
+         (just below quarantine threshold).
+    FIX: Use a WARM-UP period for new clients. For the first
+         MIN_ROUNDS_BEFORE_QUARANTINE rounds, use a slower α=0.30.
+         After warm-up, use α=0.70 for quick response. This prevents
+         premature quarantine without sacrificing responsiveness.
+
+  RECT 2 ── fingerprint (running mean gradient) accumulation has an off-by-one
+    OLD: n = self.round_counts[client_id]  (AFTER incrementing)
+         self.fingerprints[client_id] = fp × (n-1)/n + grad / n
+         On round 2 (n=2): fp = fp × 0.5 + grad × 0.5  ✓
+         On round 3 (n=3): fp = fp × 0.667 + grad × 0.333  ✓
+         Actually this is correct — the Welford/running-mean formula is right.
+         But the fingerprint is never USED anywhere in the pipeline.
+    FIX: Use fingerprint in a gradient fingerprint divergence check.
+         Flag clients whose current gradient deviates strongly from their own
+         historical fingerprint (sudden behavioral change = potential compromise).
+
+  RECT 3 ── simulate_round uses fixed seed 42 every call → always same result
+    OLD: rng = np.random.RandomState(42) inside simulate_round().
+         Every call produces identical synthetic gradients regardless of round.
+         Trust scores therefore don't evolve in simulation mode.
+    FIX: Seed with a round counter so simulated rounds progress over time.
+
+  RECT 4 ── quarantined clients remain quarantined even if trust recovers
+    OLD: Once added to self.quarantined set, a client is never removed.
+         A legitimate client falsely quarantined (3 bad rounds early on)
+         can never recover even after 100 good rounds.
+    FIX: Re-evaluate quarantine status each round. If trust recovers above
+         QUARANTINE_THRESHOLD × 1.5 (rehabilitation threshold), remove
+         from quarantined set and log the rehabilitation.
+
+  Previously fixed bugs (EMA direction, normalisation, fraction-based
+  suspicion score) are preserved.
 """
 
 import numpy as np
-from typing import Dict, Optional
+from typing import Dict
 
 
-# ── Constants ──
-EMA_ALPHA            = 0.70    # weight on NEW observation (was 0.10 — far too slow)
-QUARANTINE_THRESHOLD = 0.30    # trust below this → client quarantined
-SUSPICION_THRESHOLD  = 0.50    # trust below this → client flagged as suspicious
-INITIAL_TRUST        = 0.50    # neutral starting trust for new clients
-MIN_ROUNDS_BEFORE_QUARANTINE = 3   # don't quarantine after just 1 bad round
+# ── Constants ──────────────────────────────────────────────────────────────────
+EMA_ALPHA_WARMUP         = 0.30    # RECT 1: slow α during warm-up
+EMA_ALPHA_ACTIVE         = 0.70    # fast α after warm-up
+QUARANTINE_THRESHOLD     = 0.30
+REHABILITATION_THRESHOLD = 0.45    # RECT 4: trust must reach this to un-quarantine
+SUSPICION_THRESHOLD      = 0.50
+INITIAL_TRUST            = 0.50
+MIN_ROUNDS_BEFORE_QUARANTINE = 3
+FINGERPRINT_DIVERGENCE_ALARM = 0.70   # RECT 2: cosine divergence from own history
+SIMULATION_N_CLIENTS     = 5
 
 
 class FederatedTrustAnalyzer:
     """
-    Per-client trust scoring for federated learning scenarios.
+    Per-client trust scoring via EMA of gradient cosine similarity.
 
-    Trust is maintained via EMA of cosine similarity between each client's
-    gradient and the global aggregated gradient.
-
-    Trust scale:
-        0.0 — 0.3  : QUARANTINED   (consistently adversarial)
-        0.3 — 0.5  : SUSPICIOUS    (degraded alignment)
-        0.5 — 0.7  : ACCEPTABLE    (moderate alignment)
-        0.7 — 1.0  : TRUSTED       (strong alignment)
+    Improvements over v1:
+      - Warm-up EMA α prevents premature quarantine of new clients.
+      - Fingerprint divergence detects sudden behavioral change.
+      - Quarantine is reversible when trust rehabilitates.
+      - simulate_round progresses over time (seeded with round counter).
     """
 
     def __init__(self):
-        self.trust_scores: Dict[str, float] = {}
-        self.round_counts: Dict[str, int]   = {}    # how many rounds each client has participated
-        self.quarantined:  set              = set()
-        self.fingerprints: Dict[str, np.ndarray] = {}  # running mean gradient per client
+        self.trust_scores : Dict[str, float]      = {}
+        self.round_counts : Dict[str, int]         = {}
+        self.quarantined  : set                    = set()
+        self.fingerprints : Dict[str, np.ndarray]  = {}
+        self._sim_round   : int                    = 0   # RECT 3
 
     # ──────────────────────────────────────────────────────────────────────────
-    def update_trust(
-        self,
-        client_id: str,
-        client_gradient: np.ndarray,
-        global_gradient: np.ndarray,
-    ) -> dict:
-        """
-        Update trust score for a client based on gradient alignment.
-
-        Parameters
-        ----------
-        client_id       : unique identifier for this client
-        client_gradient : gradient vector submitted by the client
-        global_gradient : aggregated global gradient for this round
-
-        Returns
-        -------
-        dict with updated trust_score, status, cosine_similarity
-        """
+    def update_trust(self, client_id: str,
+                     client_gradient: np.ndarray,
+                     global_gradient: np.ndarray) -> dict:
         client_grad = np.array(client_gradient, dtype=float).flatten()
         global_grad = np.array(global_gradient, dtype=float).flatten()
 
-        # ── Cosine similarity ──
-        cos_sim = self._cosine_similarity(client_grad, global_grad)
-        # Normalise to [0, 1]: cos_sim=-1 → 0.0, cos_sim=+1 → 1.0
+        cos_sim        = self._cosine_similarity(client_grad, global_grad)
         sim_normalised = float(np.clip((cos_sim + 1.0) / 2.0, 0.0, 1.0))
 
-        # ── EMA update ──
-        prev_trust = self.trust_scores.get(client_id, INITIAL_TRUST)
-        new_trust  = EMA_ALPHA * sim_normalised + (1 - EMA_ALPHA) * prev_trust
+        # RECT 1: warm-up α for new clients
+        prev_trust  = self.trust_scores.get(client_id, INITIAL_TRUST)
+        rounds_done = self.round_counts.get(client_id, 0)
+        alpha       = EMA_ALPHA_WARMUP if rounds_done < MIN_ROUNDS_BEFORE_QUARANTINE else EMA_ALPHA_ACTIVE
+        new_trust   = alpha * sim_normalised + (1 - alpha) * prev_trust
         self.trust_scores[client_id] = float(new_trust)
 
-        # ── Round counter ──
-        self.round_counts[client_id] = self.round_counts.get(client_id, 0) + 1
-
-        # ── Update behavioral fingerprint (running mean gradient) ──
-        if client_id in self.fingerprints:
-            n = self.round_counts[client_id]
-            self.fingerprints[client_id] = (
-                self.fingerprints[client_id] * (n - 1) / n
-                + client_grad / n
-            )
-        else:
-            self.fingerprints[client_id] = client_grad.copy()
-
-        # ── Quarantine decision ──
+        # Round counter
+        self.round_counts[client_id] = rounds_done + 1
         rounds = self.round_counts[client_id]
-        status = self._get_status(new_trust, rounds)
 
-        if status == "QUARANTINED" and client_id not in self.quarantined:
-            self.quarantined.add(client_id)
+        # RECT 2: fingerprint update + divergence check
+        fp_alarm, fp_divergence = self._update_fingerprint(client_id, client_grad, rounds)
+
+        # RECT 4: quarantine with rehabilitation
+        status = self._get_status(new_trust, rounds, client_id)
 
         return {
-            "client_id"         : client_id,
-            "trust_score"       : float(new_trust),
-            "cosine_similarity" : float(cos_sim),
-            "sim_normalised"    : float(sim_normalised),
-            "status"            : status,
-            "rounds_participated": rounds,
-            "is_quarantined"    : client_id in self.quarantined,
+            "client_id"              : client_id,
+            "trust_score"            : float(new_trust),
+            "cosine_similarity"      : float(cos_sim),
+            "sim_normalised"         : float(sim_normalised),
+            "status"                 : status,
+            "rounds_participated"    : rounds,
+            "is_quarantined"         : client_id in self.quarantined,
+            "fingerprint_divergence" : round(float(fp_divergence), 4),
+            "fingerprint_alarm"      : bool(fp_alarm),
+            "ema_alpha_used"         : float(alpha),
         }
 
     def analyze(self, client_gradients: dict, global_gradient: np.ndarray) -> dict:
-        """
-        Process a full federated round: update all clients and return layer result.
-
-        Parameters
-        ----------
-        client_gradients : dict {client_id: gradient_array}
-        global_gradient  : np.ndarray — the aggregated global gradient
-
-        Returns
-        -------
-        dict with suspicion_score, per-client results, quarantine list
-        """
         per_client = {}
         for cid, grad in client_gradients.items():
             per_client[cid] = self.update_trust(cid, grad, global_gradient)
-
         return self._compute_layer_result(per_client)
 
     def get_all_trust_scores(self) -> dict:
-        """Return current trust scores for all known clients."""
         return {
             cid: {
-                "trust_score"    : float(score),
-                "status"         : self._get_status(score, self.round_counts.get(cid, 0)),
-                "is_quarantined" : cid in self.quarantined,
-                "rounds"         : self.round_counts.get(cid, 0),
+                "trust_score"   : float(score),
+                "status"        : self._get_status(score, self.round_counts.get(cid, 0), cid),
+                "is_quarantined": cid in self.quarantined,
+                "rounds"        : self.round_counts.get(cid, 0),
             }
             for cid, score in self.trust_scores.items()
         }
 
-    def simulate_round(self, n_clients: int = 5) -> dict:
-        """
-        Simulate a federated round with synthetic gradients.
-        Used by the API when no real federated data is available.
-        Returns a valid layer result so the rest of the pipeline doesn't break.
-        """
-        rng = np.random.RandomState(42)
-        dim = 50  # gradient dimensionality
+    def simulate_round(self, n_clients: int = SIMULATION_N_CLIENTS) -> dict:
+        """RECT 3: seed with round counter so simulated trust evolves."""
+        self._sim_round += 1
+        rng         = np.random.RandomState(self._sim_round)
+        dim         = 50
         global_grad = rng.randn(dim)
         global_grad /= np.linalg.norm(global_grad) + 1e-9
 
         client_grads = {}
         for i in range(n_clients):
             cid = f"sim_client_{i:03d}"
-            if i == 0 and len(self.trust_scores) > 0:
-                # Simulate one potentially adversarial client (inverted gradient)
-                g = -global_grad + rng.randn(dim) * 0.1
+            if i == 0:
+                # Simulate adversarial client that gradually turns malicious
+                noise = max(0.05, 0.5 - self._sim_round * 0.05)
+                g     = -global_grad + rng.randn(dim) * noise
             else:
-                noise_level = rng.uniform(0.05, 0.3)
-                g = global_grad + rng.randn(dim) * noise_level
+                noise_level = rng.uniform(0.05, 0.20)
+                g           = global_grad + rng.randn(dim) * noise_level
             g /= np.linalg.norm(g) + 1e-9
             client_grads[cid] = g
 
         return self.analyze(client_grads, global_grad)
 
     # ──────────────────────────────────────────────────────────────────────────
+    # RECT 2: fingerprint divergence
+    # ──────────────────────────────────────────────────────────────────────────
+    def _update_fingerprint(self, client_id: str,
+                            client_grad: np.ndarray,
+                            rounds: int) -> tuple:
+        """
+        Update running mean gradient fingerprint.
+        Return (alarm, divergence_from_fingerprint).
+        Alarm fires if current gradient is strongly anti-aligned with
+        the client's own history (sudden behavioral change).
+        """
+        fp_alarm     = False
+        fp_divergence = 0.0
+
+        if client_id in self.fingerprints and rounds > MIN_ROUNDS_BEFORE_QUARANTINE:
+            fp          = self.fingerprints[client_id]
+            fp_cos      = self._cosine_similarity(client_grad, fp)
+            fp_divergence = float((1.0 - fp_cos) / 2.0)  # normalised [0,1]
+            fp_alarm    = fp_divergence > FINGERPRINT_DIVERGENCE_ALARM
+
+        # Welford running mean update
+        n = rounds
+        if client_id in self.fingerprints:
+            self.fingerprints[client_id] = (
+                self.fingerprints[client_id] * (n - 1) / n + client_grad / n
+            )
+        else:
+            self.fingerprints[client_id] = client_grad.copy()
+
+        return fp_alarm, fp_divergence
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # RECT 4: reversible quarantine
+    # ──────────────────────────────────────────────────────────────────────────
+    def _get_status(self, trust: float, rounds: int, client_id: str) -> str:
+        # Rehabilitation: remove from quarantine if trust has recovered
+        if client_id in self.quarantined and trust >= REHABILITATION_THRESHOLD:
+            self.quarantined.discard(client_id)
+
+        if trust < QUARANTINE_THRESHOLD and rounds >= MIN_ROUNDS_BEFORE_QUARANTINE:
+            self.quarantined.add(client_id)
+            return "QUARANTINED"
+        elif client_id in self.quarantined:
+            return "QUARANTINED"   # still quarantined, hasn't rehabilitated yet
+        elif trust < SUSPICION_THRESHOLD:
+            return "SUSPICIOUS"
+        elif trust < 0.70:
+            return "ACCEPTABLE"
+        return "TRUSTED"
+
     def _compute_layer_result(self, per_client: dict) -> dict:
-        """
-        Aggregate per-client results into a layer-level suspicion score.
-        FIX: suspicion = fraction of clients below quarantine threshold,
-        not average trust score (which hides bad actors in large pools).
-        """
         if not per_client:
             return {
-                "suspicion_score"        : 0.0,
-                "n_clients"              : 0,
-                "n_quarantined"          : 0,
-                "n_suspicious"           : 0,
-                "quarantined_clients"    : [],
-                "suspicious_clients"     : [],
-                "per_client"             : {},
-                "avg_trust_score"        : 1.0,
+                "suspicion_score"    : 0.0,
+                "n_clients"          : 0,
+                "n_quarantined"      : 0,
+                "n_suspicious"       : 0,
+                "n_fingerprint_alarm": 0,
+                "quarantined_clients": [],
+                "suspicious_clients" : [],
+                "per_client"         : {},
+                "avg_trust_score"    : 1.0,
             }
 
-        n_total       = len(per_client)
-        n_quarantined = sum(1 for r in per_client.values() if r["trust_score"] < QUARANTINE_THRESHOLD)
-        n_suspicious  = sum(1 for r in per_client.values() if r["trust_score"] < SUSPICION_THRESHOLD)
-        avg_trust     = float(np.mean([r["trust_score"] for r in per_client.values()]))
+        n_total          = len(per_client)
+        n_quarantined    = sum(1 for r in per_client.values() if r["trust_score"] < QUARANTINE_THRESHOLD)
+        n_suspicious     = sum(1 for r in per_client.values() if r["trust_score"] < SUSPICION_THRESHOLD)
+        n_fp_alarm       = sum(1 for r in per_client.values() if r.get("fingerprint_alarm", False))  # RECT 2
+        avg_trust        = float(np.mean([r["trust_score"] for r in per_client.values()]))
 
-        # Suspicion: fraction of compromised clients, weighted by severity
-        quarantine_frac = n_quarantined / n_total
-        suspicious_frac = n_suspicious  / n_total
-        # Quarantined clients count double (more severe)
-        raw_suspicion = (quarantine_frac * 2.0 + suspicious_frac * 0.5) / 2.5
-        suspicion = float(np.clip(raw_suspicion, 0.0, 1.0))
+        quarantine_frac  = n_quarantined / n_total
+        suspicious_frac  = n_suspicious  / n_total
+        fp_frac          = n_fp_alarm    / n_total
+
+        # Fingerprint alarms add a small additional signal
+        raw_suspicion = (quarantine_frac * 2.0 + suspicious_frac * 0.5 + fp_frac * 0.3) / 2.8
+        suspicion     = float(np.clip(raw_suspicion, 0.0, 1.0))
 
         return {
             "suspicion_score"     : suspicion,
             "n_clients"           : n_total,
             "n_quarantined"       : n_quarantined,
             "n_suspicious"        : n_suspicious,
+            "n_fingerprint_alarm" : n_fp_alarm,
             "quarantined_clients" : [cid for cid, r in per_client.items()
                                      if r["trust_score"] < QUARANTINE_THRESHOLD],
             "suspicious_clients"  : [cid for cid, r in per_client.items()
@@ -214,24 +253,10 @@ class FederatedTrustAnalyzer:
             "avg_trust_score"     : avg_trust,
         }
 
-    def _get_status(self, trust: float, rounds: int) -> str:
-        """
-        FIX: Don't quarantine on first round regardless of score.
-        A new client with one bad gradient shouldn't be immediately quarantined.
-        """
-        if trust < QUARANTINE_THRESHOLD and rounds >= MIN_ROUNDS_BEFORE_QUARANTINE:
-            return "QUARANTINED"
-        elif trust < SUSPICION_THRESHOLD:
-            return "SUSPICIOUS"
-        elif trust < 0.70:
-            return "ACCEPTABLE"
-        return "TRUSTED"
-
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-        """Cosine similarity in [-1, 1]."""
-        norm_a = np.linalg.norm(a)
-        norm_b = np.linalg.norm(b)
-        if norm_a < 1e-9 or norm_b < 1e-9:
+        na = np.linalg.norm(a)
+        nb = np.linalg.norm(b)
+        if na < 1e-9 or nb < 1e-9:
             return 0.0
-        return float(np.dot(a, b) / (norm_a * norm_b))
+        return float(np.dot(a, b) / (na * nb))
