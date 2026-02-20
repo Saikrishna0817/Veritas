@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createWebSocket } from '../api';
+import { createWebSocket } from '../services/api';
 
 export function useWebSocket() {
     const [events, setEvents] = useState([]);

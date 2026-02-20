@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api } from '../services/api';
 import { Search, AlertTriangle, Clock, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 
 function NarrativeBox({ narrative }) {

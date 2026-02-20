@@ -1,15 +1,12 @@
 """
 AI Trust Forensics Platform v2.2 — FastAPI Main Application
 """
-import asyncio
-import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
-from app.api.routes import router
-from app.api.websocket import ConnectionManager
+from app.api.router import api_router, ws_router
+from app.api.routes.websocket import ConnectionManager
 
 # Global state
 manager = ConnectionManager()
@@ -42,25 +39,11 @@ app.add_middleware(
 )
 
 # Routes
-app.include_router(router, prefix="/api/v1")
+app.include_router(api_router, prefix="/api/v1")
+app.include_router(ws_router)
 
 # Store manager on app state
 app.state.ws_manager = manager
-
-
-@app.websocket("/ws/v1/detection-stream")
-async def websocket_endpoint(websocket: WebSocket):
-    """Real-time detection event stream."""
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            if msg.get("type") == "ping":
-                await websocket.send_json({"type": "pong"})
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
 
 @app.get("/health")
 async def health():

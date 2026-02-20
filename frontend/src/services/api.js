@@ -1,5 +1,5 @@
 // API client for AI Trust Forensics Platform
-export const BASE_URL = 'http://localhost:8001/api/v1';
+export const BASE_URL = import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
 
 async function apiFetch(path, options = {}) {
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -77,16 +77,16 @@ export const api = {
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
 
-    // Model Scan (new)
+    // Model Scan
     scanModel: (formData) => apiFormData('/analyze/model', formData),
     getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 
-    // Real Dataset Library (new)
+    // Real Dataset Library
     getRealDatasets: () => apiFetch('/datasets/real'),
     analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
 
-    // History / Persistence (new)
+    // History / Persistence
     getHistory: (source = null, limit = 20) => {
         const params = new URLSearchParams({ limit });
         if (source) params.append('source', source);
@@ -94,7 +94,7 @@ export const api = {
     },
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
 
-    // Blue Team SOC (new)
+    // Blue Team SOC
     getBlueTeamStatus: () => apiFetch('/blueteam/status'),
     getBlueTeamIncidents: () => apiFetch('/blueteam/incidents'),
     getBlueTeamResilience: () => apiFetch('/blueteam/resilience'),
@@ -105,7 +105,8 @@ export const api = {
 
 // WebSocket
 export function createWebSocket(onMessage) {
-    const ws = new WebSocket('ws://localhost:8001/ws/v1/detection-stream');
+    const wsUrl = import.meta.env?.VITE_WS_URL || 'ws://localhost:8001/ws/v1/detection-stream';
+    const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
         console.log('WebSocket connected');
         // Keep-alive ping
@@ -127,3 +128,4 @@ export function createWebSocket(onMessage) {
     ws.onclose = () => console.log('WebSocket disconnected');
     return ws;
 }
+

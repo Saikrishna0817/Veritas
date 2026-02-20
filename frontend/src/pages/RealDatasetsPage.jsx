@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api } from '../services/api';
 
 const DATASET_META = {
     iris: { icon: '🌸', domain: 'Biology', color: '#a855f7' },

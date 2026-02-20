@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api } from '../api';
+import { api } from '../services/api';
 import { Target, Zap, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 
 const ATTACK_TYPES = [

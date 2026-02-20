@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { api } from '../api';
+import { api } from '../services/api';
 
 const VERDICT_CONFIG = {
     CONFIRMED_POISONED: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '☠️', label: 'CONFIRMED POISONED' },

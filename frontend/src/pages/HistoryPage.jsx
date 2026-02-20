@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../api';
+import { api } from '../services/api';
 
 const SOURCE_CONFIG = {
     demo: { color: '#6366f1', icon: '🎯', label: 'Demo' },
