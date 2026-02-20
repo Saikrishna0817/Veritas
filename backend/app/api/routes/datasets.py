@@ -16,8 +16,9 @@ router = APIRouter()
 
 @router.post("/demo/run")
 async def run_demo(background_tasks: BackgroundTasks, request: Request):
-    """Run the full demo pipeline and broadcast results via WebSocket."""
-    data = deps.get_demo_data()
+    """Run the full demo pipeline with a fresh random scenario each time."""
+    import app.demo.data_generator as dg
+    data = dg.refresh_demo_data(scenario="random")
     samples = data["samples"]
 
     clean = [s for s in samples if s["poison_status"] == "clean"][:200]
@@ -201,6 +202,10 @@ async def analyze_real_dataset(name: str, background_tasks: BackgroundTasks, req
         raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
 
     full_result = deps.to_serializable(full_result)
+
+    # Make this result available to forensics, reports, and trust-score endpoints
+    deps.upload_result_cache["latest"] = full_result
+    deps.demo_result_cache["latest"] = full_result  # backward-compat for old code paths
 
     background_tasks.add_task(deps.db.save_result, full_result, "real_dataset", data["filename"])
 

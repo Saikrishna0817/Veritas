@@ -24,14 +24,14 @@ async def analyze_uploaded_csv(
     - Auto-detects label column, feature columns, data types
     - Runs supervised detection if label column found, unsupervised otherwise
     - Self-contained: uses internal 70/30 split (no external baseline needed)
-    - Max 50,000 rows, 10MB file size
+    - Max 200,000 rows, 200 MB file size
     """
     if not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
 
     content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
+    if len(content) > 200 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large. Maximum size is 200 MB.")
 
     filename = file.filename
 

@@ -123,14 +123,17 @@ async def get_federated_clients():
 
 @router.get("/trust/score")
 async def get_trust_score():
-    """Get current dataset and model trust scores."""
-    if "latest" in deps.demo_result_cache:
-        r = deps.demo_result_cache["latest"]
+    """Get current dataset and model trust scores — uses latest upload or demo result."""
+    # Prefer upload result (user's own data), fall back to demo
+    r = deps.upload_result_cache.get("latest") or deps.demo_result_cache.get("latest")
+    if r:
         suspicion = r.get("overall_suspicion_score", 0.0)
         causal = ((r.get("layer_results") or {}).get("layer4_causal") or {}).get("causal_effect", 0.0)
+        data_source = r.get("source", "demo")
     else:
         suspicion = 0.0
         causal = 0.0
+        data_source = "none"
 
     poison_risk = round(suspicion * 100, 1)
     data_quality = round(max(0, 100 - poison_risk * 1.2), 1)
@@ -156,6 +159,7 @@ async def get_trust_score():
             "grade": grade,
         },
         "updated_at": datetime.utcnow().isoformat(),
+        "data_source": data_source,
         "debug": {"causal_effect": causal},
     }
 

@@ -11,6 +11,9 @@ import random
 np.random.seed(42)
 random.seed(42)
 
+# Singleton demo data — refreshed on each /demo/run call
+_demo_data = None
+
 # ── Feature names (medical diagnosis domain) ──────────────────────────────────
 FEATURE_NAMES = [
     "cell_radius", "cell_texture", "cell_perimeter", "cell_area",
@@ -208,32 +211,56 @@ def inject_gradient_poisoning_attack(samples: List[Dict], n_poison: int = 15) ->
     return samples
 
 
-def generate_demo_dataset() -> Dict[str, Any]:
-    """Generate the full demo dataset with mixed attacks."""
-    print("Generating clean dataset...")
+def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[str, Any]:
+    """
+    Generate the full demo dataset.
+    scenario: 'poisoned' | 'clean' | 'random'
+              random → 20% chance of clean, 80% chance of poisoned
+    seed: optional random seed (None → use wall-clock for variety)
+    """
+    if seed is None:
+        import time
+        seed = int(time.time() * 1000) % (2 ** 31)
+
+    np.random.seed(seed)
+    random.seed(seed)
+
+    if scenario == "random":
+        scenario = "clean" if random.random() < 0.20 else "poisoned"
+
+    print(f"Generating demo dataset (scenario={scenario}, seed={seed})...")
     samples = generate_clean_dataset(500)
-    
-    print("Injecting label flip attack...")
-    samples = inject_label_flip_attack(samples, n_poison=30)
-    
-    print("Injecting backdoor attack...")
-    samples = inject_backdoor_attack(samples, n_poison=25)
-    
-    print("Injecting boiling frog attack...")
-    samples = inject_boiling_frog_attack(samples, n_poison=40)
 
-    print("Injecting clean label attack...")
-    samples = inject_clean_label_attack(samples, n_poison=20)
+    if scenario == "poisoned":
+        # Pick a random subset of attacks with random intensities
+        attacks = random.sample(
+            ["label_flip", "backdoor", "boiling_frog", "clean_label", "gradient_poisoning"],
+            k=random.randint(2, 5)
+        )
+        if "label_flip" in attacks:
+            n = random.randint(15, 45)
+            samples = inject_label_flip_attack(samples, n_poison=n)
+        if "backdoor" in attacks:
+            n = random.randint(10, 35)
+            samples = inject_backdoor_attack(samples, n_poison=n)
+        if "boiling_frog" in attacks:
+            n = random.randint(20, 55)
+            samples = inject_boiling_frog_attack(samples, n_poison=n)
+        if "clean_label" in attacks:
+            n = random.randint(10, 30)
+            samples = inject_clean_label_attack(samples, n_poison=n)
+        if "gradient_poisoning" in attacks:
+            n = random.randint(8, 25)
+            samples = inject_gradient_poisoning_attack(samples, n_poison=n)
 
-    print("Injecting gradient poisoning attack...")
-    samples = inject_gradient_poisoning_attack(samples, n_poison=15)
-    
     n_poisoned = sum(1 for s in samples if s["poison_status"] == "confirmed")
     n_clean = len(samples) - n_poisoned
-    
+
     return {
         "dataset_id": str(uuid.uuid4()),
         "name": "Medical Diagnosis Dataset — Demo",
+        "scenario": scenario,
+        "seed": seed,
         "total_samples": len(samples),
         "clean_samples": n_clean,
         "poisoned_samples": n_poisoned,
@@ -247,16 +274,16 @@ def generate_demo_dataset() -> Dict[str, Any]:
 def generate_timeline_data(samples: List[Dict]) -> List[Dict]:
     """Generate time-series data for the attack timeline chart."""
     from collections import defaultdict
-    
+
     timeline = defaultdict(lambda: {
         "poison_count": 0, "clean_count": 0,
         "accuracy": None, "shap_drift": None,
         "trust_score": None, "events": []
     })
-    
+
     base_accuracy = 0.947
     base_trust = 82.0
-    
+
     for s in samples:
         dt = datetime.fromisoformat(s["ingested_at"])
         day_key = dt.strftime("%Y-%m-%d %H:00")
@@ -264,10 +291,10 @@ def generate_timeline_data(samples: List[Dict]) -> List[Dict]:
             timeline[day_key]["poison_count"] += 1
         else:
             timeline[day_key]["clean_count"] += 1
-    
+
     sorted_keys = sorted(timeline.keys())
     cumulative_poison = 0
-    
+
     result = []
     for i, key in enumerate(sorted_keys):
         cumulative_poison += timeline[key]["poison_count"]
@@ -275,7 +302,7 @@ def generate_timeline_data(samples: List[Dict]) -> List[Dict]:
         accuracy = round(base_accuracy - poison_effect + np.random.normal(0, 0.002), 4)
         shap_drift = round(cumulative_poison * 0.003 + np.random.normal(0, 0.01), 4)
         trust = round(max(14, base_trust - cumulative_poison * 0.8), 1)
-        
+
         events = []
         if cumulative_poison == 30:
             events.append({"type": "attack_start", "label": "▼ Label Flip Detected"})
@@ -283,7 +310,7 @@ def generate_timeline_data(samples: List[Dict]) -> List[Dict]:
             events.append({"type": "detection", "label": "▲ Backdoor Confirmed"})
         if cumulative_poison == 95:
             events.append({"type": "defense", "label": "■ Auto-Defense Activated"})
-        
+
         result.append({
             "timestamp": key,
             "poison_count": timeline[key]["poison_count"],
@@ -294,16 +321,23 @@ def generate_timeline_data(samples: List[Dict]) -> List[Dict]:
             "trust_score": trust,
             "events": events
         })
-    
+
     return result
 
 
-# Singleton demo data (loaded once)
-_demo_data = None
-
 def get_demo_data() -> Dict[str, Any]:
+    """Return the current singleton demo data (generated once per process lifetime)."""
     global _demo_data
     if _demo_data is None:
-        _demo_data = generate_demo_dataset()
+        _demo_data = generate_demo_dataset(scenario="poisoned", seed=42)
         _demo_data["timeline"] = generate_timeline_data(_demo_data["samples"])
     return _demo_data
+
+
+def refresh_demo_data(scenario: str = "random") -> Dict[str, Any]:
+    """Force-regenerate demo data with a fresh random scenario. Called by /demo/run."""
+    global _demo_data
+    _demo_data = generate_demo_dataset(scenario=scenario)
+    _demo_data["timeline"] = generate_timeline_data(_demo_data["samples"])
+    return _demo_data
+

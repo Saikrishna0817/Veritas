@@ -6,26 +6,83 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.api import dependencies as deps
 
 router = APIRouter()
 
 
+# ── Helper: resolve the best available result ─────────────────────────────────
+
+def _get_best_result(prefer: str = "auto") -> dict:
+    """
+    Return the most recent analysis result.
+    prefer: 'demo'   → only demo cache
+            'upload' → only upload cache
+            'auto'   → whichever is freshest (upload wins tie)
+    Raises HTTPException 404 if nothing available.
+    """
+    demo = deps.demo_result_cache.get("latest")
+    upload = deps.upload_result_cache.get("latest")
+
+    if prefer == "demo":
+        if demo:
+            return demo
+        raise HTTPException(status_code=404, detail="Run /demo/run first.")
+
+    if prefer == "upload":
+        if upload:
+            return upload
+        raise HTTPException(status_code=404, detail="Upload a CSV via /analyze/upload first.")
+
+    # auto: prefer upload if it's available (it's the user's own data)
+    if upload:
+        return upload
+    if demo:
+        return demo
+
+    # DB fallback
+    db_result = deps.db.get_latest()
+    if db_result:
+        return db_result
+
+    raise HTTPException(
+        status_code=404,
+        detail="No analysis results found. Run /demo/run or upload a CSV first.",
+    )
+
+
 # ── HISTORY (persisted results) ───────────────────────────────────────────────
 
 
 @router.get("/history")
-async def get_analysis_history(source: Optional[str] = None, limit: int = 20):
+async def get_analysis_history(source: Optional[str] = None, limit: int = 50):
+    """Return combined history from analysis_results + model_scans tables."""
     rows = deps.db.get_history(source=source, limit=limit)
+    model_rows = []
+    if source in (None, "model_scan"):
+        model_rows = deps.db.get_model_scan_history(limit=limit)
+        for r in model_rows:
+            r["source"] = "model_scan"
+            r["filename"] = r.get("model_filename")
+            r["n_samples"] = r.get("n_samples")
+
+    # Merge and sort by created_at descending
+    combined = rows + model_rows
+    combined.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    combined = combined[:limit]
+
     stats = deps.db.get_stats()
-    return {"results": rows, "stats": stats}
+    return {"results": combined, "stats": stats}
 
 
 @router.get("/history/{result_id}")
 async def get_historical_result(result_id: str):
     result = deps.db.get_result(result_id)
+    if not result:
+        # Try model scans table
+        result = deps.db.get_model_scan(result_id)
     if not result:
         raise HTTPException(status_code=404, detail="Result not found in database.")
     return result
@@ -35,25 +92,26 @@ async def get_historical_result(result_id: str):
 
 
 @router.get("/forensics/latest")
-async def get_latest_forensics():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
-    r = deps.demo_result_cache["latest"]
+async def get_latest_forensics(source: str = Query("auto", description="auto|demo|upload")):
+    r = _get_best_result(source)
     return {
         "attack_classification": r.get("attack_classification"),
         "injection_pattern": r.get("injection_pattern"),
         "sophistication": r.get("sophistication"),
         "blast_radius": r.get("blast_radius"),
         "counterfactual": r.get("counterfactual"),
+        "source": r.get("source", "demo"),
+        "verdict": r.get("verdict"),
+        "overall_suspicion_score": r.get("overall_suspicion_score"),
+        "dataset_info": r.get("dataset_info"),
     }
 
 
 @router.get("/forensics/narrative")
-async def get_attack_narrative():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
-    pattern = deps.demo_result_cache["latest"].get("injection_pattern", {})
-    return {"narrative": pattern.get("narrative", "No narrative available.")}
+async def get_attack_narrative(source: str = Query("auto", description="auto|demo|upload")):
+    r = _get_best_result(source)
+    pattern = r.get("injection_pattern") or {}
+    return {"narrative": pattern.get("narrative", "No narrative available."), "source": r.get("source", "demo")}
 
 
 @router.get("/forensics/timeline")
@@ -63,10 +121,9 @@ async def get_attack_timeline():
 
 
 @router.get("/blast-radius/latest")
-async def get_blast_radius():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
-    return deps.demo_result_cache["latest"].get("blast_radius", {})
+async def get_blast_radius(source: str = Query("auto", description="auto|demo|upload")):
+    r = _get_best_result(source)
+    return r.get("blast_radius") or {}
 
 
 # ── DEFENSE ───────────────────────────────────────────────────────────────────
@@ -74,9 +131,7 @@ async def get_blast_radius():
 
 @router.post("/defense/quarantine")
 async def trigger_quarantine():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
-    r = deps.demo_result_cache["latest"]
+    r = _get_best_result("auto")
     data = deps.get_demo_data()
     action = deps.defense._quarantine(data["samples"][:50], r["overall_suspicion_score"])
     return action
@@ -133,16 +188,22 @@ async def get_red_team_history():
 
 
 @router.post("/reports/generate")
-async def generate_report():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
+async def generate_report(source: str = Query("auto", description="auto|demo|upload")):
+    """
+    Generate a forensic evidence report.
+    source=auto  → use the most recent result (upload wins over demo)
+    source=demo  → use the latest demo run result
+    source=upload → use the latest uploaded CSV result
+    """
+    r = _get_best_result(source)
 
-    r = deps.demo_result_cache["latest"]
     report = {
         "report_id": str(uuid.uuid4()),
         "generated_at": datetime.utcnow().isoformat(),
         "title": "AI Poisoning Forensic Evidence Report",
         "platform": "AI Trust Forensics Platform v2.2",
+        "data_source": r.get("source", "demo"),
+        "dataset_info": r.get("dataset_info"),
         "executive_summary": {
             "verdict": r.get("verdict"),
             "attack_type": (r.get("attack_classification") or {}).get("attack_type", "unknown"),
@@ -156,6 +217,7 @@ async def generate_report():
             },
         },
         "evidence_bundle": r.get("layer_results"),
+        "layer_scores": r.get("layer_scores"),
         "attack_narrative": (r.get("injection_pattern") or {}).get("narrative", ""),
         "defense_actions": deps.defense.defense_log,
         "compliance": {
@@ -168,6 +230,7 @@ async def generate_report():
 
 
 # ── BLUE TEAM SOC ─────────────────────────────────────────────────────────────
+# Routes kept for API completeness; frontend nav entry removed (Bug #6)
 
 
 @router.get("/blueteam/status")
@@ -179,17 +242,16 @@ async def get_blueteam_status():
     threat_level = "NOMINAL"
     verdict = "CLEAN"
     suspicion = 0.0
-    if "latest" in deps.demo_result_cache:
-        verdict = deps.demo_result_cache["latest"].get("verdict", "CLEAN")
-        suspicion = deps.demo_result_cache["latest"].get("overall_suspicion_score", 0)
+    result = deps.demo_result_cache.get("latest") or deps.upload_result_cache.get("latest")
+    if result:
+        verdict = result.get("verdict", "CLEAN")
+        suspicion = result.get("overall_suspicion_score", 0)
         if suspicion > 0.65:
             threat_level = "CRITICAL"
         elif suspicion > 0.35:
             threat_level = "ELEVATED"
         elif suspicion > 0.15:
             threat_level = "GUARDED"
-        else:
-            threat_level = "NOMINAL"
 
     total_sims = len(sims)
     caught = sum(1 for s in sims if s.get("detected", False))
@@ -445,4 +507,3 @@ async def list_playbooks():
             for k, v in _PLAYBOOKS.items()
         ]
     }
-

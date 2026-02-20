@@ -40,10 +40,10 @@ export const api = {
     getLatestResults: () => apiFetch('/detect/results/latest'),
 
     // Forensics
-    getLatestForensics: () => apiFetch('/forensics/latest'),
-    getAttackNarrative: () => apiFetch('/forensics/narrative'),
+    getLatestForensics: (source = 'auto') => apiFetch(`/forensics/latest?source=${source}`),
+    getAttackNarrative: (source = 'auto') => apiFetch(`/forensics/narrative?source=${source}`),
     getAttackTimeline: () => apiFetch('/forensics/timeline'),
-    getBlastRadius: () => apiFetch('/blast-radius/latest'),
+    getBlastRadius: (source = 'auto') => apiFetch(`/blast-radius/latest?source=${source}`),
 
     // Trust
     getTrustScore: () => apiFetch('/trust/score'),
@@ -67,7 +67,7 @@ export const api = {
     getFederatedClients: () => apiFetch('/federated/clients'),
 
     // Reports
-    generateReport: () => apiFetch('/reports/generate', { method: 'POST' }),
+    generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
 
     // CSV Upload Analysis
     uploadCSV: (file) => {
