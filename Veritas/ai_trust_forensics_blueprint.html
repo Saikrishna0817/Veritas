@@ -1,0 +1,2168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Trust Forensics Platform — Complete Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a0f;
+    --bg2: #080f18;
+    --bg3: #0c1622;
+    --surface: #0f1c2e;
+    --surface2: #142235;
+    --border: #1e3a52;
+    --border2: #234060;
+    --accent: #00e5ff;
+    --accent2: #0090b8;
+    --accent3: #00ffc8;
+    --red: #ff4d6a;
+    --orange: #ff8c42;
+    --yellow: #ffd166;
+    --purple: #bd93f9;
+    --green: #00ffc8;
+    --text: #e0eef8;
+    --text2: #8ab0cc;
+    --text3: #4a7a9b;
+    --mono: 'JetBrains Mono', monospace;
+    --serif: 'Instrument Serif', serif;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(0,229,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(0,255,200,0.03) 0%, transparent 60%);
+  }
+
+  /* NOISE TEXTURE */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* SCAN LINE */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,229,255,0.3), transparent);
+    animation: scan 8s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes scan { to { top: 200%; } }
+
+  .container { max-width: 1440px; margin: 0 auto; padding: 0 40px; position: relative; z-index: 2; }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 80px 0 60px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hero-label::before {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: var(--accent);
+  }
+  .hero h1 {
+    font-size: clamp(42px, 6vw, 80px);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+  .hero h1 .line1 { display: block; }
+  .hero h1 .line2 { display: block; color: var(--accent); }
+  .hero h1 .line3 { display: block; color: var(--text3); font-style: italic; font-family: var(--serif); font-weight: 400; }
+
+  .hero-sub {
+    max-width: 700px;
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--text2);
+    font-family: var(--mono);
+    margin-bottom: 40px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; color: var(--text3); text-transform: uppercase; }
+  .meta-val { font-size: 14px; font-weight: 700; color: var(--accent3); }
+
+  /* ── TOC ── */
+  .toc {
+    padding: 40px 0;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: var(--mono);
+    transition: all 0.2s;
+  }
+  .toc-item:hover { border-color: var(--accent); color: var(--accent); background: var(--surface2); }
+  .toc-num { color: var(--text3); font-size: 11px; min-width: 24px; }
+
+  /* ── SECTION ── */
+  .section {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 50px;
+  }
+  .section-num {
+    font-family: var(--mono);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--border2);
+    line-height: 1;
+    min-width: 70px;
+  }
+  .section-title-block {}
+  .section-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 6px;
+  }
+  .section-title {
+    font-size: clamp(24px, 3vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  /* ── ARCHITECTURE DIAGRAM ── */
+  .arch-diagram {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 40px;
+    overflow-x: auto;
+  }
+  .arch-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 12px;
+    min-width: max-content;
+  }
+  .arch-row-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    min-width: 90px;
+    text-align: right;
+    padding-right: 16px;
+  }
+  .arch-nodes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .arch-node {
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    position: relative;
+    cursor: default;
+    transition: all 0.2s;
+    min-width: 120px;
+  }
+  .arch-node:hover { transform: translateY(-2px); }
+  .arch-node.source { background: rgba(33,97,142,0.35); border: 1px solid #21618e; color: #7ecee8; }
+  .arch-node.pipeline { background: rgba(0,120,140,0.3); border: 1px solid #008090; color: var(--accent); }
+  .arch-node.detect { background: rgba(120,30,40,0.4); border: 1px solid #8b2030; color: #ff8090; }
+  .arch-node.causal { background: rgba(0,180,140,0.25); border: 1px solid #00b48c; color: var(--accent3); }
+  .arch-node.defense { background: rgba(80,40,120,0.35); border: 1px solid #6030a0; color: var(--purple); }
+  .arch-node.output { background: rgba(0,180,80,0.25); border: 1px solid #00a050; color: #60ffa0; }
+  .arch-node.new-feat { background: rgba(255,141,60,0.2); border: 1px solid #ff8d3c; color: var(--orange); }
+
+  .arch-arrow {
+    color: var(--text3);
+    font-size: 16px;
+    flex-shrink: 0;
+    padding: 0 2px;
+  }
+  .arch-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+  .arch-section-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .arch-section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── FEATURE CARDS ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 24px;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+  }
+  .feature-card:hover { border-color: var(--border2); }
+  .feature-card.c-detect::before { background: var(--red); }
+  .feature-card.c-causal::before { background: var(--accent3); }
+  .feature-card.c-defense::before { background: var(--purple); }
+  .feature-card.c-explain::before { background: var(--yellow); }
+  .feature-card.c-new::before { background: var(--orange); }
+  .feature-card.c-infra::before { background: var(--accent); }
+
+  .feature-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 2px;
+    margin-bottom: 14px;
+  }
+  .badge-new { background: rgba(255,141,60,0.2); color: var(--orange); border: 1px solid rgba(255,141,60,0.4); }
+  .badge-core { background: rgba(0,229,255,0.12); color: var(--accent); border: 1px solid rgba(0,229,255,0.3); }
+  .badge-enhanced { background: rgba(189,147,249,0.15); color: var(--purple); border: 1px solid rgba(189,147,249,0.35); }
+
+  .feature-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 10px;
+  }
+  .feature-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+    margin-bottom: 20px;
+    font-family: var(--mono);
+  }
+  .feature-how {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+  }
+  .feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .feature-list li {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .feature-list li::before {
+    content: '›';
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── CODE BLOCKS ── */
+  .code-block {
+    background: #020812;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+    position: relative;
+  }
+  .code-label {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--text3);
+    text-transform: uppercase;
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text2);
+  }
+  .c-kw { color: #ff79c6; }
+  .c-fn { color: #50fa7b; }
+  .c-str { color: #f1fa8c; }
+  .c-num { color: var(--orange); }
+  .c-cm { color: #6272a4; }
+  .c-cls { color: var(--accent); }
+  .c-var { color: #bd93f9; }
+  .c-key { color: var(--accent3); }
+
+  /* ── TWO-COL ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+  @media (max-width: 900px) {
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── INFO PANELS ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 24px;
+  }
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+  .panel p, .panel li {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+  .panel ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .panel ul li::before { content: '→ '; color: var(--accent3); }
+
+  /* ── TIMELINE ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .timeline-item {
+    display: grid;
+    grid-template-columns: 120px 24px 1fr;
+    gap: 0 20px;
+    align-items: start;
+    padding-bottom: 36px;
+    position: relative;
+  }
+  .timeline-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-align: right;
+    padding-top: 2px;
+  }
+  .timeline-dot-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  .timeline-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 4px;
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .timeline-dot.phase1 { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .timeline-dot.phase2 { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+  .timeline-dot.phase3 { background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+  .timeline-dot.phase4 { background: var(--orange); box-shadow: 0 0 8px var(--orange); }
+  .timeline-dot.phase5 { background: var(--purple); box-shadow: 0 0 8px var(--purple); }
+  .timeline-dot.phase6 { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .timeline-line {
+    flex: 1;
+    width: 1px;
+    background: var(--border);
+    min-height: 28px;
+  }
+  .timeline-content {}
+  .timeline-phase {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 4px;
+  }
+  .timeline-title {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .timeline-tasks {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .timeline-tasks li {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .timeline-tasks li .check { color: var(--accent3); flex-shrink: 0; }
+  .timeline-tasks li .wip { color: var(--yellow); flex-shrink: 0; }
+  .timeline-tasks li .future { color: var(--text3); flex-shrink: 0; }
+
+  /* ── COMPARISON TABLE ── */
+  .comp-table { width: 100%; border-collapse: collapse; }
+  .comp-table th {
+    background: var(--surface2);
+    padding: 12px 18px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  .comp-table td {
+    padding: 14px 18px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .comp-table tr:hover td { background: var(--surface); }
+  .tag-yes { color: var(--green); font-weight: 700; }
+  .tag-no { color: var(--red); }
+  .tag-partial { color: var(--yellow); }
+
+  /* ── STACK CHIPS ── */
+  .stack-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stack-chip {
+    padding: 6px 14px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid;
+  }
+  .stack-chip.ml { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.3); color: var(--accent); }
+  .stack-chip.web { background: rgba(189,147,249,0.08); border-color: rgba(189,147,249,0.3); color: var(--purple); }
+  .stack-chip.infra { background: rgba(0,255,200,0.08); border-color: rgba(0,255,200,0.3); color: var(--accent3); }
+  .stack-chip.db { background: rgba(255,209,102,0.08); border-color: rgba(255,209,102,0.3); color: var(--yellow); }
+  .stack-chip.sec { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: var(--red); }
+
+  /* ── FORMULA BOX ── */
+  .formula {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 4px;
+    padding: 16px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    margin: 12px 0;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── CALLOUT ── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    padding: 16px 20px;
+    background: rgba(0,229,255,0.04);
+    border-radius: 0 4px 4px 0;
+    margin: 20px 0;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+  .callout.warn { border-color: var(--yellow); background: rgba(255,209,102,0.04); }
+  .callout.danger { border-color: var(--red); background: rgba(255,77,106,0.04); }
+  .callout.success { border-color: var(--green); background: rgba(0,255,200,0.04); }
+  .callout strong { color: var(--text); }
+
+  /* ── SCORE DISPLAY ── */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
+  .score-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+  }
+  .score-val {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .score-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    padding: 40px 0;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: gap;
+  }
+  .footer-left {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+  }
+  .footer-right {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .footer-right span {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* ── SECTION HIGHLIGHT BOX ── */
+  .highlight-box {
+    background: linear-gradient(135deg, rgba(0,229,255,0.06), rgba(0,255,200,0.03));
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 8px;
+    padding: 30px;
+    margin: 30px 0;
+  }
+  .highlight-box h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--accent);
+  }
+
+  /* ── NEW FEATURE SPOTLIGHT ── */
+  .spotlight {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .spotlight::before {
+    content: 'NEW FEATURE';
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    color: var(--orange);
+    background: rgba(255,141,60,0.1);
+    border: 1px solid rgba(255,141,60,0.3);
+    padding: 3px 8px;
+    border-radius: 2px;
+  }
+  .spotlight-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    letter-spacing: -0.01em;
+  }
+  .spotlight-sub {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.7;
+    margin-bottom: 20px;
+  }
+
+  /* ── DB SCHEMA ── */
+  .schema-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .schema-table th {
+    background: rgba(0,100,140,0.2);
+    color: var(--accent);
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .schema-table td {
+    padding: 8px 14px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+  .schema-table tr:hover td { background: var(--surface); }
+  .col-type { color: var(--purple); }
+  .col-pk { color: var(--yellow); font-size: 9px; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-in { animation: fadeInUp 0.6s ease forwards; }
+
+  .pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-row { margin-bottom: 12px; }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 5px;
+  }
+  .progress-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+  }
+
+  /* ── STICKY HEADER ── */
+  .sticky-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(5, 10, 15, 0.95);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 40px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .nav-logo {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-right: auto;
+  }
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    text-decoration: none;
+    letter-spacing: 0.1em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--accent); }
+
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 14px; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; font-weight: 600; margin-bottom: 10px; color: var(--text2); }
+  p { font-family: var(--mono); font-size: 13px; color: var(--text2); line-height: 1.75; margin-bottom: 12px; }
+
+  .mb4 { margin-bottom: 4px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb16 { margin-bottom: 16px; }
+  .mb24 { margin-bottom: 24px; }
+  .mb32 { margin-bottom: 32px; }
+  .mb40 { margin-bottom: 40px; }
+  .mt20 { margin-top: 20px; }
+  .mt30 { margin-top: 30px; }
+</style>
+</head>
+<body>
+
+<!-- STICKY NAV -->
+<nav class="sticky-nav">
+  <div class="nav-logo">🛡️ AI TRUST FORENSICS PLATFORM — v2.2</div>
+  <ul class="nav-links">
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#poison-forensics">Poison Forensics</a></li>
+    <li><a href="#new-features">New Features</a></li>
+    <li><a href="#implementation">Implementation</a></li>
+    <li><a href="#database">Database</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<div class="container">
+  <section class="hero">
+    <div class="hero-label"><span class="pulse-dot"></span> Complete Production Blueprint</div>
+    <h1>
+      <span class="line1">AI Trust Forensics</span>
+      <span class="line2">Platform v2.2</span>
+      <span class="line3">Causally Verifiable Poisoning Detection & Forensics</span>
+    </h1>
+    <p class="hero-sub">
+      A real-time, production-grade AI immune system — detecting, proving, and surgically removing data poisoning attacks from any ML pipeline. Not just anomaly detection. Forensic-grade causal evidence.
+    </p>
+    <div class="hero-meta">
+      <div class="meta-item"><span class="meta-label">Stack Layers</span><span class="meta-val">7 Layers</span></div>
+      <div class="meta-item"><span class="meta-label">Detection Modules</span><span class="meta-val">5 + Causal</span></div>
+      <div class="meta-item"><span class="meta-label">New Features</span><span class="meta-val">8 Added</span></div>
+      <div class="meta-item"><span class="meta-label">Target</span><span class="meta-val">Production-Ready</span></div>
+    </div>
+  </section>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <a href="#architecture" class="toc-item"><span class="toc-num">01</span> System Architecture</a>
+    <a href="#poison-forensics" class="toc-item"><span class="toc-num">02</span> Poison Forensics — WHY/HOW</a>
+    <a href="#new-features" class="toc-item"><span class="toc-num">03</span> New Features (8 Added)</a>
+    <a href="#detection-engine" class="toc-item"><span class="toc-num">04</span> 5-Layer Detection Engine</a>
+    <a href="#implementation" class="toc-item"><span class="toc-num">05</span> Full Implementation Guide</a>
+    <a href="#database" class="toc-item"><span class="toc-num">06</span> Database Schema</a>
+    <a href="#api-design" class="toc-item"><span class="toc-num">07</span> API Design</a>
+    <a href="#tech-stack" class="toc-item"><span class="toc-num">08</span> Tech Stack Deep Dive</a>
+    <a href="#roadmap" class="toc-item"><span class="toc-num">09</span> Production Roadmap</a>
+    <a href="#judge" class="toc-item"><span class="toc-num">10</span> Hackathon Strategy</a>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 1 — ARCHITECTURE
+══════════════════════════════════════════════ -->
+<div id="architecture">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">01</div>
+    <div class="section-title-block">
+      <div class="section-tag">System Design</div>
+      <h1 class="section-title">Full Architecture & Data Flow</h1>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Reading this diagram:</strong> The architecture mirrors your uploaded flow exactly — Multi-Source Ingestion → 7-Stage Detection Pipeline → Blast Radius + Auto-Defense → Human Review → Trust Dashboard. Each stage is described below with its internal logic.
+  </div>
+
+  <div class="arch-diagram mb40">
+    <!-- LAYER 1: INPUTS -->
+    <div class="arch-section-label">Layer 1 · Data Sources</div>
+    <div class="arch-row">
+      <div class="arch-row-label">Sources</div>
+      <div class="arch-nodes">
+        <div class="arch-node source">IoT & Sensor Data</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node source">Federated Learning Clients</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node source">Static / Batch Sources</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node source">Crowdsourced / 3rd Party</div>
+      </div>
+    </div>
+    <div class="arch-row" style="margin-top:10px;">
+      <div class="arch-row-label">Ingestion</div>
+      <div class="arch-nodes">
+        <div class="arch-node pipeline">Data Ingestion Pipeline</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node pipeline">Cleaning & Normalization</div>
+      </div>
+    </div>
+
+    <div class="arch-separator"></div>
+
+    <!-- LAYER 2: DETECTION -->
+    <div class="arch-section-label">Layer 2 · Poison Detection Engine</div>
+    <div class="arch-row">
+      <div class="arch-row-label">Detection</div>
+      <div class="arch-nodes">
+        <div class="arch-node detect">Statistical Shift Detection</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node detect">Spectral Activation Analysis</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node detect">Ensemble Anomaly Detection</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node detect">Causal Inference Testing</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node detect">Federated Trust Analysis</div>
+      </div>
+    </div>
+    <div class="arch-row" style="margin-top:10px;">
+      <div class="arch-row-label">Explainability</div>
+      <div class="arch-nodes">
+        <div class="arch-node causal">Explainability Drift Monitor</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node causal" style="font-weight:700; box-shadow: 0 0 12px rgba(0,255,200,0.25);">Causal Proof & Impact Engine ★</div>
+      </div>
+    </div>
+
+    <div class="arch-separator"></div>
+
+    <!-- LAYER 3: NEW POISON FORENSICS -->
+    <div class="arch-section-label">Layer 2.5 · Poison Forensics Engine (NEW)</div>
+    <div class="arch-row">
+      <div class="arch-row-label">Forensics</div>
+      <div class="arch-nodes">
+        <div class="arch-node new-feat">Attack Type Classifier</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node new-feat">Injection Pattern Reconstructor</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node new-feat">Temporal Attack Timeline</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node new-feat">Intent & Sophistication Scorer</div>
+      </div>
+    </div>
+
+    <div class="arch-separator"></div>
+
+    <!-- LAYER 4: DEFENSE -->
+    <div class="arch-section-label">Layer 3 · Response & Defense</div>
+    <div class="arch-row">
+      <div class="arch-row-label">Defense</div>
+      <div class="arch-nodes">
+        <div class="arch-node defense">Blast Radius & Lineage Mapper</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node defense">Stability-Aware Auto Defense</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node defense">Human-in-the-Loop Governance</div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node output">Trust Dashboard & Certification</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Module Explanations -->
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-title">Data Ingestion Pipeline — Internal Logic</div>
+      <ul>
+        <li>Kafka/RabbitMQ stream for IoT sensor feeds (sub-100ms ingestion)</li>
+        <li>Federated client registration with signed gradient submissions</li>
+        <li>Batch loader for CSV/Parquet static sources with checksum validation</li>
+        <li>Third-party API connectors with rate-limited polling and dedup</li>
+        <li>Every sample tagged with source_id, client_id, ingestion_timestamp</li>
+        <li>Schema validation against registered data contracts</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Cleaning & Normalization — Internal Logic</div>
+      <ul>
+        <li>Z-score normalization per feature with running mean/std tracking</li>
+        <li>Outlier soft-flagging (not removal) — preserves evidence</li>
+        <li>Missing value imputation logged separately from original record</li>
+        <li>Label encoding audited — flips tracked per batch per source</li>
+        <li>Feature drift baseline comparison against reference distribution</li>
+        <li>Immutable raw record retained in cold storage for forensic use</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 2 — POISON FORENSICS (WHY/HOW)
+══════════════════════════════════════════════ -->
+<div id="poison-forensics">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">02</div>
+    <div class="section-title-block">
+      <div class="section-tag">Core Feature — The Differentiator</div>
+      <h1 class="section-title">Poison Forensics: Showing Exactly WHY & HOW</h1>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>This is your #1 innovation.</strong> Every other tool says "this data is suspicious." You answer: <strong>What type of attack was it? How was it injected? Who did it? When? What exactly did it break? How would you have noticed earlier?</strong>
+  </div>
+
+  <div class="mb32">
+    <div class="spotlight">
+      <div class="spotlight-title">Attack Type Classifier</div>
+      <div class="spotlight-sub">Automatically classifies the poisoning strategy used, giving defenders a named, actionable diagnosis rather than a vague anomaly score.</div>
+      <div class="two-col">
+        <div>
+          <div class="feature-how">Attack Taxonomy</div>
+          <div class="code-block" style="margin-top:10px;">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-cm"># Attack type classification hierarchy</span>
+<span class="c-var">ATTACK_TYPES</span> = {
+  <span class="c-str">"label_flip"</span>: {
+    <span class="c-key">"subtype"</span>: [<span class="c-str">"random_flip"</span>, <span class="c-str">"targeted_flip"</span>],
+    <span class="c-key">"indicators"</span>: [<span class="c-str">"label_entropy_spike"</span>, <span class="c-str">"class_imbalance_shift"</span>],
+    <span class="c-key">"severity"</span>: <span class="c-str">"medium"</span>
+  },
+  <span class="c-str">"backdoor"</span>: {
+    <span class="c-key">"subtype"</span>: [<span class="c-str">"patch_trigger"</span>, <span class="c-str">"blend_trigger"</span>, <span class="c-str">"wanet"</span>],
+    <span class="c-key">"indicators"</span>: [<span class="c-str">"activation_clustering"</span>, <span class="c-str">"spectral_signature"</span>],
+    <span class="c-key">"severity"</span>: <span class="c-str">"critical"</span>
+  },
+  <span class="c-str">"clean_label"</span>: {
+    <span class="c-key">"subtype"</span>: [<span class="c-str">"feature_collision"</span>, <span class="c-str">"witches_brew"</span>],
+    <span class="c-key">"indicators"</span>: [<span class="c-str">"feature_space_outlier"</span>, <span class="c-str">"gradient_conflict"</span>],
+    <span class="c-key">"severity"</span>: <span class="c-str">"critical"</span>
+  },
+  <span class="c-str">"gradient_poison"</span>: {
+    <span class="c-key">"subtype"</span>: [<span class="c-str">"scaling"</span>, <span class="c-str">"direction_inversion"</span>],
+    <span class="c-key">"indicators"</span>: [<span class="c-str">"cosine_divergence"</span>, <span class="c-str">"norm_spike"</span>],
+    <span class="c-key">"severity"</span>: <span class="c-str">"high"</span>
+  },
+  <span class="c-str">"boiling_frog"</span>: {
+    <span class="c-key">"subtype"</span>: [<span class="c-str">"gradual_drift"</span>, <span class="c-str">"slow_injection"</span>],
+    <span class="c-key">"indicators"</span>: [<span class="c-str">"temporal_drift_pattern"</span>, <span class="c-str">"cumulative_shap_shift"</span>],
+    <span class="c-key">"severity"</span>: <span class="c-str">"high"</span>
+  }
+}</pre>
+          </div>
+        </div>
+        <div>
+          <div class="feature-how">Classifier Architecture</div>
+          <div class="code-block" style="margin-top:10px;">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-kw">class</span> <span class="c-cls">AttackTypeClassifier</span>:
+  <span class="c-kw">def</span> <span class="c-fn">__init__</span>(<span class="c-var">self</span>):
+    <span class="c-cm"># Multi-head classifier</span>
+    <span class="c-var">self</span>.<span class="c-var">statistical_head</span> = <span class="c-cls">StatisticalSignatureNet</span>()
+    <span class="c-var">self</span>.<span class="c-var">spectral_head</span> = <span class="c-cls">SpectralPatternNet</span>()
+    <span class="c-var">self</span>.<span class="c-var">temporal_head</span> = <span class="c-cls">TemporalSequenceNet</span>()
+    <span class="c-var">self</span>.<span class="c-var">fusion_layer</span> = <span class="c-cls">AttentionFusion</span>()
+
+  <span class="c-kw">def</span> <span class="c-fn">classify</span>(<span class="c-var">self</span>, <span class="c-var">evidence_bundle</span>):
+    <span class="c-var">stat_sig</span> = <span class="c-var">self</span>.<span class="c-var">statistical_head</span>(<span class="c-var">evidence_bundle</span>.<span class="c-var">stats</span>)
+    <span class="c-var">spec_sig</span> = <span class="c-var">self</span>.<span class="c-var">spectral_head</span>(<span class="c-var">evidence_bundle</span>.<span class="c-var">activations</span>)
+    <span class="c-var">temp_sig</span> = <span class="c-var">self</span>.<span class="c-var">temporal_head</span>(<span class="c-var">evidence_bundle</span>.<span class="c-var">timeline</span>)
+
+    <span class="c-var">fused</span> = <span class="c-var">self</span>.<span class="c-var">fusion_layer</span>([<span class="c-var">stat_sig</span>, <span class="c-var">spec_sig</span>, <span class="c-var">temp_sig</span>])
+    <span class="c-kw">return</span> {
+      <span class="c-str">"attack_type"</span>: <span class="c-fn">argmax</span>(<span class="c-var">fused</span>),
+      <span class="c-str">"confidence"</span>: <span class="c-fn">softmax</span>(<span class="c-var">fused</span>),
+      <span class="c-str">"subtype"</span>: <span class="c-fn">classify_subtype</span>(<span class="c-var">fused</span>, <span class="c-var">evidence_bundle</span>)
+    }</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight">
+      <div class="spotlight-title">Injection Pattern Reconstructor</div>
+      <div class="spotlight-sub">Reverse-engineers the exact injection strategy — how many samples, over what time window, with what statistical disguise, targeting which class boundaries. Produces a human-readable "attack narrative."</div>
+      <div class="two-col">
+        <div>
+          <div class="feature-how">Reconstruction Steps</div>
+          <div class="panel mt20" style="background: #020812;">
+            <ul>
+              <li>Step 1: Cluster all flagged samples by feature space proximity</li>
+              <li>Step 2: Trace each cluster back to its source_id + ingestion_batch</li>
+              <li>Step 3: Run temporal correlation — were they injected together?</li>
+              <li>Step 4: Compute minimum adversarial perturbation (MAP) to identify disguise technique</li>
+              <li>Step 5: Check gradient alignment — do poisoned samples pull model toward same direction?</li>
+              <li>Step 6: Reconstruct injection schedule (one-shot vs. gradual vs. periodic)</li>
+              <li>Step 7: Generate "attack narrative" in natural language</li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div class="feature-how">Sample Output: Attack Narrative</div>
+          <div class="code-block mt20">
+<div class="code-label">OUTPUT</div>
+<pre style="color:#aac;">
+<span class="c-key">ATTACK RECONSTRUCTION REPORT</span>
+─────────────────────────────
+<span class="c-str">Type:</span>        Clean-Label Feature Collision
+<span class="c-str">Subtype:</span>     Witches' Brew
+<span class="c-str">Confidence:</span> 91.4%
+
+<span class="c-str">HOW it was injected:</span>
+• 47 samples crafted via PGD optimization
+• Labels kept legitimately correct
+• Feature vectors shifted toward target
+  class boundary by avg 2.3σ
+• Injected in 3 batches over 6 days
+• Disguised as normal distribution tail
+
+<span class="c-str">WHEN:</span>
+• First injection:  2024-11-12 02:14 UTC
+• Last injection:   2024-11-18 03:44 UTC
+• Pattern:          Nightly (stealth)
+
+<span class="c-str">WHY it worked until now:</span>
+• Accuracy drop was only 0.3% (sub-noise)
+• Each batch individually benign-looking
+• Collective causal effect: -11.8% accuracy
+  on class "malignant" specifically
+
+<span class="c-str">SOURCE FINGERPRINT:</span>
+• Client ID:   fed_client_0047
+• IP Cluster:  AS15169 (masked VPN)
+• Trust Score: 14/100 (was 78/100)
+</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spotlight">
+      <div class="spotlight-title">Temporal Attack Timeline Visualizer</div>
+      <div class="spotlight-sub">Interactive timeline showing exactly when poison entered the pipeline, how trust scores degraded, when SHAP drift crossed threshold, and when the attack would have succeeded without detection.</div>
+      <div class="code-block">
+<div class="code-label">REACT COMPONENT PSEUDOCODE</div>
+<pre><span class="c-cm">// PoisonTimeline — shows attack evolution over time</span>
+<span class="c-kw">const</span> <span class="c-cls">PoisonTimeline</span> = ({ <span class="c-var">timelineData</span> }) => {
+  <span class="c-cm">// timelineData shape per timestamp:</span>
+  <span class="c-cm">// { ts, poison_count, trust_score, shap_drift,</span>
+  <span class="c-cm">//   accuracy, event_type, event_label }</span>
+
+  <span class="c-kw">return</span> (
+    <span class="c-cls">MultiAxisChart</span> with:
+      - <span class="c-var">X-axis</span>: Time (hourly resolution)
+      - <span class="c-var">Left Y</span>: Model accuracy (blue line)
+      - <span class="c-var">Right Y</span>: SHAP drift score (orange)
+      - <span class="c-var">Bar overlay</span>: Poisoned sample count per batch
+      - <span class="c-var">Trust line</span>: Per-client trust score (red)
+      - <span class="c-var">Event pins</span>: ▼ Attack start ▲ Detection ■ Defense activated
+      - <span class="c-var">Counterfactual region</span>: "Without detection, accuracy would have reached X"
+  )
+}</pre>
+      </div>
+    </div>
+
+    <div class="spotlight">
+      <div class="spotlight-title">Intent & Sophistication Scorer</div>
+      <div class="spotlight-sub">Scores the adversarial sophistication of the attack (opportunistic vs. targeted vs. nation-state-grade) and estimates attacker capability. Feeds into regulatory severity classification.</div>
+      <div class="formula">Sophistication Score = w₁·(evasion_layers) + w₂·(temporal_precision) + w₃·(statistical_disguise_depth) + w₄·(target_specificity)</div>
+      <div class="three-col mt20">
+        <div class="score-card">
+          <div class="score-val" style="color: var(--yellow);">1–3</div>
+          <div class="score-label">Opportunistic<br>Script-kiddie level</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="color: var(--orange);">4–7</div>
+          <div class="score-label">Targeted<br>Sophisticated attacker</div>
+        </div>
+        <div class="score-card">
+          <div class="score-val" style="color: var(--red);">8–10</div>
+          <div class="score-label">APT-grade<br>Coordinated campaign</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 3 — NEW FEATURES
+══════════════════════════════════════════════ -->
+<div id="new-features">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">03</div>
+    <div class="section-title-block">
+      <div class="section-tag">Platform Extensions</div>
+      <h1 class="section-title">8 New Features — Full Specifications</h1>
+    </div>
+  </div>
+
+  <div class="features-grid">
+
+    <div class="feature-card c-new">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">🔬 Adversarial Sample Visualizer</div>
+      <div class="feature-desc">Renders poisoned samples side-by-side with clean counterparts, highlighting the exact features (pixels, tokens, values) that were adversarially perturbed. Works for image, tabular, and text data.</div>
+      <div class="feature-how">Implementation</div>
+      <ul class="feature-list">
+        <li>For images: GradCAM overlay + pixel-diff heatmap showing perturbation magnitude</li>
+        <li>For tabular: SHAP waterfall comparing clean vs. poisoned sample</li>
+        <li>For text: Token attribution highlighting adversarially crafted words</li>
+        <li>Generates "perturb delta" showing minimum edit distance from clean data</li>
+        <li>Exportable as PDF evidence for forensic reports</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-explain">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">📜 Regulatory Evidence Package Generator</div>
+      <div class="feature-desc">One-click generation of machine-readable and human-readable compliance reports aligned with EU AI Act, NIST AI RMF, and FDA SaMD guidelines. Judges and regulators can verify everything.</div>
+      <div class="feature-how">Output Documents</div>
+      <ul class="feature-list">
+        <li>Incident Report PDF with attack timeline, evidence, and causal proof</li>
+        <li>Chain-of-custody audit log (tamper-proof, SHA-256 signed)</li>
+        <li>NIST AI RMF compliance checklist auto-populated</li>
+        <li>EU AI Act Annex IV technical documentation (automated sections)</li>
+        <li>Model Card update with post-incident performance metrics</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-causal">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">🧪 Counterfactual Impact Simulator</div>
+      <div class="feature-desc">Answers the question: "If we had not detected this attack, what would have happened?" Runs counterfactual model trajectories to quantify real-world harm prevented.</div>
+      <div class="feature-how">How It Works</div>
+      <ul class="feature-list">
+        <li>Re-runs training simulation with poison samples not quarantined</li>
+        <li>Projects accuracy degradation curve over 30, 60, 90 day horizons</li>
+        <li>Estimates #patients misdiagnosed / #predictions corrupted</li>
+        <li>Computes financial/safety cost of undetected attack (dollar-value estimate)</li>
+        <li>Output used in ROI justification and investor decks</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-infra">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">🌐 Federated Threat Intelligence Network</div>
+      <div class="feature-desc">Organizations can share attack signatures (NOT raw data) with each other through a privacy-preserving threat intelligence feed — like a "VirusTotal for AI poisoning."</div>
+      <div class="feature-how">Architecture</div>
+      <ul class="feature-list">
+        <li>Attack signature = hash of injection pattern + statistical fingerprint (no raw data shared)</li>
+        <li>Federated matching: "Has anyone else seen this attack vector?"</li>
+        <li>Threat feeds enriched with MITRE ATLAS framework tags</li>
+        <li>Subscription tiers: open (basic), private (enterprise), ISAC (government)</li>
+        <li>Contributes to public AI attack taxonomy database</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-detect">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">⚡ Real-Time Streaming Defense Mode</div>
+      <div class="feature-desc">Extends platform from batch analysis to true real-time streaming — integrating with Kafka/Flink to inspect and quarantine data in milliseconds before it enters training.</div>
+      <div class="feature-how">Pipeline</div>
+      <ul class="feature-list">
+        <li>Sub-50ms lightweight detection (statistical + activation) in streaming path</li>
+        <li>Full causal analysis deferred to async worker for suspected samples</li>
+        <li>Kafka consumer group with partition-aware quarantine queue</li>
+        <li>Backpressure handling: rate-limited quarantine to avoid system self-DoS</li>
+        <li>Flink stateful stream processing for temporal pattern detection</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-defense">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">🤖 LLM-Powered Forensic Analyst</div>
+      <div class="feature-desc">A conversational AI interface trained on the platform's evidence bundles — lets non-technical stakeholders interrogate attack reports in plain English and get instant answers.</div>
+      <div class="feature-how">Capabilities</div>
+      <ul class="feature-list">
+        <li>"Why was this sample flagged?" → generates natural language explanation</li>
+        <li>"How confident are you this is malicious?" → uncertainty quantification in plain English</li>
+        <li>"What should we do?" → actionable defense recommendations</li>
+        <li>"Generate an executive summary" → auto-written incident brief</li>
+        <li>Grounded on platform's own evidence (no hallucination risk)</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-explain">
+      <span class="feature-badge badge-new">New</span>
+      <div class="feature-title">📊 Model Behavior Diff Viewer</div>
+      <div class="feature-desc">Before/after comparison of model behavior — decision boundaries, confidence distributions, fairness metrics — comparing clean model vs. poisoned model vs. recovered model.</div>
+      <div class="feature-how">Visualizations</div>
+      <ul class="feature-list">
+        <li>Decision boundary 2D/3D projection (UMAP + t-SNE)</li>
+        <li>Confidence calibration curve comparison (reliability diagram)</li>
+        <li>Per-class accuracy heatmap: which classes were most affected?</li>
+        <li>Fairness metric diff: did poisoning create discriminatory behavior?</li>
+        <li>Feature importance diff: did poisoning change what the model "looks at"?</li>
+      </ul>
+    </div>
+
+    <div class="feature-card c-infra">
+      <span class="feature-badge badge-enhanced">Enhanced</span>
+      <div class="feature-title">🔐 Zero-Knowledge Proof Attestation</div>
+      <div class="feature-desc">Allows organizations to cryptographically prove their dataset is clean without revealing the dataset or detection logic — enabling trusted third-party dataset certifications.</div>
+      <div class="feature-how">Use Cases</div>
+      <ul class="feature-list">
+        <li>Hospital proves training data was certified clean without exposing patient records</li>
+        <li>Government agency certifies AI model integrity for public audit</li>
+        <li>Marketplace for "Trust-Certified Datasets" with ZK attestation seals</li>
+        <li>Implemented using Groth16 / PLONK proof systems (libsnark / Circom)</li>
+        <li>Blockchain anchoring optional (Ethereum / Hyperledger)</li>
+      </ul>
+    </div>
+
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 4 — DETECTION ENGINE
+══════════════════════════════════════════════ -->
+<div id="detection-engine">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">04</div>
+    <div class="section-title-block">
+      <div class="section-tag">Core Engine</div>
+      <h1 class="section-title">5-Layer Detection Engine — Deep Dive</h1>
+    </div>
+  </div>
+
+  <!-- Layer 1 -->
+  <div class="highlight-box mb32">
+    <h3>Layer 1: Statistical Shift Detection</h3>
+    <div class="two-col">
+      <div>
+        <p>Measures divergence between incoming data distribution and the clean baseline. Three complementary metrics used to cover different attack profiles.</p>
+        <div class="formula">KL(P||Q) = Σ P(x) · log[P(x)/Q(x)]</div>
+        <div class="formula">Wasserstein₁(P,Q) = inf E[|X-Y|] over all joint distributions</div>
+        <div class="formula">MD(x) = √[(x-μ)ᵀ Σ⁻¹ (x-μ)]</div>
+      </div>
+      <div>
+        <div class="code-block" style="margin:0;">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-kw">from</span> scipy.stats <span class="c-kw">import</span> entropy, wasserstein_distance
+<span class="c-kw">from</span> scipy.spatial.distance <span class="c-kw">import</span> mahalanobis
+
+<span class="c-kw">class</span> <span class="c-cls">StatisticalShiftDetector</span>:
+  <span class="c-kw">def</span> <span class="c-fn">compute_divergences</span>(<span class="c-var">self</span>, <span class="c-var">incoming</span>, <span class="c-var">baseline</span>):
+    <span class="c-var">kl</span> = <span class="c-fn">entropy</span>(<span class="c-var">incoming</span>, <span class="c-var">baseline</span>)
+    <span class="c-var">w1</span> = <span class="c-fn">wasserstein_distance</span>(<span class="c-var">incoming</span>, <span class="c-var">baseline</span>)
+    <span class="c-var">cov_inv</span> = <span class="c-fn">np.linalg.inv</span>(<span class="c-fn">np.cov</span>(<span class="c-var">baseline</span>.T))
+    <span class="c-var">mhd</span> = <span class="c-fn">mahalanobis</span>(<span class="c-var">incoming</span>.<span class="c-fn">mean</span>(<span class="c-num">0</span>), <span class="c-var">baseline</span>.<span class="c-fn">mean</span>(<span class="c-num">0</span>), <span class="c-var">cov_inv</span>)
+    <span class="c-kw">return</span> {
+      <span class="c-str">"kl_divergence"</span>: <span class="c-var">kl</span>,
+      <span class="c-str">"wasserstein"</span>: <span class="c-var">w1</span>,
+      <span class="c-str">"mahalanobis"</span>: <span class="c-var">mhd</span>,
+      <span class="c-str">"alarm"</span>: <span class="c-var">kl</span> > <span class="c-num">2.0</span> <span class="c-kw">or</span> <span class="c-var">mhd</span> > <span class="c-num">3.5</span>
+    }</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 2 -->
+  <div class="highlight-box mb32">
+    <h3>Layer 2: Spectral Activation Analysis</h3>
+    <div class="two-col">
+      <div>
+        <p>Analyzes the model's internal hidden representations. Backdoor attacks create detectable clusters in activation space that are invisible at the data layer.</p>
+        <div class="code-block" style="margin:0; margin-top:14px;">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-kw">class</span> <span class="c-cls">SpectralActivationAnalyzer</span>:
+  <span class="c-kw">def</span> <span class="c-fn">extract_activations</span>(<span class="c-var">self</span>, <span class="c-var">model</span>, <span class="c-var">loader</span>):
+    <span class="c-var">acts</span> = []
+    <span class="c-kw">with</span> <span class="c-var">torch</span>.<span class="c-fn">no_grad</span>():
+      <span class="c-kw">for</span> <span class="c-var">x</span>, <span class="c-var">_</span> <span class="c-kw">in</span> <span class="c-var">loader</span>:
+        <span class="c-var">h</span> = <span class="c-var">model</span>.<span class="c-var">penultimate_layer</span>(<span class="c-var">x</span>)
+        <span class="c-var">acts</span>.<span class="c-fn">append</span>(<span class="c-var">h</span>)
+    <span class="c-var">A</span> = <span class="c-fn">torch.cat</span>(<span class="c-var">acts</span>).<span class="c-fn">numpy</span>()
+
+    <span class="c-cm"># Spectral decomposition</span>
+    <span class="c-var">U</span>, <span class="c-var">S</span>, <span class="c-var">Vt</span> = <span class="c-fn">np.linalg.svd</span>(<span class="c-var">A</span>)
+    <span class="c-var">top_k</span> = <span class="c-var">Vt</span>[:<span class="c-num">5</span>]  <span class="c-cm"># Top-5 singular vectors</span>
+
+    <span class="c-cm"># Cluster in spectral space</span>
+    <span class="c-var">pca_acts</span> = <span class="c-cls">PCA</span>(<span class="c-var">n_components</span>=<span class="c-num">10</span>).<span class="c-fn">fit_transform</span>(<span class="c-var">A</span>)
+    <span class="c-var">clusters</span> = <span class="c-cls">KMeans</span>(<span class="c-var">n_clusters</span>=<span class="c-num">2</span>).<span class="c-fn">fit</span>(<span class="c-var">pca_acts</span>)
+
+    <span class="c-cm"># Backdoor = suspicious minority cluster</span>
+    <span class="c-kw">return</span> <span class="c-fn">detect_outlier_cluster</span>(<span class="c-var">clusters</span>)</pre>
+        </div>
+      </div>
+      <div>
+        <div class="panel" style="height:100%;">
+          <div class="panel-title">What Spectral Analysis Catches</div>
+          <ul>
+            <li>Backdoor triggers create a tight, isolated cluster in activation space</li>
+            <li>Top singular vectors reveal directions the model has been "tuned toward" by poison</li>
+            <li>Spectral gap analysis — unusual drop-off indicates planted subspace</li>
+            <li>Works on: image CNNs, tabular NNs, NLP transformers (any neural model)</li>
+            <li>Does NOT require knowing the trigger pattern in advance</li>
+            <li>False positive rate: ~3% vs. ~18% for pure statistical methods</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 3 -->
+  <div class="highlight-box mb32">
+    <h3>Layer 3: Ensemble Anomaly Detection with Meta-Learner</h3>
+    <div class="code-block">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-kw">class</span> <span class="c-cls">EnsembleAnomalyDetector</span>:
+  <span class="c-kw">def</span> <span class="c-fn">__init__</span>(<span class="c-var">self</span>):
+    <span class="c-var">self</span>.<span class="c-var">detectors</span> = {
+      <span class="c-str">"isolation_forest"</span>: <span class="c-cls">IsolationForest</span>(<span class="c-var">contamination</span>=<span class="c-num">0.05</span>, <span class="c-var">n_estimators</span>=<span class="c-num">200</span>),
+      <span class="c-str">"one_class_svm"</span>:    <span class="c-cls">OneClassSVM</span>(<span class="c-var">kernel</span>=<span class="c-str">'rbf'</span>, <span class="c-var">nu</span>=<span class="c-num">0.05</span>),
+      <span class="c-str">"lof"</span>:              <span class="c-cls">LocalOutlierFactor</span>(<span class="c-var">n_neighbors</span>=<span class="c-num">20</span>, <span class="c-var">novelty</span>=<span class="c-cls">True</span>),
+      <span class="c-str">"dbscan_noise"</span>:     <span class="c-fn">lambda</span> <span class="c-var">X</span>: <span class="c-cls">DBSCAN</span>(<span class="c-var">eps</span>=<span class="c-num">0.5</span>).<span class="c-fn">fit_predict</span>(<span class="c-var">X</span>) == -<span class="c-num">1</span>
+    }
+    <span class="c-cm"># Meta-learner: learns which detector is most reliable per data domain</span>
+    <span class="c-var">self</span>.<span class="c-var">meta_learner</span> = <span class="c-cls">XGBClassifier</span>(<span class="c-var">n_estimators</span>=<span class="c-num">100</span>)
+
+  <span class="c-kw">def</span> <span class="c-fn">predict</span>(<span class="c-var">self</span>, <span class="c-var">X</span>):
+    <span class="c-var">votes</span> = [<span class="c-var">d</span>.<span class="c-fn">predict</span>(<span class="c-var">X</span>) <span class="c-kw">for</span> <span class="c-var">d</span> <span class="c-kw">in</span> <span class="c-var">self</span>.<span class="c-var">detectors</span>.<span class="c-fn">values</span>()]
+    <span class="c-var">stacked</span> = <span class="c-fn">np.column_stack</span>(<span class="c-var">votes</span>)
+    <span class="c-kw">return</span> <span class="c-var">self</span>.<span class="c-var">meta_learner</span>.<span class="c-fn">predict_proba</span>(<span class="c-var">stacked</span>)[:, <span class="c-num">1</span>]</pre>
+    </div>
+  </div>
+
+  <!-- Layer 4+5 -->
+  <div class="two-col">
+    <div class="highlight-box">
+      <h3>Layer 4: Causal Inference Layer (Do-Calculus)</h3>
+      <div class="formula">P(Y | do(X=x)) = Σ_z P(Y | X=x, Z=z) · P(Z=z)</div>
+      <p style="margin-top:12px;">Using DoWhy: build causal graph of features → labels → model output. Apply interventions (removing samples) and measure counterfactual effect. ITE estimation per suspicious sample.</p>
+      <div class="code-block" style="margin-top:14px;">
+<div class="code-label">DOWHY</div>
+<pre><span class="c-kw">import</span> dowhy
+<span class="c-var">model</span> = <span class="c-var">dowhy</span>.<span class="c-cls">CausalModel</span>(
+  <span class="c-var">data</span>=<span class="c-var">df</span>,
+  <span class="c-var">treatment</span>=<span class="c-str">"sample_included"</span>,
+  <span class="c-var">outcome</span>=<span class="c-str">"model_accuracy"</span>,
+  <span class="c-var">graph</span>=<span class="c-var">causal_graph_dot</span>
+)
+<span class="c-var">identified</span> = <span class="c-var">model</span>.<span class="c-fn">identify_effect</span>()
+<span class="c-var">estimate</span> = <span class="c-var">model</span>.<span class="c-fn">estimate_effect</span>(
+  <span class="c-var">identified</span>,
+  <span class="c-var">method_name</span>=<span class="c-str">"backdoor.linear_regression"</span>
+)</pre>
+      </div>
+    </div>
+    <div class="highlight-box">
+      <h3>Layer 5: Federated Behavioral Trust Analysis</h3>
+      <div class="formula">Trust(c,t) = α · Trust(c,t-1) + (1-α) · CosSim(g_c, g_global)</div>
+      <p style="margin-top:12px;">Sybil-resistant: trust built on behavioral consistency, not identity. Each federated client develops a "behavioral fingerprint" over time. Anomalous gradient patterns flag compromised clients.</p>
+      <div class="code-block" style="margin-top:14px;">
+<div class="code-label">PYTHON</div>
+<pre><span class="c-kw">class</span> <span class="c-cls">FederatedTrustAnalyzer</span>:
+  <span class="c-kw">def</span> <span class="c-fn">update_trust</span>(<span class="c-var">self</span>, <span class="c-var">client_id</span>, <span class="c-var">grad</span>, <span class="c-var">global_grad</span>):
+    <span class="c-var">sim</span> = <span class="c-fn">F.cosine_similarity</span>(<span class="c-var">grad</span>, <span class="c-var">global_grad</span>)
+    <span class="c-var">prev</span> = <span class="c-var">self</span>.<span class="c-var">trust_scores</span>.<span class="c-fn">get</span>(<span class="c-var">client_id</span>, <span class="c-num">0.5</span>)
+    <span class="c-var">self</span>.<span class="c-var">trust_scores</span>[<span class="c-var">client_id</span>] = (
+      <span class="c-num">0.9</span> * <span class="c-var">prev</span> + <span class="c-num">0.1</span> * <span class="c-var">sim</span>
+    )
+    <span class="c-kw">if</span> <span class="c-var">self</span>.<span class="c-var">trust_scores</span>[<span class="c-var">client_id</span>] < <span class="c-num">0.3</span>:
+      <span class="c-var">self</span>.<span class="c-fn">quarantine_client</span>(<span class="c-var">client_id</span>)</pre>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 5 — IMPLEMENTATION
+══════════════════════════════════════════════ -->
+<div id="implementation">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">05</div>
+    <div class="section-title-block">
+      <div class="section-tag">Engineering Guide</div>
+      <h1 class="section-title">Full Implementation — Step by Step</h1>
+    </div>
+  </div>
+
+  <div class="timeline">
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 1–2</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase1"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 1</div>
+        <div class="timeline-title">Data Pipeline & Storage Foundation</div>
+        <ul class="timeline-tasks">
+          <li><span class="check">✓</span> Set up PostgreSQL + TimescaleDB for time-series audit logs</li>
+          <li><span class="check">✓</span> Build FastAPI skeleton with auth (JWT) + WebSocket support</li>
+          <li><span class="check">✓</span> Implement data ingestion pipeline with source tagging</li>
+          <li><span class="check">✓</span> Create immutable raw record store (append-only, S3-compatible)</li>
+          <li><span class="check">✓</span> Redis cache layer for real-time detection scores</li>
+          <li><span class="check">✓</span> Kafka setup for streaming data ingestion</li>
+          <li><span class="check">✓</span> Docker Compose environment with all services</li>
+        </ul>
+        <div class="code-block" style="margin-top:16px;">
+<div class="code-label">DOCKER COMPOSE</div>
+<pre><span class="c-key">services</span>:
+  <span class="c-key">api</span>:
+    <span class="c-var">build</span>: ./backend
+    <span class="c-var">ports</span>: [<span class="c-str">"8000:8000"</span>]
+    <span class="c-var">depends_on</span>: [postgres, redis, kafka]
+  <span class="c-key">postgres</span>:
+    <span class="c-var">image</span>: timescale/timescaledb:latest-pg15
+    <span class="c-var">environment</span>:
+      POSTGRES_DB: trust_forensics
+  <span class="c-key">redis</span>:
+    <span class="c-var">image</span>: redis:7-alpine
+  <span class="c-key">kafka</span>:
+    <span class="c-var">image</span>: bitnami/kafka:latest
+  <span class="c-key">frontend</span>:
+    <span class="c-var">build</span>: ./frontend
+    <span class="c-var">ports</span>: [<span class="c-str">"3000:3000"</span>]</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 3–4</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase2"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 2</div>
+        <div class="timeline-title">Core Detection Engine (Layers 1–3)</div>
+        <ul class="timeline-tasks">
+          <li><span class="check">✓</span> Statistical shift detector — KL, Wasserstein, Mahalanobis</li>
+          <li><span class="check">✓</span> Spectral activation analyzer — PCA + KMeans on hidden layers</li>
+          <li><span class="check">✓</span> Ensemble anomaly detector — IF + OCSVM + LOF + meta-learner</li>
+          <li><span class="check">✓</span> Detection pipeline orchestration with Ray for parallelism</li>
+          <li><span class="check">✓</span> Evidence bundle assembly (all signals → single object)</li>
+          <li><span class="check">✓</span> Store results in PostgreSQL with full audit trail</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 5–6</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase3"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 3</div>
+        <div class="timeline-title">Causal Proof Engine + Federated Trust</div>
+        <ul class="timeline-tasks">
+          <li><span class="wip">◉</span> DoWhy causal graph construction from data schema</li>
+          <li><span class="wip">◉</span> Leave-one-out test with placebo validation</li>
+          <li><span class="wip">◉</span> Bootstrap confidence interval for causal effect</li>
+          <li><span class="wip">◉</span> Confounder robustness test (E-value computation)</li>
+          <li><span class="wip">◉</span> Federated client trust tracker with EMA scoring</li>
+          <li><span class="wip">◉</span> Behavioral fingerprint storage per client</li>
+          <li><span class="wip">◉</span> Auto-quarantine of low-trust clients</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 7–8</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase4"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 4</div>
+        <div class="timeline-title">Poison Forensics Engine (The WHY/HOW Layer)</div>
+        <ul class="timeline-tasks">
+          <li><span class="wip">◉</span> Attack type classifier — multi-head neural network on evidence bundles</li>
+          <li><span class="wip">◉</span> Injection pattern reconstructor — temporal + cluster analysis</li>
+          <li><span class="wip">◉</span> Attack narrative NLG engine (template-based + LLM enrichment)</li>
+          <li><span class="wip">◉</span> Adversarial sample visualizer — GradCAM for images, SHAP for tabular</li>
+          <li><span class="wip">◉</span> Temporal attack timeline data pipeline</li>
+          <li><span class="wip">◉</span> Intent & sophistication scorer</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 9–10</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase5"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 5</div>
+        <div class="timeline-title">Defense Engine + Blast Radius + Auto-Remediation</div>
+        <ul class="timeline-tasks">
+          <li><span class="future">○</span> Blast radius tracer — lineage graph from sample → batches → models</li>
+          <li><span class="future">○</span> Stability-aware auto-defense (max 5% quarantine per epoch)</li>
+          <li><span class="future">○</span> Knowledge distillation for poisoned model recovery</li>
+          <li><span class="future">○</span> Online drift detection — ADWIN + Page-Hinkley in stream</li>
+          <li><span class="future">○</span> Human-in-the-loop queue with Slack/email notifications</li>
+          <li><span class="future">○</span> Counterfactual impact simulator (harm projection)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="timeline-item">
+      <div class="timeline-time">Week 11–12</div>
+      <div class="timeline-dot-col">
+        <div class="timeline-dot phase6"></div>
+        <div class="timeline-line"></div>
+      </div>
+      <div class="timeline-content">
+        <div class="timeline-phase">Phase 6</div>
+        <div class="timeline-title">Dashboard, Reports, APIs & Production Hardening</div>
+        <ul class="timeline-tasks">
+          <li><span class="future">○</span> React dashboard — trust score, timeline, forensic evidence, diff viewer</li>
+          <li><span class="future">○</span> Regulatory evidence package generator (PDF, JSON-LD, NIST checklist)</li>
+          <li><span class="future">○</span> LLM-powered forensic analyst interface</li>
+          <li><span class="future">○</span> REST + WebSocket API documentation (OpenAPI 3.1)</li>
+          <li><span class="future">○</span> Rate limiting, auth, multi-tenancy, RBAC</li>
+          <li><span class="future">○</span> k8s deployment configs, Helm charts</li>
+          <li><span class="future">○</span> Load testing (Locust), security audit, penetration testing</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 6 — DATABASE SCHEMA
+══════════════════════════════════════════════ -->
+<div id="database">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">06</div>
+    <div class="section-title-block">
+      <div class="section-tag">Data Model</div>
+      <h1 class="section-title">Complete Database Schema</h1>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <h2 class="mb16">Core Tables</h2>
+
+      <div class="panel mb16">
+        <div class="panel-title">data_samples</div>
+        <table class="schema-table">
+          <tr><th>Column</th><th>Type</th><th>Note</th></tr>
+          <tr><td>id <span class="col-pk">PK</span></td><td class="col-type">UUID</td><td>Immutable</td></tr>
+          <tr><td>source_id</td><td class="col-type">UUID FK</td><td>→ data_sources</td></tr>
+          <tr><td>ingested_at</td><td class="col-type">TIMESTAMPTZ</td><td>Indexed</td></tr>
+          <tr><td>raw_hash</td><td class="col-type">VARCHAR(64)</td><td>SHA-256</td></tr>
+          <tr><td>feature_vector</td><td class="col-type">VECTOR(512)</td><td>pgvector</td></tr>
+          <tr><td>label</td><td class="col-type">JSONB</td><td>Any label type</td></tr>
+          <tr><td>batch_id</td><td class="col-type">UUID</td><td>→ training_batches</td></tr>
+          <tr><td>poison_status</td><td class="col-type">ENUM</td><td>clean/suspect/confirmed</td></tr>
+        </table>
+      </div>
+
+      <div class="panel mb16">
+        <div class="panel-title">forensic_reports</div>
+        <table class="schema-table">
+          <tr><th>Column</th><th>Type</th><th>Note</th></tr>
+          <tr><td>id <span class="col-pk">PK</span></td><td class="col-type">UUID</td><td></td></tr>
+          <tr><td>sample_id</td><td class="col-type">UUID FK</td><td>→ data_samples</td></tr>
+          <tr><td>attack_type</td><td class="col-type">VARCHAR(64)</td><td>Classified type</td></tr>
+          <tr><td>attack_subtype</td><td class="col-type">VARCHAR(64)</td><td></td></tr>
+          <tr><td>confidence</td><td class="col-type">FLOAT</td><td>0.0–1.0</td></tr>
+          <tr><td>causal_effect</td><td class="col-type">FLOAT</td><td>Δ accuracy</td></tr>
+          <tr><td>attack_narrative</td><td class="col-type">TEXT</td><td>NL description</td></tr>
+          <tr><td>sophistication_score</td><td class="col-type">SMALLINT</td><td>1–10</td></tr>
+          <tr><td>injection_timeline</td><td class="col-type">JSONB</td><td>Time events array</td></tr>
+          <tr><td>evidence_bundle</td><td class="col-type">JSONB</td><td>All signals</td></tr>
+          <tr><td>created_at</td><td class="col-type">TIMESTAMPTZ</td><td>TimescaleDB</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="mb16">Supporting Tables</h2>
+
+      <div class="panel mb16">
+        <div class="panel-title">federated_clients</div>
+        <table class="schema-table">
+          <tr><th>Column</th><th>Type</th><th>Note</th></tr>
+          <tr><td>client_id <span class="col-pk">PK</span></td><td class="col-type">UUID</td><td></td></tr>
+          <tr><td>trust_score</td><td class="col-type">FLOAT</td><td>EMA 0.0–1.0</td></tr>
+          <tr><td>gradient_history</td><td class="col-type">JSONB</td><td>Last 100 rounds</td></tr>
+          <tr><td>behavioral_fingerprint</td><td class="col-type">VECTOR(128)</td><td>pgvector</td></tr>
+          <tr><td>quarantined_at</td><td class="col-type">TIMESTAMPTZ</td><td>NULL if active</td></tr>
+          <tr><td>total_contributions</td><td class="col-type">INTEGER</td><td></td></tr>
+        </table>
+      </div>
+
+      <div class="panel mb16">
+        <div class="panel-title">blast_radius_map</div>
+        <table class="schema-table">
+          <tr><th>Column</th><th>Type</th><th>Note</th></tr>
+          <tr><td>poison_sample_id</td><td class="col-type">UUID FK</td><td></td></tr>
+          <tr><td>affected_batch_ids</td><td class="col-type">UUID[]</td><td>Array</td></tr>
+          <tr><td>affected_model_ids</td><td class="col-type">UUID[]</td><td>Array</td></tr>
+          <tr><td>prediction_impact_pct</td><td class="col-type">FLOAT</td><td>% predictions affected</td></tr>
+          <tr><td>downstream_harm_estimate</td><td class="col-type">JSONB</td><td>Domain-specific</td></tr>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">model_snapshots (TimescaleDB hypertable)</div>
+        <table class="schema-table">
+          <tr><th>Column</th><th>Type</th><th>Note</th></tr>
+          <tr><td>snapshot_time</td><td class="col-type">TIMESTAMPTZ</td><td>Partition key</td></tr>
+          <tr><td>model_id</td><td class="col-type">UUID</td><td></td></tr>
+          <tr><td>accuracy</td><td class="col-type">FLOAT</td><td></td></tr>
+          <tr><td>shap_distribution</td><td class="col-type">JSONB</td><td>Feature importances</td></tr>
+          <tr><td>drift_score</td><td class="col-type">FLOAT</td><td>Wasserstein of SHAP</td></tr>
+          <tr><td>trust_grade</td><td class="col-type">CHAR(2)</td><td>A/B/C/D/F</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 7 — API DESIGN
+══════════════════════════════════════════════ -->
+<div id="api-design">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">07</div>
+    <div class="section-title-block">
+      <div class="section-tag">API</div>
+      <h1 class="section-title">API Design — REST + WebSocket Endpoints</h1>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div>
+      <div class="code-block">
+<div class="code-label">REST API — CORE ROUTES</div>
+<pre style="line-height:1.9;">
+<span class="c-cm"># ── INGESTION ──────────────────────</span>
+<span class="c-key">POST</span>   /api/v1/datasets/upload
+<span class="c-key">POST</span>   /api/v1/datasets/stream/connect
+<span class="c-key">POST</span>   /api/v1/federated/client/register
+<span class="c-key">POST</span>   /api/v1/federated/gradients/submit
+
+<span class="c-cm"># ── DETECTION ─────────────────────</span>
+<span class="c-key">POST</span>   /api/v1/detect/analyze         <span class="c-cm"># Full pipeline</span>
+<span class="c-key">GET</span>    /api/v1/detect/{job_id}/status
+<span class="c-key">GET</span>    /api/v1/detect/{job_id}/results
+<span class="c-key">POST</span>   /api/v1/detect/stream-inspect   <span class="c-cm"># Real-time</span>
+
+<span class="c-cm"># ── FORENSICS ─────────────────────</span>
+<span class="c-key">GET</span>    /api/v1/forensics/{sample_id}
+<span class="c-key">GET</span>    /api/v1/forensics/{sample_id}/narrative
+<span class="c-key">GET</span>    /api/v1/forensics/{sample_id}/visualization
+<span class="c-key">GET</span>    /api/v1/forensics/timeline/{model_id}
+<span class="c-key">POST</span>   /api/v1/forensics/counterfactual
+
+<span class="c-cm"># ── BLAST RADIUS ──────────────────</span>
+<span class="c-key">GET</span>    /api/v1/blast-radius/{sample_id}
+<span class="c-key">GET</span>    /api/v1/lineage/batch/{batch_id}
+
+<span class="c-cm"># ── DEFENSE ───────────────────────</span>
+<span class="c-key">POST</span>   /api/v1/defense/quarantine
+<span class="c-key">POST</span>   /api/v1/defense/retrain
+<span class="c-key">GET</span>    /api/v1/defense/status
+<span class="c-key">POST</span>   /api/v1/defense/human-review/decide
+
+<span class="c-cm"># ── TRUST & CERTS ─────────────────</span>
+<span class="c-key">GET</span>    /api/v1/trust/dataset/{id}/score
+<span class="c-key">GET</span>    /api/v1/trust/model/{id}/grade
+<span class="c-key">POST</span>   /api/v1/reports/generate
+<span class="c-key">GET</span>    /api/v1/reports/{report_id}/download
+</pre>
+      </div>
+    </div>
+    <div>
+      <div class="code-block">
+<div class="code-label">WEBSOCKET — REAL-TIME EVENTS</div>
+<pre>
+<span class="c-cm"># Connect</span>
+<span class="c-key">WS</span> /ws/v1/detection-stream
+
+<span class="c-cm"># Server → Client events:</span>
+{
+  <span class="c-str">"event"</span>: <span class="c-str">"sample_analyzed"</span>,
+  <span class="c-str">"data"</span>: {
+    <span class="c-key">"sample_id"</span>: <span class="c-str">"..."</span>,
+    <span class="c-key">"suspicion_score"</span>: <span class="c-num">0.87</span>,
+    <span class="c-key">"layer_scores"</span>: { ... }
+  }
+}
+
+{
+  <span class="c-str">"event"</span>: <span class="c-str">"attack_confirmed"</span>,
+  <span class="c-str">"data"</span>: {
+    <span class="c-key">"attack_type"</span>: <span class="c-str">"backdoor"</span>,
+    <span class="c-key">"causal_effect"</span>: <span class="c-num">-0.118</span>,
+    <span class="c-key">"narrative"</span>: <span class="c-str">"..."</span>,
+    <span class="c-key">"blast_radius"</span>: { ... }
+  }
+}
+
+{
+  <span class="c-str">"event"</span>: <span class="c-str">"defense_triggered"</span>,
+  <span class="c-str">"data"</span>: {
+    <span class="c-key">"action"</span>: <span class="c-str">"quarantine"</span>,
+    <span class="c-key">"samples_affected"</span>: <span class="c-num">47</span>,
+    <span class="c-key">"model_stable"</span>: <span class="c-cls">true</span>
+  }
+}
+
+{
+  <span class="c-str">"event"</span>: <span class="c-str">"human_review_required"</span>,
+  <span class="c-str">"data"</span>: {
+    <span class="c-key">"suspicion_score"</span>: <span class="c-num">0.67</span>,
+    <span class="c-key">"evidence_bundle_id"</span>: <span class="c-str">"..."</span>,
+    <span class="c-key">"deadline"</span>: <span class="c-str">"ISO 8601 timestamp"</span>
+  }
+}
+</pre>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 8 — TECH STACK
+══════════════════════════════════════════════ -->
+<div id="tech-stack">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">08</div>
+    <div class="section-title-block">
+      <div class="section-tag">Engineering</div>
+      <h1 class="section-title">Technology Stack — Why Each Choice</h1>
+    </div>
+  </div>
+
+  <div class="three-col mb40">
+    <div class="panel">
+      <div class="panel-title">ML & Detection Core</div>
+      <div class="stack-grid" style="margin-bottom:16px;">
+        <span class="stack-chip ml">PyTorch</span>
+        <span class="stack-chip ml">scikit-learn</span>
+        <span class="stack-chip ml">Alibi-Detect</span>
+        <span class="stack-chip ml">DoWhy</span>
+        <span class="stack-chip ml">EconML</span>
+        <span class="stack-chip ml">SHAP</span>
+        <span class="stack-chip ml">Ray</span>
+        <span class="stack-chip ml">River</span>
+      </div>
+      <ul class="feature-list">
+        <li><strong style="color:var(--accent)">PyTorch</strong>: Neural models + activation extraction</li>
+        <li><strong style="color:var(--accent)">Alibi-Detect</strong>: Pre-built drift detectors (MMD, KSD)</li>
+        <li><strong style="color:var(--accent)">DoWhy + EconML</strong>: Causal graph inference + ITE</li>
+        <li><strong style="color:var(--accent)">SHAP</strong>: Feature importance + drift monitoring</li>
+        <li><strong style="color:var(--accent)">Ray</strong>: Distributed parallel detection at scale</li>
+        <li><strong style="color:var(--accent)">River</strong>: ADWIN + Page-Hinkley online detectors</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Backend & Infrastructure</div>
+      <div class="stack-grid" style="margin-bottom:16px;">
+        <span class="stack-chip infra">FastAPI</span>
+        <span class="stack-chip infra">Kafka</span>
+        <span class="stack-chip infra">Flink</span>
+        <span class="stack-chip db">PostgreSQL</span>
+        <span class="stack-chip db">TimescaleDB</span>
+        <span class="stack-chip db">pgvector</span>
+        <span class="stack-chip db">Redis</span>
+        <span class="stack-chip infra">Celery</span>
+      </div>
+      <ul class="feature-list">
+        <li><strong style="color:var(--accent3)">FastAPI</strong>: Async, WebSocket, auto OpenAPI docs</li>
+        <li><strong style="color:var(--accent3)">Kafka + Flink</strong>: Real-time stream processing</li>
+        <li><strong style="color:var(--accent3)">TimescaleDB</strong>: Time-series model snapshots</li>
+        <li><strong style="color:var(--accent3)">pgvector</strong>: Vector similarity for activation search</li>
+        <li><strong style="color:var(--accent3)">Redis</strong>: Real-time score cache + pub/sub</li>
+        <li><strong style="color:var(--accent3)">Celery</strong>: Async task queue for heavy analysis</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Frontend & DevOps</div>
+      <div class="stack-grid" style="margin-bottom:16px;">
+        <span class="stack-chip web">React 18</span>
+        <span class="stack-chip web">Tailwind</span>
+        <span class="stack-chip web">D3.js</span>
+        <span class="stack-chip web">Recharts</span>
+        <span class="stack-chip infra">Docker</span>
+        <span class="stack-chip infra">Kubernetes</span>
+        <span class="stack-chip infra">GitHub Actions</span>
+        <span class="stack-chip sec">Groth16/ZK</span>
+      </div>
+      <ul class="feature-list">
+        <li><strong style="color:var(--purple)">React 18</strong>: Concurrent rendering for real-time dashboard</li>
+        <li><strong style="color:var(--purple)">D3.js</strong>: Custom attack timeline + blast radius graph</li>
+        <li><strong style="color:var(--purple)">Recharts</strong>: Model accuracy + trust score charts</li>
+        <li><strong style="color:var(--purple)">Kubernetes</strong>: Production scaling + health checks</li>
+        <li><strong style="color:var(--purple)">Groth16/PLONK</strong>: Zero-knowledge proof attestation</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 9 — ROADMAP
+══════════════════════════════════════════════ -->
+<div id="roadmap">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">09</div>
+    <div class="section-title-block">
+      <div class="section-tag">Long-Term Vision</div>
+      <h1 class="section-title">Production Roadmap — v1 → v3</h1>
+    </div>
+  </div>
+
+  <div class="three-col">
+    <div class="panel">
+      <div class="panel-title" style="color: var(--accent);">v1.0 — MVP (Month 1–3)</div>
+      <ul>
+        <li>Batch dataset analysis via file upload</li>
+        <li>3-layer detection (statistical + ensemble + causal)</li>
+        <li>Basic forensic report (attack type + narrative)</li>
+        <li>Trust score dashboard</li>
+        <li>REST API + React UI</li>
+        <li>PostgreSQL audit trail</li>
+        <li>Docker Compose deployment</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="color: var(--accent3);">v2.0 — Production (Month 4–8)</div>
+      <ul>
+        <li>All 5 detection layers + SHAP drift</li>
+        <li>Full Poison Forensics Engine</li>
+        <li>Federated learning support</li>
+        <li>Streaming real-time mode (Kafka)</li>
+        <li>Blast radius + lineage mapper</li>
+        <li>Stability-aware auto-defense</li>
+        <li>Human-in-the-loop governance</li>
+        <li>Regulatory report generation</li>
+        <li>LLM-powered forensic analyst</li>
+        <li>Multi-tenant SaaS deployment</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="color: var(--purple);">v3.0 — Platform (Month 9–18)</div>
+      <ul>
+        <li>Federated Threat Intelligence Network</li>
+        <li>ZK-proof dataset attestation</li>
+        <li>MITRE ATLAS integration</li>
+        <li>Model marketplace with trust seals</li>
+        <li>Government / ISAC threat feeds</li>
+        <li>Automated red-team continuous testing</li>
+        <li>Enterprise SSO + RBAC</li>
+        <li>Kubernetes operator (cloud-native)</li>
+        <li>SDK: Python, Go, Java clients</li>
+        <li>SLA-backed certifications</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="highlight-box mt30">
+    <h3>Monetization Paths</h3>
+    <div class="three-col" style="margin-top:16px;">
+      <div>
+        <p><strong style="color:var(--accent)">SaaS Subscription</strong> — per-dataset or per-model monthly analysis fee. Healthcare/gov tier at premium pricing.</p>
+      </div>
+      <div>
+        <p><strong style="color:var(--accent3)">Certification Revenue</strong> — organizations pay for Trust Seal certification (like SSL certificates for datasets).</p>
+      </div>
+      <div>
+        <p><strong style="color:var(--purple)">Threat Intelligence</strong> — subscription to federated attack database. Enterprise + government ISAC tiers.</p>
+      </div>
+    </div>
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 10 — HACKATHON STRATEGY
+══════════════════════════════════════════════ -->
+<div id="judge">
+<div class="container">
+<section class="section">
+  <div class="section-header">
+    <div class="section-num">10</div>
+    <div class="section-title-block">
+      <div class="section-tag">Presentation</div>
+      <h1 class="section-title">Hackathon Judging — Maximum Impact Strategy</h1>
+    </div>
+  </div>
+
+  <div class="callout success">
+    <strong>Core differentiator to repeat 3 times:</strong> "Every other tool detects anomalies. We reconstruct the crime. We name the attack, show when it happened, prove the harm with causal math, and generate regulatory evidence — automatically."
+  </div>
+
+  <div class="two-col mb40">
+    <div class="panel">
+      <div class="panel-title">90-Second Opening (Memorize This)</div>
+      <p style="font-style:italic; color: var(--text); margin-bottom:16px;">"A hospital's AI is silently poisoned. Patients are getting false cancer clearances. The model accuracy? Still 94%. Traditional tools? Completely blind."</p>
+      <p style="font-style:italic; color: var(--text); margin-bottom:16px;">"We detect it. We prove it caused harm — mathematically. We tell you exactly how it was injected, when, by who, and how sophisticated the attacker was. We generate the regulatory report. Automatically."</p>
+      <p style="font-style:italic; color: var(--text);">"And we do all of this in real time — before the next training batch runs."</p>
+      <p style="margin-top:16px;">[<strong>Launch the demo.</strong> Say nothing for 10 seconds. Let it speak.]</p>
+    </div>
+    <div>
+      <div class="panel mb16">
+        <div class="panel-title">Judging Criteria Mapping</div>
+        <table class="comp-table" style="width:100%">
+          <tr><th>Criterion</th><th>Our Evidence</th></tr>
+          <tr><td>Innovation</td><td class="tag-yes">Causal proof engine. Novel worldwide.</td></tr>
+          <tr><td>Technical Depth</td><td class="tag-yes">5-layer detection + DoWhy causal + ZK proofs</td></tr>
+          <tr><td>Real-World Impact</td><td class="tag-yes">Healthcare, climate, governance use cases</td></tr>
+          <tr><td>Completeness</td><td class="tag-yes">E2E: ingest → detect → prove → defend → report</td></tr>
+          <tr><td>Scalability</td><td class="tag-yes">Ray + Kafka + k8s architecture</td></tr>
+          <tr><td>Presentation</td><td class="tag-yes">Live demo + forensic narrative output</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="mb16">Comparison Table to Annihilate Competitors</h2>
+  <table class="comp-table mb40">
+    <tr>
+      <th>Capability</th>
+      <th>Adversarial Robustness Toolbox</th>
+      <th>CleanLab</th>
+      <th>Alibi-Detect</th>
+      <th style="color:var(--accent3);">THIS PLATFORM</th>
+    </tr>
+    <tr>
+      <td>Multi-layer detection</td>
+      <td class="tag-partial">Partial</td>
+      <td class="tag-partial">Partial</td>
+      <td class="tag-yes">Yes</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ 5 layers</td>
+    </tr>
+    <tr>
+      <td>Causal proof (not correlation)</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ DoWhy engine</td>
+    </tr>
+    <tr>
+      <td>Attack type classification</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ 5 attack types</td>
+    </tr>
+    <tr>
+      <td>Attack narrative reconstruction</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ Full narrative</td>
+    </tr>
+    <tr>
+      <td>Blast radius estimation</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ Lineage graph</td>
+    </tr>
+    <tr>
+      <td>Regulatory evidence package</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ NIST + EU AI Act</td>
+    </tr>
+    <tr>
+      <td>Federated learning support</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-partial">Partial</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ Behavioral trust</td>
+    </tr>
+    <tr>
+      <td>Real-time streaming defense</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-partial">Partial</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ Kafka + sub-50ms</td>
+    </tr>
+    <tr>
+      <td>ZK attestation</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-no">No</td>
+      <td class="tag-yes" style="color:var(--accent3);">✓ Groth16/PLONK</td>
+    </tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>Backup plan if demo breaks:</strong> Have a pre-recorded 2-min screen capture AND a static JSON evidence bundle printed as a "forensic report" — hand it to judges as a physical prop. "Here is what our system generated for a backdoor attack on a cancer diagnosis model."
+  </div>
+
+</section>
+</div>
+</div>
+
+<!-- FOOTER -->
+<div class="container">
+  <div class="footer">
+    <div class="footer-left">
+      AI Trust Forensics Platform v2.2 &nbsp;·&nbsp; Complete Production Blueprint &nbsp;·&nbsp; All rights reserved to your team
+    </div>
+    <div class="footer-right">
+      <span>Built for hackathon + production</span>
+      <span style="color: var(--accent);">🛡️ Secure AI for Everyone</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// Animate sections on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.style.opacity = '1';
+      entry.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.section').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(30px)';
+  el.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+  observer.observe(el);
+});
+
+// Animated trust score counters
+document.querySelectorAll('.score-val').forEach(el => {
+  const target = parseFloat(el.textContent);
+  if (!isNaN(target) && target > 10) {
+    let current = 0;
+    const increment = target / 40;
+    const interval = setInterval(() => {
+      current = Math.min(current + increment, target);
+      el.textContent = Math.round(current) + (el.textContent.includes('/') ? '/10' : '');
+      if (current >= target) clearInterval(interval);
+    }, 30);
+  }
+});
+</script>
+</body>
+</html>
