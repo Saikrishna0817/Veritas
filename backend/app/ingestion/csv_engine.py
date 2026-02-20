@@ -96,24 +96,154 @@ class CSVIngestionEngine:
             le = LabelEncoder()
             return le.fit_transform(series.fillna('unknown').astype(str))
 
-    # ── Data Cleaning ─────────────────────────────────────────────────────────
+    # ── Data Cleaning Pipeline ─────────────────────────────────────────────────
+    #
+    # Real-world CSV uploads are messy. This pipeline runs BEFORE data reaches
+    # the 5 detection layers, ensuring they receive clean numeric matrices.
+    #
+    # Steps:
+    #   1. Force numeric coercion (catch stray strings in numeric columns)
+    #   2. Replace ±inf with NaN
+    #   3. Drop rows that are >50% NaN (corrupted / mostly-empty)
+    #   4. Drop exact duplicate rows (skew statistical tests)
+    #   5. Drop zero-variance / constant columns (cause div-by-zero in layers)
+    #   6. Impute remaining NaN (median) + clip extreme outliers (5×IQR)
+    #
+    # Every action is logged in the warnings list so the user knows what changed.
+    # ──────────────────────────────────────────────────────────────────────────
 
-    def _clean_dataframe(self, df: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
-        """Clean feature columns: fill NaN, clip outliers, normalize."""
+    def _clean_dataframe(
+        self,
+        df: pd.DataFrame,
+        feature_cols: List[str],
+        label_col: Optional[str] = None,
+        warnings: Optional[List[str]] = None,
+    ) -> Tuple[pd.DataFrame, List[str]]:
+        """
+        Comprehensive data cleaning pipeline.
+
+        Returns:
+            (cleaned_df, surviving_feature_cols)
+            Feature cols list may shrink if constant columns are dropped.
+        """
+        if warnings is None:
+            warnings = []
+
         df = df.copy()
+        n_original = len(df)
 
+        # ── Step 1: Force numeric coercion ─────────────────────────────────
+        # Some "numeric" columns may contain stray strings like "N/A", "?", "--"
+        coercion_issues = []
         for col in feature_cols:
-            # Fill NaN with median
-            median = df[col].median()
-            df[col] = df[col].fillna(median)
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                before_nan = df[col].isna().sum()
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                after_nan = df[col].isna().sum()
+                new_nan = after_nan - before_nan
+                if new_nan > 0:
+                    coercion_issues.append(f"{col} ({new_nan} non-numeric values)")
+        if coercion_issues:
+            warnings.append(
+                f"Coerced non-numeric values to NaN in: {', '.join(coercion_issues[:5])}"
+                + (f" (+{len(coercion_issues)-5} more)" if len(coercion_issues) > 5 else "")
+            )
 
-            # Clip extreme outliers (beyond 5 IQR)
-            q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+        # ── Step 2: Replace ±inf with NaN ──────────────────────────────────
+        # Infinite values crash numpy linalg, KL divergence, spectral analysis
+        inf_counts = {}
+        for col in feature_cols:
+            n_inf = np.isinf(df[col].values.astype(float)).sum() if pd.api.types.is_numeric_dtype(df[col]) else 0
+            if n_inf > 0:
+                inf_counts[col] = int(n_inf)
+                df[col] = df[col].replace([np.inf, -np.inf], np.nan)
+        if inf_counts:
+            total_inf = sum(inf_counts.values())
+            warnings.append(
+                f"Replaced {total_inf} infinite value(s) with NaN "
+                f"in {len(inf_counts)} column(s)."
+            )
+
+        # ── Step 3: Drop rows that are >50% NaN ───────────────────────────
+        # Rows where most feature values are missing are likely corrupted
+        nan_per_row = df[feature_cols].isna().sum(axis=1)
+        threshold = len(feature_cols) * 0.5
+        corrupted_mask = nan_per_row > threshold
+        n_corrupted = corrupted_mask.sum()
+        if n_corrupted > 0:
+            df = df[~corrupted_mask].reset_index(drop=True)
+            warnings.append(
+                f"Dropped {n_corrupted} corrupted row(s) "
+                f"(>{int(threshold)} of {len(feature_cols)} features missing)."
+            )
+
+        # ── Step 4: Drop exact duplicate rows ──────────────────────────────
+        # Duplicates skew statistical tests (L1) and anomaly detection (L3)
+        cols_to_check = feature_cols + ([label_col] if label_col else [])
+        n_before = len(df)
+        df = df.drop_duplicates(subset=cols_to_check, keep='first').reset_index(drop=True)
+        n_dupes = n_before - len(df)
+        if n_dupes > 0:
+            warnings.append(
+                f"Removed {n_dupes} exact duplicate row(s) "
+                f"({round(n_dupes / n_before * 100, 1)}% of data)."
+            )
+
+        # ── Step 5: Drop zero-variance / constant columns ─────────────────
+        # Constant features cause division-by-zero in normalization, KL
+        # divergence, spectral gap, and DBSCAN eps estimation.
+        surviving_cols = []
+        dropped_const = []
+        for col in feature_cols:
+            col_std = df[col].std()
+            if col_std is None or col_std == 0 or (pd.api.types.is_numeric_dtype(df[col]) and np.isnan(col_std)):
+                dropped_const.append(col)
+            else:
+                surviving_cols.append(col)
+        if dropped_const:
+            warnings.append(
+                f"Dropped {len(dropped_const)} constant-value column(s): "
+                f"{', '.join(dropped_const[:5])}"
+                + (f" (+{len(dropped_const)-5} more)" if len(dropped_const) > 5 else "")
+            )
+        feature_cols = surviving_cols
+
+        # ── Step 6: Impute remaining NaN + clip outliers ───────────────────
+        nan_imputed = 0
+        for col in feature_cols:
+            n_nan = df[col].isna().sum()
+            if n_nan > 0:
+                median = df[col].median()
+                # If entire column is NaN after cleaning, fill with 0
+                if pd.isna(median):
+                    median = 0.0
+                df[col] = df[col].fillna(median)
+                nan_imputed += n_nan
+
+            # Clip extreme outliers (beyond 5×IQR)
+            q1 = df[col].quantile(0.25)
+            q3 = df[col].quantile(0.75)
             iqr = q3 - q1
             if iqr > 0:
-                df[col] = df[col].clip(q1 - 5 * iqr, q3 + 5 * iqr)
+                lower = q1 - 5 * iqr
+                upper = q3 + 5 * iqr
+                n_clipped = int(((df[col] < lower) | (df[col] > upper)).sum())
+                df[col] = df[col].clip(lower, upper)
 
-        return df
+        if nan_imputed > 0:
+            warnings.append(
+                f"Imputed {nan_imputed} missing value(s) with column median."
+            )
+
+        # ── Summary ────────────────────────────────────────────────────────
+        n_final = len(df)
+        if n_final < n_original:
+            warnings.append(
+                f"Data cleaning: {n_original} → {n_final} rows "
+                f"({n_original - n_final} removed)."
+            )
+
+        return df, feature_cols
 
     # ── Main Ingestion ─────────────────────────────────────────────────────────
 
@@ -169,7 +299,18 @@ class CSVIngestionEngine:
             warnings.append("More than 100 features detected. Keeping top 100 by variance.")
 
         # ── Clean Data ─────────────────────────────────────────────────────
-        df_clean = self._clean_dataframe(df, feature_cols)
+        df_clean, feature_cols = self._clean_dataframe(
+            df, feature_cols, label_col=label_col, warnings=warnings
+        )
+
+        if len(feature_cols) == 0:
+            raise ValueError("No usable feature columns remain after data cleaning.")
+
+        if len(df_clean) < 20:
+            raise ValueError(
+                f"Only {len(df_clean)} rows remain after cleaning "
+                f"(minimum 20 required). Input data may be too noisy."
+            )
 
         # ── Prepare Labels ─────────────────────────────────────────────────
         has_labels = label_col is not None
@@ -231,17 +372,17 @@ class CSVIngestionEngine:
             "label_column": label_col,
             "n_rows": n,
             "n_features": len(feature_cols),
-            "dtypes": {col: str(df[col].dtype) for col in feature_cols},
+            "dtypes": {col: str(df_clean[col].dtype) for col in feature_cols},
             "missing_pct": {
-                col: round(df[col].isna().mean() * 100, 2)
+                col: round(df_clean[col].isna().mean() * 100, 2)
                 for col in feature_cols
             },
             "feature_stats": {
                 col: {
-                    "mean": round(float(df[col].mean()), 4),
-                    "std": round(float(df[col].std()), 4),
-                    "min": round(float(df[col].min()), 4),
-                    "max": round(float(df[col].max()), 4),
+                    "mean": round(float(df_clean[col].mean()), 4),
+                    "std": round(float(df_clean[col].std()), 4),
+                    "min": round(float(df_clean[col].min()), 4),
+                    "max": round(float(df_clean[col].max()), 4),
                 }
                 for col in feature_cols[:10]  # first 10 for summary
             }
