@@ -108,13 +108,23 @@ class DetectionPipeline:
         self.X_reference     = None
         self.y_reference     = None
 
-    def fit_baseline(self, X_reference: np.ndarray, y_reference: np.ndarray) -> None:
+    def fit_baseline(self, X_reference, y_reference=None) -> None:
         """
         Fit all baseline models on the known-clean reference partition.
+        Accepts numpy arrays OR list-of-dicts (demo path).
         RECT 1: y_reference now passed to L1.
         """
-        X = np.array(X_reference, dtype=float)
-        y = np.array(y_reference)
+        # List-of-dicts path (from demo routes)
+        if isinstance(X_reference, list) and len(X_reference) > 0 and isinstance(X_reference[0], dict):
+            X = np.array([s["feature_vector"] for s in X_reference], dtype=float)
+            y = np.array([s.get("label", 0) for s in X_reference])
+        else:
+            X = np.array(X_reference, dtype=float)
+            if y_reference is None:
+                y = np.zeros(len(X))
+            else:
+                y = np.array(y_reference)
+
         self.X_reference = X
         self.y_reference = y
 
@@ -221,6 +231,82 @@ class DetectionPipeline:
                 "layer4": r4,
                 "layer5": r5,
             },
+        }
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Adapter methods — bridge between route-level dict API and numpy internals
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def run_on_upload(self, ingested: dict) -> dict:
+        """
+        Adapter for upload & real-dataset routes.
+        Takes output of CSVIngestionEngine.ingest() and returns route-compatible dict.
+        """
+        X = np.array(ingested["features"], dtype=float)
+        y = np.array(ingested["labels"]) if ingested.get("labels") is not None else np.zeros(len(X))
+        ref_split = ingested.get("reference_split", int(len(X) * 0.70))
+
+        X_ref, y_ref = X[:ref_split], y[:ref_split]
+        X_inc, y_inc = X[ref_split:], y[ref_split:]
+
+        self.fit_baseline(X_ref, y_ref)
+        raw = self.analyze(X_inc, y_inc)
+        return self._normalise_result(raw, n_samples=len(X))
+
+    def run(self, samples: list, run_causal: bool = True) -> dict:
+        """
+        Adapter for demo/detect/red-team routes that pass list-of-dicts.
+        Extracts feature_vector + label, runs pipeline, returns route-compatible dict.
+        """
+        X = np.array([s["feature_vector"] for s in samples], dtype=float)
+        y = np.array([s.get("label", 0) for s in samples])
+
+        if not self._baseline_fitted:
+            mid = int(len(X) * 0.70)
+            self.fit_baseline(X[:mid], y[:mid])
+
+        raw = self.analyze(X, y)
+        return self._normalise_result(raw, n_samples=len(samples))
+
+
+
+    def _normalise_result(self, raw: dict, n_samples: int = 0) -> dict:
+        """
+        Translate internal pipeline output keys to what routes expect.
+
+        Pipeline outputs:  overall_suspicion, details.layer1/2/3/4/5
+        Routes expect:     overall_suspicion_score, layer_results.layer1_statistical etc.
+        """
+        details = raw.get("details", {})
+
+        layer_results = {
+            "layer1_statistical": details.get("layer1", {}),
+            "layer2_spectral":    details.get("layer2", {}),
+            "layer3_ensemble":    details.get("layer3", {}),
+            "layer4_causal":      details.get("layer4", {}),
+            "layer5_federated":   details.get("layer5", {}),
+        }
+
+        n_alarmed = sum(
+            1 for s in raw.get("layer_scores", {}).values()
+            if isinstance(s, (int, float)) and s > 0.35
+        )
+
+        overall = raw.get("overall_suspicion", 0.0)
+        verdict = raw.get("verdict", "CLEAN")
+
+        return {
+            "verdict":                verdict,
+            "overall_suspicion_score": overall,
+            "layer_scores":           raw.get("layer_scores", {}),
+            "layer_results":          layer_results,
+            "n_samples":              n_samples,
+            "n_layers_alarmed":       n_alarmed,
+            "causal_proof_valid":     raw.get("causal_proof_valid", False),
+            "degradation_score":      raw.get("degradation_score", 0.0),
+            "requires_human_review":  0.35 <= overall < 0.65,
+            "thresholds":             raw.get("thresholds", {}),
+            "layer_weights":          raw.get("layer_weights", {}),
         }
 
     @staticmethod

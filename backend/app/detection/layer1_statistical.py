@@ -1,44 +1,33 @@
 """
-Layer 1 — Statistical Shift Detection  (RECTIFIED v3)
+Layer 1 — Statistical Shift Detection  (RECTIFIED v4)
 ======================================================
 
-RECTIFICATIONS ON TOP OF v2 FIXES:
+RECTIFICATIONS ON TOP OF v3 FIXES:
 
-  RECT 1 ── Bonferroni correction was wrong
-    OLD: alpha = EXACT_SPIKE_PVALUE / n_features
-         Bonferroni must correct for the number of TESTS performed, not features.
-         The inner loop tests every unique value per feature — easily 1000+ tests.
-    FIX: Count total (feature, value) pairs tested and divide by that.
+  BUG 1 ── _exact_value_spike skips features with baseline max_freq_pct > 5%
+    OLD: `if baseline_f["n_unique"] < 50 or baseline_f["max_freq_pct"] > 0.05`
+         Any feature where the reference set happened to have even one value at
+         5.5%+ frequency (e.g. 11 repeats in 200 samples) was silently dropped
+         from trigger detection entirely — including novel-value backdoors on
+         that feature.
+    FIX: Remove the max_freq_pct guard from the skip condition. Only skip truly
+         low-cardinality (categorical) features via n_unique < 50.
 
-  RECT 2 ── O(n_ref × n_unique) isclose scan in trigger detection
-    OLD: `np.any(np.isclose(ref_vals, val, atol=1e-5))` runs on the full
-         reference array for every incoming unique value → very slow at scale.
-    FIX: Build a rounded value set per feature at fit time; O(1) lookup.
+  BUG 2 ── Strict > in qualifies condition causes boundary miss
+    OLD: `obs_pct > 3.0 * baseline_f["max_freq_pct"]` — when the incoming
+         spike lands exactly at 3× baseline (e.g. both are 0.05 → 0.15 > 0.15
+         is False), the candidate silently fails to qualify even though it
+         meets the stated criterion.
+    FIX: Changed to >= so the boundary case qualifies correctly.
 
-  RECT 3 ── Label ratio threshold ignores sample size
-    OLD: LABEL_RATIO_ALARM = 0.015 is a fixed absolute threshold regardless
-         of how many samples are available. A 1.5% shift is within random
-         sampling noise on small datasets (n < 500), causing false positives.
-    FIX: Use a two-proportion z-test (or chi-square) with the actual sample
-         sizes so the alarm only fires when the shift is statistically
-         significant, not just large in absolute terms.
+  BUG 3 ── _null_result missing 5 keys that analyze() returns
+    OLD: _null_result omitted label_detail, trigger_detail, gradient_detail,
+         fed_detail, and thresholds. Any caller iterating result keys
+         consistently (e.g. logging, downstream aggregation) would hit
+         KeyError when the early-exit path fired.
+    FIX: Added all five missing keys with appropriate empty/default values.
 
-  RECT 4 ── fit_baseline does not pass y_reference to L1 from pipeline
-    OLD: pipeline.py calls `self.l1.fit_baseline(X)` — no y_reference!
-         So baseline_label_ratio is always None and label-flip is never caught
-         at the L1 level.
-    FIX: fit_baseline signature unchanged; pipeline must be fixed to pass y.
-         Added a warning log when baseline_label_ratio is None.
-
-  RECT 5 ── Gradient attack has no dedicated detector
-    OLD: Gradient poisoning relied on generic KL/Wasserstein/Mahalanobis.
-         These miss small but targeted perturbations.
-    FIX: Added _gradient_perturbation_score() — computes per-feature
-         standardised mean shift (z-score of feature means) and flags when
-         multiple features show correlated small-but-consistent shifts, which
-         is the fingerprint of gradient-based poisoning.
-
-All previously fixed bugs (BUG 1–5) are preserved.
+All previously documented rectifications (RECT 1–5 from v3) are preserved.
 """
 
 import numpy as np
@@ -268,7 +257,14 @@ class StatisticalShiftDetector:
 
         for j in range(n_features):
             baseline_f = self.baseline_value_freqs[j]
-            if baseline_f["n_unique"] < 50 or baseline_f["max_freq_pct"] > 0.05:
+            # Skip low-cardinality features (n_unique < 50) — backdoor triggers
+            # are injected into continuous features, not categorical ones.
+            # BUG FIX: the old guard also skipped features whose baseline
+            # happened to have any value > 5% frequency (e.g. 11/200 = 5.5%).
+            # This silently discarded the entire feature from trigger detection
+            # even when a novel value appeared in the incoming data.
+            # Correct fix: only skip on cardinality, not on baseline frequency.
+            if baseline_f["n_unique"] < 50:
                 continue
             col        = X[:, j]
             vals, cnts = np.unique(col, return_counts=True)
@@ -281,7 +277,10 @@ class StatisticalShiftDetector:
 
                 qualifies = (
                     (is_novel and cnt >= 10) or
-                    (obs_pct > 3.0 * baseline_f["max_freq_pct"] and cnt >= 10)
+                    # BUG FIX: was strict >, so a spike at exactly 3× baseline
+                    # silently failed to qualify. Use a small epsilon to handle
+                    # floating-point imprecision in the boundary comparison.
+                    (obs_pct >= 3.0 * baseline_f["max_freq_pct"] - 1e-9 and cnt >= 10)
                 )
                 if not qualifies:
                     continue
@@ -479,11 +478,22 @@ class StatisticalShiftDetector:
             "alarm_wasserstein"      : False,
             "label_ratio_shift"      : 0.0,
             "alarm_label_flip"       : False,
+            "label_detail"           : {"reason": reason},       # BUG FIX: was missing
             "trigger_score"          : 0.0,
             "alarm_backdoor_trigger" : False,
+            "trigger_detail"         : {"reason": reason},       # BUG FIX: was missing
             "gradient_score"         : 0.0,
             "alarm_gradient"         : False,
+            "gradient_detail"        : {"reason": reason},       # BUG FIX: was missing
             "fed_trust_score"        : 1.0,
             "alarm_federated"        : False,
+            "fed_detail"             : {"reason": reason},       # BUG FIX: was missing
+            "thresholds"             : {                         # BUG FIX: was missing
+                "kl"           : KL_ALARM_THRESHOLD,
+                "mahalanobis"  : MAHAL_ALARM_THRESHOLD,
+                "wasserstein"  : WASSERSTEIN_ALARM,
+                "label_zscore" : LABEL_RATIO_ZSCORE_MIN,
+                "client_trust" : CLIENT_TRUST_ALARM,
+            },
             "skip_reason"            : reason,
         }

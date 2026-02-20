@@ -46,7 +46,7 @@ class StabilityAwareAutoDefense:
     def _quarantine(self, samples: List[Dict], score: float) -> Dict[str, Any]:
         """Hard quarantine — remove from training."""
         candidates = [s for s in samples 
-                      if s.get("poison_status") == "confirmed" 
+                      if s.get("poison_status") in ("confirmed", "suspected") 
                       and s["id"] not in self.quarantined_ids]
         
         # Max 5% per epoch
@@ -72,7 +72,7 @@ class StabilityAwareAutoDefense:
 
     def _soft_quarantine(self, samples: List[Dict], score: float) -> Dict[str, Any]:
         """Soft quarantine — down-weight in training."""
-        candidates = [s for s in samples if s.get("poison_status") == "confirmed"]
+        candidates = [s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         n = min(len(candidates), max(1, int(len(samples) * self.MAX_QUARANTINE_RATIO * 0.5)))
         
         self.last_action_time = datetime.utcnow()

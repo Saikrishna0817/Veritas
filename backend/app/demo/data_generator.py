@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import random
 
-np.random.seed(42)
-random.seed(42)
+# Seed only locally inside functions, never at module level
+
 
 # Singleton demo data — refreshed on each /demo/run call
 _demo_data = None

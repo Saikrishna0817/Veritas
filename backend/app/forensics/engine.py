@@ -98,7 +98,7 @@ class AttackTypeClassifier:
         if shap.get("drift_score", 0) > 0.1:
             scores["boiling_frog"] += 0.2
         # Check temporal spread of poison
-        poison_times = [s["ingested_at"] for s in samples if s.get("poison_status") == "confirmed"]
+        poison_times = [s["ingested_at"] for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         if len(poison_times) > 5:
             scores["boiling_frog"] += 0.2
 
@@ -130,7 +130,7 @@ class InjectionPatternReconstructor:
                     evidence: Dict[str, Any]) -> Dict[str, Any]:
         """Reconstruct injection pattern and generate narrative."""
         
-        poisoned = [s for s in samples if s.get("poison_status") == "confirmed"]
+        poisoned = [s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         if not poisoned:
             return {"narrative": "No confirmed poisoned samples found.", "injection_schedule": "none"}
 
@@ -155,7 +155,7 @@ class InjectionPatternReconstructor:
 
         # Statistical disguise analysis
         features = np.array([s["feature_vector"] for s in poisoned])
-        clean = [s for s in samples if s.get("poison_status") == "clean"]
+        clean = [s for s in samples if s.get("poison_status") not in ("confirmed", "suspected")]
         clean_features = np.array([s["feature_vector"] for s in clean[:len(poisoned)]])
         
         if len(clean_features) > 0:
@@ -271,7 +271,7 @@ class BlastRadiusMapper:
     """Maps the blast radius of a poisoning attack."""
 
     def map(self, samples: List[Dict], evidence: Dict) -> Dict[str, Any]:
-        poisoned = [s for s in samples if s.get("poison_status") == "confirmed"]
+        poisoned = [s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         
         affected_batches = list(set(s.get("batch_id", "unknown") for s in poisoned))
         n_batches = len(affected_batches)
@@ -313,7 +313,7 @@ class CounterfactualSimulator:
 
     def simulate(self, evidence: Dict, blast_radius: Dict) -> Dict[str, Any]:
         causal_effect = abs(evidence.get("layer4_causal", {}).get("causal_effect", 0))
-        acc_with = evidence.get("layer4_causal", {}).get("accuracy_with_poison", 0.85)
+        acc_with = evidence.get("layer4_causal", {}).get("acc_with_poison", evidence.get("layer4_causal", {}).get("accuracy_with_poison", 0.85))
         
         projections = []
         for days in [30, 60, 90]:

@@ -20,7 +20,7 @@ from typing import Dict, Any
 
 
 # Cache so we don't regenerate on every request
-_cache: Dict[str, bytes] = {}
+_cache: Dict[str, Dict[str, Any]] = {}
 
 
 def _inject_label_flip(df: pd.DataFrame, label_col: str, rate: float = 0.12,
@@ -86,8 +86,7 @@ def get_real_dataset(name: str) -> Dict[str, Any]:
     name: one of 'iris', 'wine', 'breast_cancer', 'digits', 'diabetes', 'wine_quality', 'covertype'
     """
     if name in _cache:
-        data = _cache[name]
-        return _build_response(name, data)
+        return _cache[name]
 
     from sklearn import datasets
 
@@ -178,8 +177,9 @@ def get_real_dataset(name: str) -> Dict[str, Any]:
         )
 
     csv_bytes = _make_csv(df)
-    _cache[name] = csv_bytes
-    return _build_response(name, csv_bytes, desc, poison_note, len(df))
+    response = _build_response(name, csv_bytes, desc, poison_note, len(df))
+    _cache[name] = response
+    return response
 
 
 def _build_response(name: str, csv_bytes: bytes,
