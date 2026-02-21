@@ -1,6 +1,7 @@
 // API client for AI Trust Forensics Platform
+const RENDER_BACKEND = 'https://veritas-1-oan4.onrender.com';
 export const BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || 'https://localhost:8001/api/v1';
+    import.meta.env.VITE_API_BASE_URL || `${RENDER_BACKEND}/api/v1`;
 
 async function apiFetch(path, options = {}) {
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -103,7 +104,7 @@ export const api = {
 
 // WebSocket
 export function createWebSocket(onMessage) {
-    const wsUrl = import.meta.env?.VITE_WS_URL || 'ws://localhost:8001/ws/v1/detection-stream';
+    const wsUrl = import.meta.env?.VITE_WS_URL || `${RENDER_BACKEND.replace(/^http/, 'ws')}/ws/v1/detection-stream`;
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
         console.log('WebSocket connected');
