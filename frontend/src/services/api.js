@@ -58,10 +58,7 @@ export const api = {
             body: JSON.stringify({ case_id: caseId, decision, reviewer }),
         }),
 
-    // Red Team
-    runRedTeam: (attackType) =>
-        apiFetch('/redteam/simulate', { method: 'POST', body: JSON.stringify({ attack_type: attackType }) }),
-    getRedTeamHistory: () => apiFetch('/redteam/history'),
+
 
     // Federated
     getFederatedClients: () => apiFetch('/federated/clients'),

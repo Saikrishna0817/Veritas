@@ -260,3 +260,81 @@ class FederatedTrustAnalyzer:
         if na < 1e-9 or nb < 1e-9:
             return 0.0
         return float(np.dot(a, b) / (na * nb))
+
+    def analyze_clients(self, clients: list) -> dict:
+        """
+        Analyze a list of client dicts, each with:
+          - client_id: str
+          - gradient: np.ndarray
+          - global_gradient: np.ndarray
+        Returns the shape expected by the frontend:
+          { clients: [...], n_quarantined, avg_trust, quarantined_clients }
+        """
+        results = []
+        for c in clients:
+            cid = c["client_id"]
+            grad = np.array(c["gradient"], dtype=float)
+            glob = np.array(c["global_gradient"], dtype=float)
+
+            # Run multiple rounds for warm-up so trust converges
+            for _ in range(c.get("rounds", 1)):
+                r = self.update_trust(cid, grad, glob)
+
+            results.append({
+                "client_id": cid,
+                "trust_score": r["trust_score"],
+                "cosine_similarity": r["cosine_similarity"],
+                "status": r["status"],
+                "quarantined": r["is_quarantined"],
+                "rounds_participated": r["rounds_participated"],
+                "fingerprint_divergence": r["fingerprint_divergence"],
+            })
+
+        n_quarantined = sum(1 for r in results if r["quarantined"])
+        avg_trust = float(np.mean([r["trust_score"] for r in results])) if results else 0.0
+
+        return {
+            "clients": results,
+            "n_quarantined": n_quarantined,
+            "avg_trust": round(avg_trust, 4),
+            "quarantined_clients": [r["client_id"] for r in results if r["quarantined"]],
+        }
+
+
+def generate_demo_clients(n_clients: int = 8, dim: int = 50, seed: int = 42) -> list:
+    """
+    Generate demo federated clients with diverse trust profiles.
+    Returns a list of dicts ready for FederatedTrustAnalyzer.analyze_clients().
+    """
+    rng = np.random.RandomState(seed)
+    global_grad = rng.randn(dim)
+    global_grad /= np.linalg.norm(global_grad) + 1e-9
+
+    profiles = [
+        # (name_suffix, noise_level, invert, rounds)
+        ("honest_A",       0.05, False, 5),
+        ("honest_B",       0.08, False, 5),
+        ("honest_C",       0.12, False, 4),
+        ("noisy_D",        0.35, False, 4),
+        ("noisy_E",        0.50, False, 3),
+        ("suspicious_F",   0.70, False, 3),
+        ("malicious_G",    0.20, True,  5),   # inverts gradient
+        ("malicious_H",    0.10, True,  5),   # inverts gradient
+    ]
+
+    clients = []
+    for i in range(min(n_clients, len(profiles))):
+        suffix, noise, invert, rounds = profiles[i]
+        base = -global_grad if invert else global_grad
+        grad = base + rng.randn(dim) * noise
+        grad /= np.linalg.norm(grad) + 1e-9
+
+        clients.append({
+            "client_id": f"client_{suffix}",
+            "gradient": grad.tolist(),
+            "global_gradient": global_grad.tolist(),
+            "rounds": rounds,
+        })
+
+    return clients
+

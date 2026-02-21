@@ -116,7 +116,7 @@ export default function HistoryPage() {
                             <span style={{ fontSize: 12, fontWeight: 700, color: vColor }}>{row.verdict || '—'}</span>
                             <span style={{ fontSize: 12, color: '#94a3b8', textTransform: 'capitalize' }}>{(row.attack_type || '—').replace(/_/g, ' ')}</span>
                             <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>{row.n_samples || '—'}</span>
-                            <span style={{ fontSize: 11, color: '#475569' }}>{row.created_at ? new Date(row.created_at).toLocaleString() : '—'}</span>
+                            <span style={{ fontSize: 11, color: '#475569' }}>{row.created_at ? new Date(row.created_at.endsWith('Z') ? row.created_at : row.created_at + 'Z').toLocaleString() : '—'}</span>
                         </div>
                     );
                 })}

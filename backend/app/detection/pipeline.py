@@ -1,4 +1,4 @@
-    """
+"""
 Detection Pipeline — Orchestrator  (RECTIFIED v3)
 ===================================================
 

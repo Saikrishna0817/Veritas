@@ -94,7 +94,7 @@ def save_result(result: Dict[str, Any], source: str, filename: str = None) -> st
             result.get("n_samples"),
             result.get("elapsed_ms"),
             json.dumps(result),
-            datetime.utcnow().isoformat(),
+            datetime.utcnow().isoformat() + "Z",
         ),
     )
     conn.commit()
@@ -122,7 +122,7 @@ def save_model_scan(scan: Dict[str, Any]) -> str:
             scan.get("attack_classification", {}).get("attack_type"),
             scan.get("n_samples"),
             json.dumps(scan),
-            datetime.utcnow().isoformat(),
+            datetime.utcnow().isoformat() + "Z",
         ),
     )
     conn.commit()

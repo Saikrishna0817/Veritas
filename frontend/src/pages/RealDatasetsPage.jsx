@@ -6,6 +6,9 @@ const DATASET_META = {
     wine: { icon: '🍷', domain: 'Chemistry', color: '#ef4444' },
     breast_cancer: { icon: '🏥', domain: 'Healthcare', color: '#06b6d4' },
     digits: { icon: '🔢', domain: 'Computer Vision', color: '#f59e0b' },
+    diabetes: { icon: '💉', domain: 'Healthcare', color: '#10b981' },
+    wine_quality: { icon: '🍇', domain: 'Food Science', color: '#ec4899' },
+    covertype: { icon: '🌲', domain: 'Environmental', color: '#84cc16' },
 };
 
 const VERDICT_CONFIG = {
@@ -145,9 +148,9 @@ export default function RealDatasetsPage() {
     return (
         <div style={{ padding: '32px 40px', maxWidth: 1100, margin: '0 auto' }}>
             <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>📚 Real Dataset Library</h1>
+                <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>📚 Real World Dataset Library</h1>
                 <p style={{ color: '#64748b', marginTop: 8, fontSize: 14 }}>
-                    4 real public datasets (UCI, Wisconsin, MNIST) with controlled poison injection — known ground truth,
+                    {catalog.length} real public datasets (UCI, Wisconsin, MNIST, and more) with controlled poison injection — known ground truth,
                     real features. Click <strong style={{ color: '#f1f5f9' }}>Analyze</strong> to run the full 5-layer detection pipeline,
                     or <strong style={{ color: '#f1f5f9' }}>CSV</strong> to download and upload your own way.
                 </p>

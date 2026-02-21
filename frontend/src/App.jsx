@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Shield, Search, Target, Users, FileText, Upload, Cpu, BookOpen, History } from 'lucide-react';
+import { Shield, Search, Users, FileText, Upload, Cpu, BookOpen, History } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import ForensicsPage from './pages/ForensicsPage';
-import RedTeamPage from './pages/RedTeamPage';
+
 import FederatedPage from './pages/FederatedPage';
 import ReportsPage from './pages/ReportsPage';
 import UploadPage from './pages/UploadPage';
@@ -15,9 +15,9 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Trust Dashboard', icon: Shield },
   { id: 'upload', label: 'Upload Dataset', icon: Upload },
   { id: 'model_scan', label: 'Model Scanner', icon: Cpu },
-  { id: 'real_datasets', label: 'Real Datasets', icon: BookOpen },
+  { id: 'real_datasets', label: 'Real World Dataset Library', icon: BookOpen },
   { id: 'forensics', label: 'Poison Forensics', icon: Search },
-  { id: 'redteam', label: 'Red-Team Mode', icon: Target },
+
   { id: 'federated', label: 'Federated Trust', icon: Users },
   { id: 'reports', label: 'Evidence Reports', icon: FileText },
   { id: 'history', label: 'Analysis History', icon: History },
@@ -34,7 +34,7 @@ export default function App() {
       case 'model_scan': return <ModelScanPage />;
       case 'real_datasets': return <RealDatasetsPage />;
       case 'forensics': return <ForensicsPage />;
-      case 'redteam': return <RedTeamPage />;
+
       case 'federated': return <FederatedPage />;
       case 'reports': return <ReportsPage />;
       case 'history': return <HistoryPage />;

@@ -72,8 +72,8 @@ export default function UploadPage() {
             setError('Only CSV files are accepted.');
             return;
         }
-        if (f.size > 10 * 1024 * 1024) {
-            setError('File too large. Maximum size is 10MB.');
+        if (f.size > 100 * 1024 * 1024) {
+            setError('File too large. Maximum size is 100MB.');
             return;
         }
         setFile(f);
@@ -127,7 +127,7 @@ export default function UploadPage() {
                 </h1>
                 <p style={{ color: '#64748b', marginTop: 8, fontSize: 14 }}>
                     Upload any CSV file — the platform auto-detects schema, splits 70/30 for baseline, and runs all 5 detection layers.
-                    Supports up to 50,000 rows · 10MB · supervised &amp; unsupervised modes.
+                    Supports up to 200,000 rows · 100MB · supervised &amp; unsupervised modes.
                 </p>
             </div>
 
@@ -162,7 +162,7 @@ export default function UploadPage() {
                             Drop your CSV here or click to browse
                         </div>
                         <div style={{ color: '#475569', fontSize: 13, marginTop: 6 }}>
-                            Accepts .csv files up to 10MB (≤ 50,000 rows)
+                            Accepts .csv files up to 100MB (≤ 200,000 rows)
                         </div>
                     </>
                 )}

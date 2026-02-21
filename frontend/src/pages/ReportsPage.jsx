@@ -122,7 +122,7 @@ export default function ReportsPage() {
                                 </div>
                                 <h2 className="text-2xl font-bold text-text1">{report.title}</h2>
                                 <div className="font-mono text-xs text-text3 mt-1">
-                                    Report ID: {report.report_id} · Generated: {report.generated_at?.slice(0, 19)} UTC
+                                    Report ID: {report.report_id} · Generated: {report.generated_at ? new Date(report.generated_at.endsWith('Z') ? report.generated_at : report.generated_at + 'Z').toLocaleString() : '—'}
                                 </div>
                                 <div className="font-mono text-xs mt-1" style={{ color: '#06b6d4' }}>
                                     Data source: {report.data_source} · {report.dataset_info?.filename || 'demo dataset'}

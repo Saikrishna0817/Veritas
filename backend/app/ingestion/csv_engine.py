@@ -1,6 +1,6 @@
 """
 CSV Ingestion Engine — Auto-detects schema, cleans data, prepares for detection pipeline.
-Handles up to 50,000 rows. No external baseline required.
+Handles up to 200,000 rows. No external baseline required.
 """
 import io
 import numpy as np
@@ -10,8 +10,8 @@ from datetime import datetime
 import uuid
 
 
-MAX_ROWS = 50_000
-MAX_FILE_SIZE_MB = 10
+MAX_ROWS = 200_000
+MAX_FILE_SIZE_MB = 100
 
 
 class CSVIngestionEngine:
