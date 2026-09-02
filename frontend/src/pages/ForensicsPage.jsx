@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { Search, Upload, Target } from 'lucide-react';
 
@@ -160,13 +160,13 @@ export default function ForensicsPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const load = async (src = activeTab) => {
+    const load = useCallback(async (src = activeTab) => {
         setLoading(true);
         setError(null);
         try {
             const data = await api.getLatestForensics(src);
             setForensics(data);
-        } catch (e) {
+        } catch {
             setError(
                 src === 'upload'
                     ? 'No uploaded dataset analysis found. Upload a CSV first from the Upload Dataset page.'
@@ -175,9 +175,9 @@ export default function ForensicsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
 
-    useEffect(() => { load(activeTab); }, [activeTab]);
+    useEffect(() => { load(activeTab); }, [activeTab, load]);
 
     const TABS = [
         { id: 'auto', label: 'Latest (Auto)', icon: Target },
@@ -207,7 +207,8 @@ export default function ForensicsPage() {
 
             {/* Source Tabs */}
             <div style={{ display: 'flex', gap: 8 }}>
-                {TABS.map(({ id, label, icon: Icon }) => (
+                {/* eslint-disable-next-line no-unused-vars */}
+                {TABS.map(({ id, label, icon: TabIcon }) => (
                     <button key={id} onClick={() => setActiveTab(id)}
                         style={{
                             display: 'flex', alignItems: 'center', gap: 6,
@@ -218,7 +219,7 @@ export default function ForensicsPage() {
                             color: activeTab === id ? '#00e5ff' : '#64748b',
                             fontWeight: activeTab === id ? 700 : 400,
                         }}>
-                        <Icon style={{ width: 12, height: 12 }} /> {label}
+                        <TabIcon style={{ width: 12, height: 12 }} /> {label}
                     </button>
                 ))}
             </div>

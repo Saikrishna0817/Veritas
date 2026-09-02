@@ -20,7 +20,7 @@ export default function ReportsPage() {
         try {
             const r = await api.generateReport(source);
             setReport(r);
-        } catch (e) {
+        } catch {
             setError(
                 source === 'upload'
                     ? 'No uploaded dataset found. Upload a CSV from the Upload Dataset page first.'

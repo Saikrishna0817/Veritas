@@ -7,7 +7,6 @@ route modules can stay thin and consistent.
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Dict
 
 from app.models import database as db
@@ -51,7 +50,6 @@ upload_result_cache: Dict[str, Any] = {}  # keyed by dataset_id
 
 async def broadcast_demo_events(manager, result: dict):
     """Broadcast detection events to WebSocket clients."""
-    await asyncio.sleep(0.5)
     await manager.broadcast(
         "sample_analyzed",
         {
@@ -61,7 +59,6 @@ async def broadcast_demo_events(manager, result: dict):
         },
     )
 
-    await asyncio.sleep(1.0)
     if result.get("verdict") and result.get("verdict") != "CLEAN":
         layer4 = (result.get("layer_results") or {}).get("layer4_causal") or {}
         blast = result.get("blast_radius") or {}
@@ -83,7 +80,6 @@ async def broadcast_demo_events(manager, result: dict):
             },
         )
 
-    await asyncio.sleep(1.5)
     defense_action = result.get("defense_action") or {}
     if defense_action.get("action") in ("quarantine", "soft_quarantine"):
         await manager.broadcast(
@@ -96,7 +92,6 @@ async def broadcast_demo_events(manager, result: dict):
         )
 
     if result.get("hitl_case"):
-        await asyncio.sleep(0.5)
         await manager.broadcast(
             "human_review_required",
             {
@@ -105,4 +100,3 @@ async def broadcast_demo_events(manager, result: dict):
                 "deadline": result["hitl_case"].get("deadline"),
             },
         )
-

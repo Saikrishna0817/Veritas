@@ -12,6 +12,9 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
+from app.core.security import is_safe_filename
+from app.api.routes.upload import read_upload_limited
+from app.ingestion.model_engine import MAX_MODEL_SIZE
 
 router = APIRouter()
 
@@ -24,18 +27,18 @@ async def scan_model(
     dataset_file: Optional[UploadFile] = File(None),
 ):
     """Upload a trained sklearn .pkl model (+ optional CSV dataset) and scan its parameters."""
-    if not model_file.filename.lower().endswith(".pkl"):
+    if not model_file.filename or not is_safe_filename(model_file.filename) or not model_file.filename.lower().endswith(".pkl"):
         raise HTTPException(status_code=400, detail="Only .pkl (pickle) model files are accepted.")
 
-    model_bytes = await model_file.read()
+    model_bytes = await read_upload_limited(model_file, MAX_MODEL_SIZE)
     model_filename = model_file.filename
 
     dataset_bytes = None
     dataset_filename = None
     if dataset_file and dataset_file.filename:
-        if not dataset_file.filename.lower().endswith(".csv"):
+        if not is_safe_filename(dataset_file.filename) or not dataset_file.filename.lower().endswith(".csv"):
             raise HTTPException(status_code=400, detail="Dataset must be a .csv file.")
-        dataset_bytes = await dataset_file.read()
+        dataset_bytes = await read_upload_limited(dataset_file, 200 * 1024 * 1024)
         dataset_filename = dataset_file.filename
 
     def _run_model_scan(m_bytes, m_name, d_bytes, d_name):
@@ -85,8 +88,8 @@ async def scan_model(
             )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Model scan error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Model scan failed. Check server logs with the request ID.")
 
     full_result = deps.to_serializable(full_result)
 
@@ -162,4 +165,3 @@ async def get_trust_score():
         "data_source": data_source,
         "debug": {"causal_effect": causal},
     }
-

@@ -24,13 +24,13 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
 | **5-Layer Detection Pipeline** | Statistical shift → Spectral activation → Ensemble anomaly → Causal proof → Federated trust |
 | **Attack Type Classification** | Automatically identifies: label flip, backdoor, clean label, gradient poisoning, boiling frog |
 | **Causal Proof Engine** | Mathematically *proves* harm using counterfactual analysis, bootstrap CI, and placebo tests |
-| **Model Scanner** | Upload `.pkl` scikit-learn models and scan their parameters for signs of poisoning |
+| **Model Scanner** | Upload supported scikit-learn `.pkl` models through a restricted legacy parser and scan their parameters for anomalies |
 | **Real Dataset Library** | Iris, Wine, Breast Cancer, Digits — with known-quantity poison injection for ground-truth validation |
 | **SQLite Persistence** | All analysis results stored permanently and queryable via the History page |
 | **Red Team Simulator** | Inject synthetic attacks and measure the platform's resilience in real time |
 | **Blue Team SOC** | Security Operations Centre — threat level, HITL review queue, incident log, response playbooks |
 | **Federated Trust** | Cosine similarity + EMA trust scoring for federated learning client safety |
-| **Regulatory Reports** | NIST AI RMF and EU AI Act compliant evidence packages |
+| **Evidence Reports** | Draft evidence summaries mapped to NIST AI RMF concepts; not compliance certification |
 | **Live WebSocket Feed** | Real-time event streaming for attack confirmations and defense actions |
 
 ---
@@ -109,9 +109,19 @@ npm run dev
 
 The frontend runs at `http://localhost:5173`
 
+### Authentication and Docker
+
+Copy `.env.example` to `.env`, set a unique JWT secret and administrator
+credentials, then run `docker compose up --build`. Obtain a JWT through
+`POST /api/v1/auth/token` and sign in through the frontend. Apart from health
+and token issuance, API and WebSocket endpoints require that JWT.
+
 ---
 
 ## 🔬 The 5-Layer Detection Pipeline
+
+Thresholds and scores are experimental analyst signals; their calibration and
+evaluation requirements are documented in [docs/detection-calibration.md](docs/detection-calibration.md).
 
 ### Layer 1 — Statistical Shift Detection
 Compares incoming data distribution to a clean baseline using:
@@ -174,7 +184,7 @@ Full API docs: `http://localhost:8001/docs`
 
 ## 🛡️ Security
 
-The model scanner uses **pre-execution opcode scanning** — suspicious `.pkl` files are scanned at the bytecode level before any code executes. Only whitelisted scikit-learn classes are allowed.
+Legacy pickle uploads are deserialized only through a **restricted unpickler**. It rejects every unreviewed global before construction and permits only approved scikit-learn model classes and their required numeric containers. Pickle remains a legacy interoperability format; production deployments should prefer a non-executable model format or execute legacy parsing in an isolated worker. All API and WebSocket endpoints require a valid JWT except `/health`, `/`, and `/api/v1/auth/token`.
 
 ---
 

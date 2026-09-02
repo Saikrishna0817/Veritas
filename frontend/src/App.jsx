@@ -10,6 +10,8 @@ import ModelScanPage from './pages/ModelScanPage';
 import RealDatasetsPage from './pages/RealDatasetsPage';
 import HistoryPage from './pages/HistoryPage';
 import { useWebSocket } from './hooks/useWebSocket';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Trust Dashboard', icon: Shield },
@@ -42,8 +44,7 @@ export default function App() {
     }
   };
 
-  return (
-    <div className="flex h-screen bg-bg overflow-hidden relative z-10">
+  return <ProtectedRoute fallback={<LoginPage />}><div className="flex h-screen bg-bg overflow-hidden relative z-10">
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 bg-bg2 border-r border-border flex flex-col">
         {/* Logo */}
@@ -72,20 +73,23 @@ export default function App() {
 
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1">
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+          {NAV_ITEMS.map((item) => {
+            const ItemIcon = item.icon;
+            return (
             <button
-              key={id}
-              onClick={() => setActivePage(id)}
+              key={item.id}
+              onClick={() => setActivePage(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-all duration-200 font-mono text-xs tracking-wide
-                ${activePage === id
+                ${activePage === item.id
                   ? 'bg-accent/10 text-accent border border-accent/30'
                   : 'text-text3 hover:text-text2 hover:bg-surface'
                 }`}
             >
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              {label}
+              <ItemIcon className="w-4 h-4 flex-shrink-0" />
+              {item.label}
             </button>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Live Events Feed */}
@@ -127,6 +131,5 @@ export default function App() {
       <main className="flex-1 overflow-y-auto">
         {renderPage()}
       </main>
-    </div>
-  );
+    </div></ProtectedRoute>;
 }

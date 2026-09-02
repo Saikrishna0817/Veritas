@@ -7,6 +7,8 @@ from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.core.security import decode_access_token
+
 router = APIRouter()
 
 
@@ -44,6 +46,16 @@ async def detection_stream(websocket: WebSocket):
 
     The ConnectionManager instance is stored on app.state.ws_manager by main.py.
     """
+    token = websocket.query_params.get("access_token")
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return
+    try:
+        decode_access_token(token)
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid access token")
+        return
+
     manager: ConnectionManager = websocket.app.state.ws_manager
     await manager.connect(websocket)
     try:
@@ -54,4 +66,3 @@ async def detection_stream(websocket: WebSocket):
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-

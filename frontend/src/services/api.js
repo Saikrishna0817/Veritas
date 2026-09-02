@@ -1,11 +1,15 @@
 // API client for AI Trust Forensics Platform
-const RENDER_BACKEND = 'https://veritas-1-oan4.onrender.com';
 export const BASE_URL =
-    import.meta.env.VITE_API_BASE_URL || `${RENDER_BACKEND}/api/v1`;
+    import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
-async function apiFetch(path, options = {}) {
+function authHeaders() {
+    const token = localStorage.getItem('veritas_access_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiFetch(path, { skipAuth = false, ...options } = {}) {
     const res = await fetch(`${BASE_URL}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...options.headers },
+        headers: { 'Content-Type': 'application/json', ...(skipAuth ? {} : authHeaders()), ...options.headers },
         ...options,
     });
     if (!res.ok) {
@@ -16,7 +20,7 @@ async function apiFetch(path, options = {}) {
 }
 
 async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', body: formData });
+    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers: authHeaders(), body: formData });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || 'Upload failed');
@@ -26,6 +30,12 @@ async function apiFormData(path, formData) {
 
 export const api = {
     BASE_URL,
+    login: (username, password) => apiFetch('/auth/token', {
+        method: 'POST',
+        skipAuth: true,
+        body: JSON.stringify({ username, password }),
+    }),
+    me: () => apiFetch('/auth/me'),
 
     // Demo
     runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
@@ -104,7 +114,11 @@ export const api = {
 
 // WebSocket
 export function createWebSocket(onMessage) {
-    const wsUrl = import.meta.env?.VITE_WS_URL || `${RENDER_BACKEND.replace(/^http/, 'ws')}/ws/v1/detection-stream`;
+    const configuredUrl = import.meta.env?.VITE_WS_URL;
+    const defaultUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/v1/detection-stream`;
+    const baseWsUrl = configuredUrl || defaultUrl;
+    const token = localStorage.getItem('veritas_access_token');
+    const wsUrl = token ? `${baseWsUrl}?access_token=${encodeURIComponent(token)}` : baseWsUrl;
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => {
         console.log('WebSocket connected');
@@ -121,10 +135,11 @@ export function createWebSocket(onMessage) {
         try {
             const msg = JSON.parse(e.data);
             onMessage(msg);
-        } catch { }
+        } catch {
+            return;
+        }
     };
     ws.onerror = (e) => console.error('WebSocket error', e);
     ws.onclose = () => console.log('WebSocket disconnected');
     return ws;
 }
-

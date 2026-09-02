@@ -8,8 +8,22 @@ from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, Up
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
+from app.core.security import is_safe_filename
 
 router = APIRouter()
+MAX_CSV_SIZE = 200 * 1024 * 1024
+
+
+async def read_upload_limited(file: UploadFile, limit: int) -> bytes:
+    """Read an upload in bounded chunks and reject it before retaining excess bytes."""
+    parts: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(status_code=413, detail=f"File too large. Maximum size is {limit // 1024 // 1024} MB.")
+        parts.append(chunk)
+    return b"".join(parts)
 
 
 @router.post("/analyze/upload")
@@ -26,12 +40,10 @@ async def analyze_uploaded_csv(
     - Self-contained: uses internal 70/30 split (no external baseline needed)
     - Max 200,000 rows, 200 MB file size
     """
-    if not file.filename.lower().endswith(".csv"):
+    if not file.filename or not is_safe_filename(file.filename) or not file.filename.lower().endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted.")
 
-    content = await file.read()
-    if len(content) > 200 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 200 MB.")
+    content = await read_upload_limited(file, MAX_CSV_SIZE)
 
     filename = file.filename
 
@@ -97,8 +109,8 @@ async def analyze_uploaded_csv(
             full_result, dataset_id = await loop.run_in_executor(pool, _run_analysis, content, filename)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis error: {str(e)}")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Analysis failed. Check server logs with the request ID.")
 
     full_result = deps.to_serializable(full_result)
     deps.upload_result_cache[dataset_id] = full_result
@@ -132,4 +144,3 @@ async def get_upload_result(dataset_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="Dataset not found.")
     return result
-

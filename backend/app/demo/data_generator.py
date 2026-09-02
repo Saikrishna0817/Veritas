@@ -7,12 +7,14 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import random
+import logging
 
 # Seed only locally inside functions, never at module level
 
 
 # Singleton demo data — refreshed on each /demo/run call
 _demo_data = None
+logger = logging.getLogger(__name__)
 
 # ── Feature names (medical diagnosis domain) ──────────────────────────────────
 FEATURE_NAMES = [
@@ -228,7 +230,7 @@ def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[st
     if scenario == "random":
         scenario = "clean" if random.random() < 0.20 else "poisoned"
 
-    print(f"Generating demo dataset (scenario={scenario}, seed={seed})...")
+    logger.info("Generating demo dataset (scenario=%s, seed=%s)", scenario, seed)
     samples = generate_clean_dataset(500)
 
     if scenario == "poisoned":
@@ -340,4 +342,3 @@ def refresh_demo_data(scenario: str = "random") -> Dict[str, Any]:
     _demo_data = generate_demo_dataset(scenario=scenario)
     _demo_data["timeline"] = generate_timeline_data(_demo_data["samples"])
     return _demo_data
-

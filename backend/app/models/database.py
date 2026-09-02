@@ -13,9 +13,10 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from app.core.config import settings
 
 # DB lives next to the backend package
-DB_PATH = Path(__file__).parent.parent.parent / "forensics_results.db"
+DB_PATH = Path(settings.sqlite_path) if settings.sqlite_path else Path(__file__).parent.parent.parent / "forensics_results.db"
 
 _local = threading.local()
 
@@ -208,5 +209,4 @@ def get_stats() -> Dict:
         "by_source": {r["source"]: r["n"] for r in by_source},
         "by_verdict": {r["verdict"]: r["n"] for r in by_verdict},
     }
-
 

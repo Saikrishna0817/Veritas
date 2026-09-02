@@ -7,19 +7,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router, ws_router
 from app.api.routes.websocket import ConnectionManager
+from app.core.config import settings
+from app.core.logging import configure_logging
+import logging
 
 # Global state
 manager = ConnectionManager()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize demo data on startup."""
-    print("🛡️  AI Trust Forensics Platform v2.2 starting...")
+    configure_logging()
+    logger.info("AI Trust Forensics Platform v2.2 starting")
     from app.demo.data_generator import get_demo_data
     data = get_demo_data()
-    print(f"✅ Demo dataset ready: {data['total_samples']} samples, {data['poisoned_samples']} poisoned")
+    logger.info("Demo dataset ready: %s samples", data["total_samples"])
     yield
-    print("Shutting down...")
+    logger.info("AI Trust Forensics Platform shutting down")
 
 
 app = FastAPI(
@@ -32,7 +37,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=list(settings.cors_allow_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

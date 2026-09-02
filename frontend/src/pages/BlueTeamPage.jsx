@@ -306,7 +306,6 @@ export default function BlueTeamPage() {
     const [incidents, setIncidents] = useState([]);
     const [resilience, setResilience] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [deciding, setDeciding] = useState(null);
     const [decisionMsg, setDecisionMsg] = useState(null);
 
     const loadAll = useCallback(async () => {
@@ -326,14 +325,12 @@ export default function BlueTeamPage() {
     useEffect(() => { loadAll(); const t = setInterval(loadAll, 15000); return () => clearInterval(t); }, [loadAll]);
 
     const handleDecide = async (caseId, decision) => {
-        setDeciding(caseId);
         try {
             await api.submitReviewDecision(caseId, decision, 'analyst');
             setDecisionMsg(`Case ${caseId.slice(0, 8)}… → ${decision.replace(/_/g, ' ')}`);
             setTimeout(() => setDecisionMsg(null), 3000);
             await loadAll();
         } catch (e) { console.error(e); }
-        finally { setDeciding(null); }
     };
 
     if (loading) {

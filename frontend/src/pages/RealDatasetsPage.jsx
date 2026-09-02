@@ -78,7 +78,6 @@ function DatasetCard({ dataset, onAnalyze, onDownload, loading }) {
 
 function ResultCard({ result, onClose }) {
     const verdict = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS;
-    const attackColor = ATTACK_COLORS[result.attack_classification?.attack_type] || '#6366f1';
     return (
         <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${verdict.color}33`, borderRadius: 16, padding: 24, animation: 'fadeIn 0.5s ease' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>

@@ -6,15 +6,27 @@ services:
       - "8001:8001"
     environment:
       - PYTHONUNBUFFERED=1
+      - FORENSICS_SQLITE_PATH=/data/forensics_results.db
+      - CORS_ALLOW_ORIGINS=http://localhost:5173
+      - VERITAS_JWT_SECRET=${VERITAS_JWT_SECRET:?Set VERITAS_JWT_SECRET in .env}
+      - VERITAS_ADMIN_USERNAME=${VERITAS_ADMIN_USERNAME:?Set VERITAS_ADMIN_USERNAME in .env}
+      - VERITAS_ADMIN_PASSWORD=${VERITAS_ADMIN_PASSWORD:?Set VERITAS_ADMIN_PASSWORD in .env}
+    volumes:
+      - veritas_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   frontend:
     build:
       context: ./frontend
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_BASE_URL=http://localhost:8001/api/v1
-      - VITE_WS_URL=ws://localhost:8001/ws/v1/detection-stream
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
+volumes:
+  veritas_data:

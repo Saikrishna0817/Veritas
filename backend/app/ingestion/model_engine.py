@@ -1,7 +1,7 @@
 """
 Model Scanning Engine — AI Trust Forensics Platform v2.2
 
-Loads a user-uploaded sklearn .pkl model, extracts its internal learned
+Loads a trusted-or-restricted user-uploaded sklearn .pkl model, extracts its internal learned
 parameters (weights, coefs, tree structures) as a numeric feature matrix,
 then runs the full 5-layer detection pipeline on those parameters to detect
 signs of poisoning baked into the model itself.
@@ -36,6 +36,42 @@ ALLOWED_CLASSES = {
 
 MAX_MODEL_SIZE = 50 * 1024 * 1024  # 50 MB
 
+# Pickles are executable programs, not a safe interchange format.  This allow-list
+# permits the data containers needed by current scikit-learn estimators while
+# refusing arbitrary globals (for example ``os.system``) *before* the object is
+# constructed. Keep this small and extend it only with a regression fixture.
+SAFE_GLOBALS = {
+    ("builtins", "set"), ("builtins", "frozenset"), ("builtins", "slice"),
+    ("collections", "OrderedDict"), ("copyreg", "_reconstructor"),
+    ("numpy", "dtype"), ("numpy", "ndarray"),
+    ("numpy.core.multiarray", "_reconstruct"),
+    ("numpy._core.multiarray", "_reconstruct"),
+    ("numpy.core.multiarray", "scalar"), ("numpy._core.multiarray", "scalar"),
+    ("numpy._core.numeric", "_frombuffer"), ("numpy.core.numeric", "_frombuffer"),
+    ("scipy.sparse._csr", "csr_matrix"), ("scipy.sparse._csc", "csc_matrix"),
+}
+
+
+class RestrictedUnpickler(pickle.Unpickler):
+    """Unpickler that rejects every global outside the reviewed allow-list.
+
+    This reduces the legacy-pickle risk but is not a reason to accept arbitrary
+    pickle formats indefinitely. Production deployments should prefer a
+    non-executable model format or execute this legacy path in an isolated worker.
+    """
+
+    def find_class(self, module: str, name: str) -> Any:
+        if name in ALLOWED_CLASSES and module.startswith("sklearn."):
+            return super().find_class(module, name)
+        if (module, name) in SAFE_GLOBALS:
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(f"Disallowed pickle global: {module}.{name}")
+
+
+def restricted_loads(model_bytes: bytes) -> Any:
+    """Deserialize legacy pickle bytes through the restrictive global resolver."""
+    return RestrictedUnpickler(io.BytesIO(model_bytes)).load()
+
 
 class ModelScanEngine:
     """
@@ -55,9 +91,10 @@ class ModelScanEngine:
         # Compute hash for audit trail
         sha256 = hashlib.sha256(model_bytes).hexdigest()
 
-        # Safe unpickling — catch any import errors
+        # Validate every class global before it can be instantiated. Never use
+        # pickle.loads here: it resolves arbitrary globals during construction.
         try:
-            model = pickle.loads(model_bytes)  # noqa: S301
+            model = restricted_loads(model_bytes)
         except Exception as e:
             raise ValueError(f"Cannot unpickle model: {e}")
 
