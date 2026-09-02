@@ -64,13 +64,15 @@ def test_layer_weights_sum_to_one():
 
 
 def test_updated_weights_are_documented_with_benchmark_citation():
-    pipeline_source = Path("backend/app/detection/pipeline.py").read_text()
+    backend_root = Path(__file__).resolve().parents[1]
+    pipeline_source = (backend_root / "app/detection/pipeline.py").read_text()
 
     assert "2026-09-02-benchmark-v1-step2-l3-gate.json" in pipeline_source
 
 
 def test_full_pipeline_meets_pre_registered_target_on_benchmark():
-    report_path = Path("backend/research/results/2026-09-02-benchmark-v1-eval-r3.json")
+    backend_root = Path(__file__).resolve().parents[1]
+    report_path = backend_root / "research/results/2026-09-02-benchmark-v1-eval-r3.json"
     report = json.loads(report_path.read_text())
     operating_point = report["pre_registered_operating_point"]
 
