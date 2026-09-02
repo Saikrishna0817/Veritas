@@ -57,6 +57,10 @@ except ImportError:
 
 
 # ── Layer weights (RECT 9: rebalanced) ────────────────────────────────────────
+# Step 3 retained these values: `backend/research/results/2026-09-02-benchmark-v1-step2-l3-gate.json`
+# reports 0.00 incident F1 for every individual layer and
+# for the combination. The only non-zero Layer-3 evidence is row-level, so
+# changing a batch-level blend weight would not be evidence-based calibration.
 LAYER_WEIGHTS = {
     "l1_statistical": 0.35,   # RECT 9: was 0.30
     "l2_spectral"   : 0.20,
@@ -64,6 +68,15 @@ LAYER_WEIGHTS = {
     "l4_causal"     : 0.20,
     "l5_federated"  : 0.05,
 }
+
+# Calibration evidence: `backend/research/results/2026-09-02-benchmark-v1-
+# step1-incoming-ratio.json` measured a 0.00 clean-batch Layer-3 flag rate and
+# a 0.06 boiling-frog incoming flag rate. The former 0.02 extra margin
+# suppressed that measured attack signal by 80%; retaining any rate above the
+# detector's own expected clean rate is the least permissive correction tested
+# by that benchmark.
+L3_GATE_EXCESS_MARGIN = 0.00
+L3_LOW_CONFIDENCE_SUPPRESSION = 0.20
 
 # ── Verdict thresholds ─────────────────────────────────────────────────────────
 THRESHOLD_CONFIRMED  = 0.65
@@ -140,9 +153,13 @@ class DetectionPipeline:
         # ── L2: full dataset ────────────────────────────────────────────────
         r2 = self.l2.analyze(X_full, y_full)
 
-        # ── L3: full dataset ────────────────────────────────────────────────
-        r3           = self.l3.analyze(X_full)
-        flagged_full = r3.get("flagged_indices", [])
+        # ── L3: reference-fit, incoming-score ───────────────────────────────
+        # Layer 3 is fitted in `fit_baseline()` on clean reference data. Score
+        # only the incoming batch here so its flagged ratio describes the batch
+        # under judgment, rather than being diluted by reference rows. Layer 4
+        # still receives full-dataset indices for its existing API.
+        r3 = self._analyze_l3_incoming(X)
+        flagged_full = r3["flagged_indices"]
 
         # ── L4: receives X_full ─────────────────────────────────────────────
         r4 = self.l4.run(X_full, y_full, flagged_full)
@@ -160,9 +177,8 @@ class DetectionPipeline:
             r5 = self._zero_l5_result()
 
         # ── Combine suspicion scores ─────────────────────────────────────────
-        l3_score_raw   = r3["suspicion_score"]
-        l3_excess      = r3.get("flagged_ratio", 0.0) - r3.get("expected_clean_flag_rate", 0.05)
-        l3_score_gated = l3_score_raw if l3_excess > 0.02 else l3_score_raw * 0.2
+        l3_score_raw = r3["suspicion_score"]
+        l3_score_gated = self._gate_l3_score(l3_score_raw, r3)
 
         raw_score = (
             LAYER_WEIGHTS["l1_statistical"] * r1["suspicion_score"]
@@ -218,6 +234,24 @@ class DetectionPipeline:
                 "layer5": r5,
             },
         }
+
+    def _analyze_l3_incoming(self, X_incoming: np.ndarray) -> dict:
+        """Score only incoming rows and map local flags to full-dataset indices."""
+        result = self.l3.analyze(X_incoming)
+        flagged_incoming = result.get("flagged_indices", [])
+        reference_count = len(self.X_reference) if self.X_reference is not None else 0
+        result["flagged_indices_incoming"] = flagged_incoming
+        result["flagged_indices"] = [reference_count + index for index in flagged_incoming]
+        return result
+
+    @staticmethod
+    def _gate_l3_score(l3_score_raw: float, l3_result: dict) -> float:
+        """Suppress only Layer-3 rates at or below its expected clean baseline."""
+        l3_excess = (l3_result.get("flagged_ratio", 0.0)
+                     - l3_result.get("expected_clean_flag_rate", 0.05))
+        if l3_excess > L3_GATE_EXCESS_MARGIN:
+            return l3_score_raw
+        return l3_score_raw * L3_LOW_CONFIDENCE_SUPPRESSION
 
     @staticmethod
     def _zero_l5_result() -> dict:

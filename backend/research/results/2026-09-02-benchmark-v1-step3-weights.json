@@ -1,0 +1,1996 @@
+{
+  "benchmark_id": "veritas-csv-poisoning-v1",
+  "evaluation_revision": 2,
+  "measurement_unit": "incident_batch",
+  "threshold": 0.35,
+  "metrics": {
+    "l1_statistical": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "l2_spectral": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "l3_ensemble": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "l4_causal": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "l5_federated": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "combined": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    }
+  },
+  "layer3_row_metrics": {
+    "clean": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "label_flip": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "backdoor": {
+      "precision": 1.0,
+      "recall": 0.2,
+      "f1": 0.33333333333333337,
+      "false_positive_rate": 0.0
+    },
+    "clean_label": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "false_positive_rate": 0.0
+    },
+    "gradient_poisoning": {
+      "precision": 1.0,
+      "recall": 0.08333333333333333,
+      "f1": 0.15384615384615385,
+      "false_positive_rate": 0.0
+    },
+    "boiling_frog": {
+      "precision": 1.0,
+      "recall": 0.48,
+      "f1": 0.6486486486486487,
+      "false_positive_rate": 0.0
+    }
+  },
+  "scenarios": [
+    {
+      "attack_type": "clean",
+      "ground_truth": false,
+      "poisoned_incoming_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        66,
+        67,
+        68,
+        69,
+        70,
+        71,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+        97,
+        98,
+        99,
+        100,
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110,
+        111,
+        112,
+        113,
+        114,
+        115,
+        116,
+        117,
+        118,
+        119,
+        120,
+        121,
+        122,
+        123,
+        124,
+        125,
+        126,
+        127,
+        128,
+        129,
+        130,
+        131,
+        132,
+        133,
+        134,
+        135,
+        136,
+        137,
+        138,
+        139,
+        140,
+        141,
+        142,
+        143,
+        144,
+        145,
+        146,
+        147,
+        148,
+        149,
+        150,
+        151,
+        152,
+        153,
+        154,
+        155,
+        156,
+        157,
+        158,
+        159,
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175,
+        176,
+        177,
+        178,
+        179,
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192,
+        193,
+        194,
+        195,
+        196,
+        197,
+        198,
+        199
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.015881377424386625,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.0,
+        "l3_ensemble_gated": 0.0,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.04555848209853533
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.04555848209853533,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.015881377424386625,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.0,
+          "l3_ensemble_gated": 0.0,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.015881377424386625,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.010897182493861575,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.021788182275412214,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.2683731664030731,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.008666666666666711,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.508,
+              "absolute_shift": 0.0087,
+              "z_score": 0.237,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=0.24)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.07848695623922879,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.6,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0033,
+              "inc_tail_fraction": 0.002,
+              "skewness_ref": 0.0855,
+              "skewness_incoming": 0.1143,
+              "skewness_shift": 0.0288,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1394,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.60x, Skew shift=0.029"
+            },
+            "gradient_score": 0.1842426572720961,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.184,
+              "p95_z_score": 0.302,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.45217576761603134,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4522,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 4.168282607682908,
+            "relative_spectral_gap": 0.8415932380681822,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9176488260564422,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.492,
+            "minority_cluster_count": 246,
+            "minority_tightness": 0.08539959741289023,
+            "silhouette_score": 0.7478386501892226,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.0,
+            "flagged_ratio": 0.0,
+            "flagged_count": 0,
+            "total_samples": 200,
+            "flagged_indices": [],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "one_class_svm": {
+                "flagged_count": 18,
+                "flagged_ratio": 0.09
+              },
+              "local_outlier_factor": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "dbscan": {
+                "flagged_count": 4,
+                "flagged_ratio": 0.02,
+                "eps_used": 1.6024,
+                "n_clusters": 2
+              },
+              "elliptic_envelope": {
+                "flagged_count": 6,
+                "flagged_ratio": 0.03
+              },
+              "xgb_one_class": {
+                "flagged_count": 30,
+                "flagged_ratio": 0.15
+              },
+              "rf_one_class": {
+                "flagged_count": 27,
+                "flagged_ratio": 0.135
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.26814080589651,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.275,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.3864,
+                "uniformity_score": 0.2271,
+                "tail_fraction": 0.18,
+                "tail_coverage_score": 0.0
+              },
+              "interpretation": "No model inversion signature (suspicion=0.268). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": []
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.0,
+            "degradation_score": 0.0,
+            "proxy_effects": {},
+            "proxy_accuracies_with": {},
+            "proxy_accuracies_wo": {},
+            "n_proxies_agree": 0,
+            "acc_with_poison": 0.0,
+            "acc_without_poison": 0.0,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.0
+            ],
+            "bootstrap_mean": 0.0,
+            "p_value": 1.0,
+            "significant": false,
+            "placebo_effect": 0.0,
+            "placebo_ratio": 1.0,
+            "placebo_valid": false,
+            "ci_excludes_zero": false,
+            "n_flagged": 0,
+            "n_total": 0,
+            "projections": {
+              "day_30": 0.0,
+              "day_60": 0.0,
+              "day_90": 0.0
+            },
+            "interpretation": "Skipped: insufficient_flagged_samples",
+            "skip_reason": "insufficient_flagged_samples",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Skipped: insufficient data."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    },
+    {
+      "attack_type": "label_flip",
+      "ground_truth": true,
+      "poisoned_incoming_indices": [
+        42,
+        48,
+        51,
+        77,
+        88,
+        94,
+        100,
+        103,
+        115,
+        116,
+        122,
+        134,
+        140,
+        142,
+        155,
+        165,
+        166,
+        186,
+        191,
+        198
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.015881377424386625,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.0,
+        "l3_ensemble_gated": 0.0,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.04555848209853533
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.04555848209853533,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.015881377424386625,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.0,
+          "l3_ensemble_gated": 0.0,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.015881377424386625,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.010897182493861575,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.021788182275412214,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.2683731664030731,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.04866666666666669,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.468,
+              "absolute_shift": 0.0487,
+              "z_score": 1.333,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=1.33)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.07848695623922879,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.6,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0033,
+              "inc_tail_fraction": 0.002,
+              "skewness_ref": 0.0855,
+              "skewness_incoming": 0.1143,
+              "skewness_shift": 0.0288,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1394,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.60x, Skew shift=0.029"
+            },
+            "gradient_score": 0.1842426572720961,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.184,
+              "p95_z_score": 0.302,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.45217576761603134,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4522,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 4.252562921246171,
+            "relative_spectral_gap": 0.8586097766940354,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9185980185492428,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.47,
+            "minority_cluster_count": 235,
+            "minority_tightness": 0.08324469133022644,
+            "silhouette_score": 0.7252784881475633,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.0,
+            "flagged_ratio": 0.0,
+            "flagged_count": 0,
+            "total_samples": 200,
+            "flagged_indices": [],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "one_class_svm": {
+                "flagged_count": 18,
+                "flagged_ratio": 0.09
+              },
+              "local_outlier_factor": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "dbscan": {
+                "flagged_count": 4,
+                "flagged_ratio": 0.02,
+                "eps_used": 1.6024,
+                "n_clusters": 2
+              },
+              "elliptic_envelope": {
+                "flagged_count": 6,
+                "flagged_ratio": 0.03
+              },
+              "xgb_one_class": {
+                "flagged_count": 30,
+                "flagged_ratio": 0.15
+              },
+              "rf_one_class": {
+                "flagged_count": 27,
+                "flagged_ratio": 0.135
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.26814080589651,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.275,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.3864,
+                "uniformity_score": 0.2271,
+                "tail_fraction": 0.18,
+                "tail_coverage_score": 0.0
+              },
+              "interpretation": "No model inversion signature (suspicion=0.268). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": []
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.0,
+            "degradation_score": 0.0,
+            "proxy_effects": {},
+            "proxy_accuracies_with": {},
+            "proxy_accuracies_wo": {},
+            "n_proxies_agree": 0,
+            "acc_with_poison": 0.0,
+            "acc_without_poison": 0.0,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.0
+            ],
+            "bootstrap_mean": 0.0,
+            "p_value": 1.0,
+            "significant": false,
+            "placebo_effect": 0.0,
+            "placebo_ratio": 1.0,
+            "placebo_valid": false,
+            "ci_excludes_zero": false,
+            "n_flagged": 0,
+            "n_total": 0,
+            "projections": {
+              "day_30": 0.0,
+              "day_60": 0.0,
+              "day_90": 0.0
+            },
+            "interpretation": "Skipped: insufficient_flagged_samples",
+            "skip_reason": "insufficient_flagged_samples",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Skipped: insufficient data."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    },
+    {
+      "attack_type": "backdoor",
+      "ground_truth": true,
+      "poisoned_incoming_indices": [
+        33,
+        36,
+        41,
+        62,
+        71,
+        81,
+        84,
+        107,
+        131,
+        135,
+        149,
+        154,
+        179,
+        183,
+        195
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.016892498266461234,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.0,
+        "l3_ensemble_gated": 0.0,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.04591237439326144
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [
+        81,
+        107,
+        154
+      ],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.04591237439326144,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.016892498266461234,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.0,
+          "l3_ensemble_gated": 0.0,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.016892498266461234,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.011916408527518301,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.02657337158269642,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.8089310725976797,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.021333333333333315,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.538,
+              "absolute_shift": 0.0213,
+              "z_score": 0.585,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=0.59)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.07713082362237665,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.6,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0033,
+              "inc_tail_fraction": 0.002,
+              "skewness_ref": 0.0789,
+              "skewness_incoming": 0.0526,
+              "skewness_shift": 0.0263,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1546,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.60x, Skew shift=0.026"
+            },
+            "gradient_score": 0.19696009766499625,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.197,
+              "p95_z_score": 0.343,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.41913092927491524,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4191,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 4.16044679004289,
+            "relative_spectral_gap": 0.8400111545673131,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9150116892032193,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.462,
+            "minority_cluster_count": 231,
+            "minority_tightness": 0.08789220707710067,
+            "silhouette_score": 0.744870308872859,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.0,
+            "flagged_ratio": 0.015,
+            "flagged_count": 3,
+            "total_samples": 200,
+            "flagged_indices": [
+              381,
+              407,
+              454
+            ],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 11,
+                "flagged_ratio": 0.055
+              },
+              "one_class_svm": {
+                "flagged_count": 32,
+                "flagged_ratio": 0.16
+              },
+              "local_outlier_factor": {
+                "flagged_count": 21,
+                "flagged_ratio": 0.105
+              },
+              "dbscan": {
+                "flagged_count": 4,
+                "flagged_ratio": 0.02,
+                "eps_used": 1.6024,
+                "n_clusters": 3
+              },
+              "elliptic_envelope": {
+                "flagged_count": 21,
+                "flagged_ratio": 0.105
+              },
+              "xgb_one_class": {
+                "flagged_count": 41,
+                "flagged_ratio": 0.205
+              },
+              "rf_one_class": {
+                "flagged_count": 41,
+                "flagged_ratio": 0.205
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.2859450322408867,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.225,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.3568,
+                "uniformity_score": 0.2865,
+                "tail_fraction": 0.18,
+                "tail_coverage_score": 0.0
+              },
+              "interpretation": "No model inversion signature (suspicion=0.286). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": [
+              81,
+              107,
+              154
+            ]
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.0,
+            "degradation_score": 0.0,
+            "proxy_effects": {},
+            "proxy_accuracies_with": {},
+            "proxy_accuracies_wo": {},
+            "n_proxies_agree": 0,
+            "acc_with_poison": 0.0,
+            "acc_without_poison": 0.0,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.0
+            ],
+            "bootstrap_mean": 0.0,
+            "p_value": 1.0,
+            "significant": false,
+            "placebo_effect": 0.0,
+            "placebo_ratio": 1.0,
+            "placebo_valid": false,
+            "ci_excludes_zero": false,
+            "n_flagged": 3,
+            "n_total": 0,
+            "projections": {
+              "day_30": 0.0,
+              "day_60": 0.0,
+              "day_90": 0.0
+            },
+            "interpretation": "Skipped: insufficient_flagged_samples",
+            "skip_reason": "insufficient_flagged_samples",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Skipped: insufficient data."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    },
+    {
+      "attack_type": "clean_label",
+      "ground_truth": true,
+      "poisoned_incoming_indices": [
+        33,
+        36,
+        41,
+        62,
+        71,
+        75,
+        81,
+        84,
+        107,
+        117,
+        131,
+        135,
+        149,
+        152,
+        154,
+        179,
+        183,
+        195
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.015881647052847045,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.0,
+        "l3_ensemble_gated": 0.0,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.045558576468496474
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.045558576468496474,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.015881647052847045,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.0,
+          "l3_ensemble_gated": 0.0,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.015881647052847045,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.01095859974177097,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.021787389494915384,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.2683731664030731,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.008666666666666711,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.508,
+              "absolute_shift": 0.0087,
+              "z_score": 0.237,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=0.24)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.07849020507386127,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.6,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0033,
+              "inc_tail_fraction": 0.002,
+              "skewness_ref": 0.0855,
+              "skewness_incoming": 0.1143,
+              "skewness_shift": 0.0288,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1394,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.60x, Skew shift=0.029"
+            },
+            "gradient_score": 0.18425294717290885,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.184,
+              "p95_z_score": 0.302,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.4521856090600328,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4522,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 4.168346923655537,
+            "relative_spectral_gap": 0.8416062237250482,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9176511350418305,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.492,
+            "minority_cluster_count": 246,
+            "minority_tightness": 0.08539658095546951,
+            "silhouette_score": 0.7478390666517025,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.0,
+            "flagged_ratio": 0.0,
+            "flagged_count": 0,
+            "total_samples": 200,
+            "flagged_indices": [],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "one_class_svm": {
+                "flagged_count": 18,
+                "flagged_ratio": 0.09
+              },
+              "local_outlier_factor": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "dbscan": {
+                "flagged_count": 4,
+                "flagged_ratio": 0.02,
+                "eps_used": 1.6024,
+                "n_clusters": 2
+              },
+              "elliptic_envelope": {
+                "flagged_count": 6,
+                "flagged_ratio": 0.03
+              },
+              "xgb_one_class": {
+                "flagged_count": 30,
+                "flagged_ratio": 0.15
+              },
+              "rf_one_class": {
+                "flagged_count": 27,
+                "flagged_ratio": 0.135
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.2681411650952759,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.275,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.3864,
+                "uniformity_score": 0.2271,
+                "tail_fraction": 0.18,
+                "tail_coverage_score": 0.0
+              },
+              "interpretation": "No model inversion signature (suspicion=0.268). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": []
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.0,
+            "degradation_score": 0.0,
+            "proxy_effects": {},
+            "proxy_accuracies_with": {},
+            "proxy_accuracies_wo": {},
+            "n_proxies_agree": 0,
+            "acc_with_poison": 0.0,
+            "acc_without_poison": 0.0,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.0
+            ],
+            "bootstrap_mean": 0.0,
+            "p_value": 1.0,
+            "significant": false,
+            "placebo_effect": 0.0,
+            "placebo_ratio": 1.0,
+            "placebo_valid": false,
+            "ci_excludes_zero": false,
+            "n_flagged": 0,
+            "n_total": 0,
+            "projections": {
+              "day_30": 0.0,
+              "day_60": 0.0,
+              "day_90": 0.0
+            },
+            "interpretation": "Skipped: insufficient_flagged_samples",
+            "skip_reason": "insufficient_flagged_samples",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Skipped: insufficient data."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    },
+    {
+      "attack_type": "gradient_poisoning",
+      "ground_truth": true,
+      "poisoned_incoming_indices": [
+        42,
+        48,
+        77,
+        100,
+        103,
+        116,
+        134,
+        140,
+        155,
+        166,
+        186,
+        191
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.016049260254268435,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.0,
+        "l3_ensemble_gated": 0.0,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.04561724108899396
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [
+        166
+      ],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.04561724108899396,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.016049260254268435,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.0,
+          "l3_ensemble_gated": 0.0,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.016049260254268435,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.011303789812324376,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.025435213682129205,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.3208568895236414,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.008666666666666711,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.508,
+              "absolute_shift": 0.0087,
+              "z_score": 0.237,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=0.24)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.08033387701811592,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.6,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0033,
+              "inc_tail_fraction": 0.002,
+              "skewness_ref": 0.0924,
+              "skewness_incoming": 0.1245,
+              "skewness_shift": 0.0321,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1366,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.60x, Skew shift=0.032"
+            },
+            "gradient_score": 0.1770302593376426,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.177,
+              "p95_z_score": 0.302,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.4382972630955042,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4383,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 4.175048160307518,
+            "relative_spectral_gap": 0.8429592307026958,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9172345837573375,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.492,
+            "minority_cluster_count": 246,
+            "minority_tightness": 0.08516656697947085,
+            "silhouette_score": 0.7456214732115279,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.0,
+            "flagged_ratio": 0.005,
+            "flagged_count": 1,
+            "total_samples": 200,
+            "flagged_indices": [
+              466
+            ],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 7,
+                "flagged_ratio": 0.035
+              },
+              "one_class_svm": {
+                "flagged_count": 23,
+                "flagged_ratio": 0.115
+              },
+              "local_outlier_factor": {
+                "flagged_count": 8,
+                "flagged_ratio": 0.04
+              },
+              "dbscan": {
+                "flagged_count": 3,
+                "flagged_ratio": 0.015,
+                "eps_used": 1.6245,
+                "n_clusters": 2
+              },
+              "elliptic_envelope": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              },
+              "xgb_one_class": {
+                "flagged_count": 32,
+                "flagged_ratio": 0.16
+              },
+              "rf_one_class": {
+                "flagged_count": 27,
+                "flagged_ratio": 0.135
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.271963388831468,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.275,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.3801,
+                "uniformity_score": 0.2399,
+                "tail_fraction": 0.175,
+                "tail_coverage_score": 0.0
+              },
+              "interpretation": "No model inversion signature (suspicion=0.272). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": [
+              166
+            ]
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.0,
+            "degradation_score": 0.0,
+            "proxy_effects": {},
+            "proxy_accuracies_with": {},
+            "proxy_accuracies_wo": {},
+            "n_proxies_agree": 0,
+            "acc_with_poison": 0.0,
+            "acc_without_poison": 0.0,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.0
+            ],
+            "bootstrap_mean": 0.0,
+            "p_value": 1.0,
+            "significant": false,
+            "placebo_effect": 0.0,
+            "placebo_ratio": 1.0,
+            "placebo_valid": false,
+            "ci_excludes_zero": false,
+            "n_flagged": 1,
+            "n_total": 0,
+            "projections": {
+              "day_30": 0.0,
+              "day_60": 0.0,
+              "day_90": 0.0
+            },
+            "interpretation": "Skipped: insufficient_flagged_samples",
+            "skip_reason": "insufficient_flagged_samples",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Skipped: insufficient data."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    },
+    {
+      "attack_type": "boiling_frog",
+      "ground_truth": true,
+      "poisoned_incoming_indices": [
+        37,
+        40,
+        42,
+        47,
+        66,
+        72,
+        79,
+        86,
+        90,
+        94,
+        95,
+        110,
+        112,
+        113,
+        120,
+        132,
+        137,
+        140,
+        150,
+        151,
+        156,
+        158,
+        159,
+        183,
+        189
+      ],
+      "incoming_count": 200,
+      "scores": {
+        "l1_statistical": 0.015989108593493784,
+        "l2_spectral": 0.2,
+        "l3_ensemble": 0.03333333333333332,
+        "l3_ensemble_gated": 0.03333333333333332,
+        "l4_causal": 0.0,
+        "l5_federated": 0.0,
+        "combined": 0.0522628546743895
+      },
+      "predictions": {
+        "combined": false
+      },
+      "layer3_flagged_incoming_indices": [
+        40,
+        47,
+        72,
+        79,
+        86,
+        95,
+        110,
+        113,
+        120,
+        140,
+        156,
+        183
+      ],
+      "result": {
+        "verdict": "CLEAN",
+        "overall_suspicion": 0.0522628546743895,
+        "degradation_score": 0.0,
+        "causal_proof_valid": false,
+        "blend_spectral_confirmed": false,
+        "layer_scores": {
+          "l1_statistical": 0.015989108593493784,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.03333333333333332,
+          "l3_ensemble_gated": 0.03333333333333332,
+          "l4_causal": 0.0,
+          "l5_federated": 0.0
+        },
+        "layer_weights": {
+          "l1_statistical": 0.35,
+          "l2_spectral": 0.2,
+          "l3_ensemble": 0.2,
+          "l4_causal": 0.2,
+          "l5_federated": 0.05
+        },
+        "thresholds": {
+          "confirmed": 0.65,
+          "suspicious": 0.35,
+          "low_risk": 0.15
+        },
+        "details": {
+          "layer1": {
+            "suspicion_score": 0.015989108593493784,
+            "verdict_l1": "CLEAN",
+            "kl_divergence": 0.01102344599171106,
+            "kl_topk_alarm": false,
+            "wasserstein": 0.02885936618159122,
+            "wasserstein_topk_alarm": false,
+            "mahalanobis": 0.22192960849451168,
+            "alarm_kl": false,
+            "alarm_mahal": false,
+            "alarm_wasserstein": false,
+            "label_ratio_shift": 0.008666666666666711,
+            "alarm_label_flip": false,
+            "label_detail": {
+              "baseline_positive_rate": 0.5167,
+              "incoming_positive_rate": 0.508,
+              "absolute_shift": 0.0087,
+              "z_score": 0.237,
+              "alarm_threshold_zscore": 2.0,
+              "interpretation": "Within sampling noise (z=0.24)"
+            },
+            "trigger_score": 0.0,
+            "alarm_backdoor_trigger": false,
+            "trigger_detail": {
+              "interpretation": "No anomalous value spikes detected"
+            },
+            "blend_score": 0.007487162294110122,
+            "alarm_blend_trigger": false,
+            "blend_detail": {
+              "enrichment_ratio": 0.0,
+              "enrichment_alarm": false,
+              "ref_tail_fraction": 0.0,
+              "inc_tail_fraction": 0.0,
+              "skewness_ref": 0.0756,
+              "skewness_incoming": 0.089,
+              "skewness_shift": 0.0135,
+              "skewness_alarm": false,
+              "signals_fired": 0,
+              "mean_shift_magnitude": 0.1191,
+              "interpretation": "No blend trigger (0/2 signals). Enrichment=0.00x, Skew shift=0.013"
+            },
+            "gradient_score": 0.18983580598988742,
+            "alarm_gradient": false,
+            "gradient_detail": {
+              "n_features_alarming": 0,
+              "mean_z_score": 0.19,
+              "p95_z_score": 0.327,
+              "alarm_threshold_features": 3,
+              "alarm_threshold_zscore": 2.5,
+              "interpretation": "Feature means within baseline variance"
+            },
+            "fed_trust_score": 0.44539012116787946,
+            "alarm_federated": false,
+            "fed_detail": {
+              "source": "centroid_deviation_fallback",
+              "mean_trust": 0.4454,
+              "interpretation": "Block centroids consistent with baseline (fallback \u2014 no GT trust scores)"
+            },
+            "thresholds": {
+              "kl": 2.5,
+              "mahalanobis": 4.5,
+              "wasserstein": 0.35,
+              "label_zscore": 2.0,
+              "client_trust": 0.5,
+              "blend_enrichment": 1.6,
+              "blend_skewness": 0.3
+            }
+          },
+          "layer2": {
+            "suspicion_score": 0.2,
+            "spectral_gap": 3.8098727413906284,
+            "relative_spectral_gap": 0.769228826074491,
+            "rmt_baseline": 4.952847075210474,
+            "spectral_gap_threshold": 2.7950849718747373,
+            "top_singular_ratio": 0.9140919174914397,
+            "backdoor_detected": "False",
+            "partial_backdoor": "False",
+            "signals_fired": "2",
+            "minority_cluster_ratio": 0.49,
+            "minority_cluster_count": 245,
+            "minority_tightness": 0.14444051655534984,
+            "silhouette_score": 0.7412697424981681,
+            "gap_stat_ok": true,
+            "signals": {
+              "spectral_gap_alarm": false,
+              "minority_alarm": false,
+              "tightness_alarm": true,
+              "silhouette_alarm": true
+            },
+            "thresholds": {
+              "spectral_gap": 2.7950849718747373,
+              "minority_ratio": 0.15,
+              "tightness": 0.5,
+              "silhouette": 0.2,
+              "gap_stat": 0.08
+            }
+          },
+          "layer3": {
+            "suspicion_score": 0.03333333333333332,
+            "flagged_ratio": 0.06,
+            "flagged_count": 12,
+            "total_samples": 200,
+            "flagged_indices": [
+              340,
+              347,
+              372,
+              379,
+              386,
+              395,
+              410,
+              413,
+              420,
+              440,
+              456,
+              483
+            ],
+            "vote_threshold": 6,
+            "n_active_detectors": 8,
+            "per_detector": {
+              "isolation_forest": {
+                "flagged_count": 19,
+                "flagged_ratio": 0.095
+              },
+              "one_class_svm": {
+                "flagged_count": 32,
+                "flagged_ratio": 0.16
+              },
+              "local_outlier_factor": {
+                "flagged_count": 20,
+                "flagged_ratio": 0.1
+              },
+              "dbscan": {
+                "flagged_count": 15,
+                "flagged_ratio": 0.075,
+                "eps_used": 1.6665,
+                "n_clusters": 1
+              },
+              "elliptic_envelope": {
+                "flagged_count": 17,
+                "flagged_ratio": 0.085
+              },
+              "xgb_one_class": {
+                "flagged_count": 45,
+                "flagged_ratio": 0.225
+              },
+              "rf_one_class": {
+                "flagged_count": 39,
+                "flagged_ratio": 0.195
+              },
+              "copod": {
+                "flagged_count": 10,
+                "flagged_ratio": 0.05
+              }
+            },
+            "expected_clean_flag_rate": 0.05,
+            "model_inversion": {
+              "suspicion_score": 0.2717044772607828,
+              "alarm": false,
+              "signals": {
+                "near_duplicate_rate": 0.0,
+                "near_dup_score": 0.0,
+                "boundary_concentration_frac": 0.25,
+                "boundary_score": 1.0,
+                "pairwise_dist_cv": 0.4638,
+                "uniformity_score": 0.0723,
+                "tail_fraction": 0.225,
+                "tail_coverage_score": 0.25
+              },
+              "interpretation": "No model inversion signature (suspicion=0.272). Query distribution appears consistent with legitimate i.i.d. sampling."
+            },
+            "flagged_indices_incoming": [
+              40,
+              47,
+              72,
+              79,
+              86,
+              95,
+              110,
+              113,
+              120,
+              140,
+              156,
+              183
+            ]
+          },
+          "layer4": {
+            "suspicion_score": 0.0,
+            "causal_effect": 0.002008032128514081,
+            "degradation_score": 0.0,
+            "proxy_effects": {
+              "logistic_regression": 0.00201,
+              "random_forest": 0.00195,
+              "gradient_boosting": 0.0118
+            },
+            "proxy_accuracies_with": {
+              "logistic_regression": 0.99799,
+              "random_forest": 0.996,
+              "gradient_boosting": 0.97999
+            },
+            "proxy_accuracies_wo": {
+              "logistic_regression": 1.0,
+              "random_forest": 0.99794,
+              "gradient_boosting": 0.99179
+            },
+            "n_proxies_agree": 1,
+            "acc_with_poison": 0.9913265837802308,
+            "acc_without_poison": 0.9965790603145749,
+            "proof_valid": false,
+            "bootstrap_ci": [
+              0.0,
+              0.006006360772431046
+            ],
+            "bootstrap_mean": 0.0021193757064184725,
+            "p_value": 6.700673974404894e-19,
+            "significant": true,
+            "placebo_effect": 0.00037204030847322046,
+            "placebo_ratio": 0.18527598135222278,
+            "placebo_valid": true,
+            "ci_excludes_zero": false,
+            "n_flagged": 12,
+            "n_total": 500,
+            "projections": {
+              "day_30": 0.9913265837802308,
+              "day_60": 0.9913265837802308,
+              "day_90": 0.9913265837802308
+            },
+            "interpretation": "No causal harm proven. Suspicious samples may be natural outliers or the effect is too small to distinguish from noise.",
+            "poisoning_fingerprint": {
+              "fingerprint": "not_run",
+              "status": "SKIPPED",
+              "confidence": 0.0,
+              "votes": {},
+              "signals": {},
+              "interpretation": "Fingerprinting skipped \u2014 causal proof not valid or too few flagged samples."
+            }
+          },
+          "layer5": {
+            "suspicion_score": 0.0,
+            "n_clients": 0,
+            "n_quarantined": 0,
+            "n_suspicious": 0,
+            "quarantined_clients": [],
+            "suspicious_clients": [],
+            "per_client": {},
+            "avg_trust_score": 1.0,
+            "skip_reason": "non_federated_mode"
+          }
+        }
+      }
+    }
+  ]
+}

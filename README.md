@@ -111,10 +111,15 @@ The frontend runs at `http://localhost:5173`
 
 ### Authentication and Docker
 
-Copy `.env.example` to `.env`, set a unique JWT secret and administrator
-credentials, then run `docker compose up --build`. Obtain a JWT through
+Copy [`.env.example`](.env.example) to `.env`, set a unique JWT secret and administrator
+credentials, then run `docker compose up --build`. It documents every backend
+and Vite environment variable. Obtain a JWT through
 `POST /api/v1/auth/token` and sign in through the frontend. Apart from health
 and token issuance, API and WebSocket endpoints require that JWT.
+
+Login attempts are limited to five per IP address per rolling minute. The
+current internal-deployment JWT storage decision and its security trade-off are
+documented in [docs/decisions.md](docs/decisions.md).
 
 ---
 
@@ -122,6 +127,9 @@ and token issuance, API and WebSocket endpoints require that JWT.
 
 Thresholds and scores are experimental analyst signals; their calibration and
 evaluation requirements are documented in [docs/detection-calibration.md](docs/detection-calibration.md).
+Current benchmark results and limitations are published in
+[docs/model-card.md](docs/model-card.md); they show that the current detector
+does not yet detect benchmark v1's seeded attacks at its selected threshold.
 
 ### Layer 1 — Statistical Shift Detection
 Compares incoming data distribution to a clean baseline using:

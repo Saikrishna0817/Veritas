@@ -19,6 +19,8 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const result = await api.login(username, password);
+    // ADR docs/decisions.md records why this internal deployment uses
+    // localStorage today and when it must move to cookie-based sessions.
     localStorage.setItem('veritas_access_token', result.access_token);
     setUser(result.user);
   };

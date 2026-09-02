@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "benchmark_id": "veritas-csv-poisoning-v1",
+  "created_at": "2026-09-02",
+  "immutable": true,
+  "random_seed": 20260902,
+  "packages": {
+    "numpy": "2.4.2",
+    "scikit-learn": "1.8.0",
+    "scipy": "1.17.0"
+  },
+  "clean_source": {
+    "generator": "app.demo.data_generator.generate_clean_dataset",
+    "samples": 500,
+    "feature_count": 10,
+    "split": {"reference": 300, "evaluation": 200}
+  },
+  "attacks": [
+    {"name": "label_flip", "injector": "inject_label_flip_attack", "poison_count": 20},
+    {"name": "backdoor", "injector": "inject_backdoor_attack", "poison_count": 15},
+    {"name": "clean_label", "injector": "inject_clean_label_attack", "poison_count": 18},
+    {"name": "gradient_poisoning", "injector": "inject_gradient_poisoning_attack", "poison_count": 12},
+    {"name": "boiling_frog", "injector": "inject_boiling_frog_attack", "poison_count": 25}
+  ],
+  "policy": "Do not change this manifest, seeds, or injection counts in place. Create a new benchmark_id for any modification."
+}
