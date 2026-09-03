@@ -254,6 +254,7 @@ class ModelScanEngine:
 
         # If a dataset CSV was also uploaded, add its info
         dataset_info = None
+        dataset_note = None
         if dataset_bytes:
             from app.ingestion.csv_engine import CSVIngestionEngine
             csv_engine = CSVIngestionEngine()
@@ -261,6 +262,11 @@ class ModelScanEngine:
                 dataset_info = csv_engine.ingest(dataset_bytes, filename=dataset_filename or "dataset.csv")
             except Exception:
                 dataset_info = None
+            dataset_note = (
+                "The accompanying CSV is parsed for schema metadata only. "
+                "This prototype's model scan analyzes extracted model parameters; "
+                "it does not evaluate model behavior against the CSV."
+            )
 
         return {
             "scan_id": str(uuid.uuid4()),
@@ -283,4 +289,5 @@ class ModelScanEngine:
             "warnings": [],
             "created_at": datetime.utcnow().isoformat(),
             "dataset_info": dataset_info,
+            "dataset_note": dataset_note,
         }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Search, Users, FileText, Upload, Cpu, BookOpen, History } from 'lucide-react';
+import { Shield, Search, Users, FileText, Upload, Cpu, BookOpen, History, LogOut } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import ForensicsPage from './pages/ForensicsPage';
 
@@ -9,9 +9,11 @@ import UploadPage from './pages/UploadPage';
 import ModelScanPage from './pages/ModelScanPage';
 import RealDatasetsPage from './pages/RealDatasetsPage';
 import HistoryPage from './pages/HistoryPage';
+import BlueTeamPage from './pages/BlueTeamPage';
 import { useWebSocket } from './hooks/useWebSocket';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
+import { useAuth } from './hooks/useAuth';
 
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Trust Dashboard', icon: Shield },
@@ -21,6 +23,7 @@ const NAV_ITEMS = [
   { id: 'forensics', label: 'Poison Forensics', icon: Search },
 
   { id: 'federated', label: 'Federated Trust', icon: Users },
+  { id: 'blue_team', label: 'Blue Team SOC', icon: Shield },
   { id: 'reports', label: 'Evidence Reports', icon: FileText },
   { id: 'history', label: 'Analysis History', icon: History },
 ];
@@ -28,6 +31,7 @@ const NAV_ITEMS = [
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard');
   const { events, connected, clearEvents } = useWebSocket();
+  const { user, logout } = useAuth();
 
   const renderPage = () => {
     switch (activePage) {
@@ -38,6 +42,7 @@ export default function App() {
       case 'forensics': return <ForensicsPage />;
 
       case 'federated': return <FederatedPage />;
+      case 'blue_team': return <BlueTeamPage />;
       case 'reports': return <ReportsPage />;
       case 'history': return <HistoryPage />;
       default: return <Dashboard wsEvents={events} />;
@@ -121,8 +126,11 @@ export default function App() {
 
         {/* Footer */}
         <div className="p-4 border-t border-border">
-          <div className="font-mono text-xs text-text3">
-            🛡️ Secure AI for Everyone
+          <div className="flex items-center justify-between gap-2 font-mono text-xs text-text3">
+            <span className="truncate">{user?.name || 'Authenticated analyst'}</span>
+            <button onClick={logout} className="flex items-center gap-1 hover:text-accent" aria-label="Sign out">
+              <LogOut className="w-3 h-3" /> Sign out
+            </button>
           </div>
         </div>
       </aside>

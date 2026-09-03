@@ -123,7 +123,7 @@ export default function Dashboard({ wsEvents = [] }) {
                         Trust <span className="text-accent">Dashboard</span>
                     </h1>
                     <p className="font-mono text-sm text-text2 mt-2 max-w-lg">
-                        5-layer poisoning detection · Causal proof engine · Auto-defense
+                        Experimental 5-layer risk signals · proxy impact analysis · analyst review
                     </p>
                 </div>
                 <button
@@ -217,30 +217,29 @@ export default function Dashboard({ wsEvents = [] }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-surface border border-border rounded-lg p-6">
                         <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                            5-Layer Detection Scores
+                            5-Layer Experimental Risk Signals
                         </div>
-                        <LayerScoreBar name="Layer 1 · Statistical Shift" score={layerScores.statistical || 0} />
-                        <LayerScoreBar name="Layer 2 · Spectral Activation" score={layerScores.spectral || 0} />
-                        <LayerScoreBar name="Layer 3 · Ensemble Anomaly" score={layerScores.ensemble || 0} />
-                        <LayerScoreBar name="Layer 4 · Causal Proof" score={layerScores.causal || 0} />
-                        <LayerScoreBar name="Layer 5 · Federated Trust" score={layerScores.federated || 0} />
-                        <LayerScoreBar name="SHAP Drift Monitor" score={layerScores.shap_drift || 0} />
+                        <LayerScoreBar name="Layer 1 · Statistical Shift" score={layerScores.l1_statistical || 0} />
+                        <LayerScoreBar name="Layer 2 · Spectral Activation" score={layerScores.l2_spectral || 0} />
+                        <LayerScoreBar name="Layer 3 · Ensemble Anomaly" score={layerScores.l3_ensemble || 0} />
+                        <LayerScoreBar name="Layer 4 · Proxy Impact" score={layerScores.l4_causal || 0} />
+                        <LayerScoreBar name="Layer 5 · Federated Trust" score={layerScores.l5_federated || 0} />
                     </div>
 
                     {/* Causal Proof Box */}
                     {demoResult.layer_results?.layer4_causal && (
                         <div className="bg-surface border border-border rounded-lg p-6">
                             <div className="font-mono text-xs text-accent3 uppercase tracking-widest mb-4">
-                                Causal Proof Engine
+                                Proxy Impact Analysis
                             </div>
                             <div className="space-y-3">
                                 {[
-                                    { label: 'Causal Effect (Δ Accuracy)', value: `${(demoResult.layer_results.layer4_causal.causal_effect * 100).toFixed(1)}%`, color: 'danger' },
-                                    { label: 'Accuracy with Poison', value: `${(demoResult.layer_results.layer4_causal.accuracy_with_poison * 100).toFixed(1)}%`, color: 'text2' },
-                                    { label: 'Accuracy without Poison', value: `${(demoResult.layer_results.layer4_causal.accuracy_without_poison * 100).toFixed(1)}%`, color: 'accent3' },
+                                    { label: 'Proxy Effect (Δ Accuracy)', value: `${((demoResult.layer_results.layer4_causal.causal_effect || 0) * 100).toFixed(1)}%`, color: 'danger' },
+                                    { label: 'Proxy Accuracy with Flagged Rows', value: `${((demoResult.layer_results.layer4_causal.accuracy_with_poison || 0) * 100).toFixed(1)}%`, color: 'text2' },
+                                    { label: 'Proxy Accuracy without Flagged Rows', value: `${((demoResult.layer_results.layer4_causal.accuracy_without_poison || 0) * 100).toFixed(1)}%`, color: 'accent3' },
                                     { label: 'Placebo Test', value: demoResult.layer_results.layer4_causal.placebo_passed ? '✓ PASSED' : '✗ FAILED', color: demoResult.layer_results.layer4_causal.placebo_passed ? 'accent3' : 'danger' },
                                     { label: 'Statistically Significant', value: demoResult.layer_results.layer4_causal.statistically_significant ? 'YES' : 'NO', color: 'accent' },
-                                    { label: 'Proof Valid', value: demoResult.layer_results.layer4_causal.proof_valid ? '✓ VERIFIED' : 'PENDING', color: demoResult.layer_results.layer4_causal.proof_valid ? 'accent3' : 'yellow' },
+                                    { label: 'Heuristic criteria met', value: demoResult.layer_results.layer4_causal.proof_valid ? 'YES' : 'NO', color: demoResult.layer_results.layer4_causal.proof_valid ? 'accent3' : 'yellow' },
                                 ].map(({ label, value, color }) => (
                                     <div key={label} className="flex justify-between items-center py-2 border-b border-border/50">
                                         <span className="font-mono text-xs text-text3">{label}</span>
@@ -291,14 +290,14 @@ export default function Dashboard({ wsEvents = [] }) {
             {demoResult?.blast_radius && (
                 <div className="bg-surface border border-border rounded-lg p-6">
                     <div className="font-mono text-xs text-danger uppercase tracking-widest mb-4">
-                        Blast Radius Analysis
+                        Observed Input Scope
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {[
                             { label: 'Poisoned Samples', value: demoResult.blast_radius.n_poisoned_samples, color: 'danger' },
                             { label: 'Batches Affected', value: demoResult.blast_radius.n_batches_affected, color: 'orange' },
-                            { label: 'Models Impacted', value: demoResult.blast_radius.n_models_affected, color: 'yellow' },
-                            { label: 'Prediction Impact', value: `${demoResult.blast_radius.prediction_impact_pct}%`, color: 'purple' },
+                            { label: 'Scope Status', value: demoResult.blast_radius.scope_status === 'observed_input_only' ? 'INPUT ONLY' : 'UNKNOWN', color: 'yellow' },
+                            { label: 'Proxy Accuracy Effect', value: `${demoResult.blast_radius.proxy_accuracy_effect_pct || 0}%`, color: 'purple' },
                         ].map(({ label, value, color }) => (
                             <div key={label} className={`bg-bg3 border border-${color}/20 rounded-lg p-4 text-center`}>
                                 <div className={`text-2xl font-bold text-${color}`}>{value}</div>
@@ -306,25 +305,9 @@ export default function Dashboard({ wsEvents = [] }) {
                             </div>
                         ))}
                     </div>
-                    {demoResult.blast_radius.downstream_harm && (
-                        <div className="mt-4 p-4 bg-bg3 rounded-lg border border-danger/10">
-                            <div className="font-mono text-xs text-text3 mb-2">Downstream Harm Estimate (Medical Domain)</div>
-                            <div className="grid grid-cols-3 gap-4 font-mono text-xs">
-                                <div>
-                                    <span className="text-text3">Est. Misdiagnoses: </span>
-                                    <span className="text-danger font-bold">{demoResult.blast_radius.downstream_harm.estimated_misdiagnoses}</span>
-                                </div>
-                                <div>
-                                    <span className="text-text3">Accuracy Loss: </span>
-                                    <span className="text-orange font-bold">{demoResult.blast_radius.downstream_harm.accuracy_loss_pct}%</span>
-                                </div>
-                                <div>
-                                    <span className="text-text3">Financial Impact: </span>
-                                    <span className="text-yellow font-bold">${demoResult.blast_radius.downstream_harm.financial_impact_usd?.toLocaleString()}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <p className="mt-4 font-mono text-xs text-text3">
+                        {demoResult.blast_radius.limitation || 'Downstream deployment impact is not available for this analysis.'}
+                    </p>
                 </div>
             )}
 

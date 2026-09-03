@@ -342,6 +342,12 @@ class DetectionPipeline:
         l4 = layer_results["layer4_causal"]
         if "acc_with_poison" in l4 and "accuracy_with_poison" not in l4:
             l4["accuracy_with_poison"] = l4["acc_with_poison"]
+        if "acc_without_poison" in l4 and "accuracy_without_poison" not in l4:
+            l4["accuracy_without_poison"] = l4["acc_without_poison"]
+        if "significant" in l4 and "statistically_significant" not in l4:
+            l4["statistically_significant"] = l4["significant"]
+        if "placebo_valid" in l4 and "placebo_passed" not in l4:
+            l4["placebo_passed"] = l4["placebo_valid"]
 
         l5 = layer_results["layer5_federated"]
         if "avg_trust_score" in l5 and "avg_trust" not in l5:

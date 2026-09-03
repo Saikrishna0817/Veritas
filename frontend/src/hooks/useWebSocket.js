@@ -14,8 +14,14 @@ export function useWebSocket() {
             ws = createWebSocket((msg) => {
                 setEvents(prev => [{ ...msg, receivedAt: new Date().toISOString() }, ...prev].slice(0, 50));
             });
-            ws.onopen = () => setConnected(true);
-            ws.onclose = () => {
+            const apiOnOpen = ws.onopen;
+            const apiOnClose = ws.onclose;
+            ws.onopen = (event) => {
+                apiOnOpen?.call(ws, event);
+                setConnected(true);
+            };
+            ws.onclose = (event) => {
+                apiOnClose?.call(ws, event);
                 setConnected(false);
                 if (!disposed) reconnectTimer = setTimeout(connect, 3000);
             };

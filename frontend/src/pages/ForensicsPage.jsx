@@ -6,7 +6,7 @@ function NarrativeBox({ narrative }) {
     if (!narrative) return null;
     return (
         <div className="bg-bg2 border border-border rounded-lg p-6 font-mono text-xs">
-            <div className="text-accent uppercase tracking-widest mb-3 text-xs">Attack Reconstruction Report</div>
+            <div className="text-accent uppercase tracking-widest mb-3 text-xs">Heuristic Investigation Summary</div>
             <pre className="text-text2 whitespace-pre-wrap leading-relaxed">{narrative}</pre>
         </div>
     );
@@ -20,7 +20,7 @@ function AttackClassCard({ classification }) {
 
     return (
         <div className="bg-surface border border-border rounded-lg p-6">
-            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">Attack Classification</div>
+            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">Heuristic Attack Classification</div>
             <div className="space-y-3">
                 <div className="flex justify-between">
                     <span className="font-mono text-xs text-text3">Attack Type</span>
@@ -74,7 +74,7 @@ function SophisticationCard({ sophistication }) {
     return (
         <div className="bg-surface border border-border rounded-lg p-6">
             <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                Attacker Sophistication
+                Heuristic Sophistication Signal
             </div>
             <div className="flex items-center gap-4 mb-4">
                 <div className={`text-5xl font-bold text-${color}`}>{score}</div>
@@ -193,10 +193,10 @@ export default function ForensicsPage() {
                         <Search className="w-3 h-3" /> Forensic Analysis
                     </div>
                     <h1 className="text-4xl font-bold tracking-tight">
-                        Poison <span className="text-accent3">Forensics</span>
+                        Poisoning <span className="text-accent3">Investigation</span>
                     </h1>
                     <p className="font-mono text-sm text-text2 mt-2">
-                        WHY was it flagged · HOW was it injected · WHAT damage did it cause
+                        Why it was flagged · heuristic pattern analysis · no deployment-harm estimate
                     </p>
                 </div>
                 <button onClick={() => load(activeTab)} disabled={loading}
@@ -254,28 +254,15 @@ export default function ForensicsPage() {
                         <PatternCard pattern={forensics.injection_pattern} />
                     </div>
 
-                    {/* Counterfactual */}
+                    {/* Proxy comparison */}
                     {forensics.counterfactual && (
                         <div className="bg-surface border border-border rounded-lg p-6">
                             <div className="font-mono text-xs text-purple uppercase tracking-widest mb-4">
-                                Counterfactual Impact Simulator — "What if we hadn't detected this?"
+                                Proxy Comparison and Limits
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                {forensics.counterfactual.counterfactual_projections?.map(p => (
-                                    <div key={p.days} className="bg-bg3 border border-purple/20 rounded-lg p-4">
-                                        <div className="font-mono text-xs text-text3 mb-2">{p.days}-Day Projection</div>
-                                        <div className="text-2xl font-bold text-purple">{(p.projected_accuracy * 100).toFixed(1)}%</div>
-                                        <div className="font-mono text-xs text-danger mt-1">
-                                            -{(p.accuracy_loss * 100).toFixed(1)}% accuracy
-                                        </div>
-                                        <div className="font-mono text-xs text-text3 mt-1">
-                                            ~{p.estimated_harm.toLocaleString()} predictions affected
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="bg-accent3/5 border border-accent3/20 rounded-lg p-4 font-mono text-sm text-accent3">
-                                ✓ {forensics.counterfactual.detection_value}
+                            <div className="bg-bg3 border border-purple/20 rounded-lg p-4 font-mono text-sm">
+                                <div className="text-purple font-bold">Proxy accuracy effect: {((forensics.counterfactual.proxy_accuracy_effect || 0) * 100).toFixed(1)}%</div>
+                                <div className="text-text3 mt-2">{forensics.counterfactual.limitation}</div>
                             </div>
                         </div>
                     )}

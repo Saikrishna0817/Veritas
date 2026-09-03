@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api import dependencies as deps
+from app.core.security import require_user
 
 router = APIRouter()
 
@@ -57,7 +58,10 @@ def _get_best_result(prefer: str = "auto") -> dict:
 
 
 @router.get("/history")
-async def get_analysis_history(source: Optional[str] = None, limit: int = 50):
+async def get_analysis_history(
+    source: Optional[str] = Query(None, pattern="^(demo|upload|real_dataset|model_scan)$"),
+    limit: int = Query(50, ge=1, le=200),
+):
     """Return combined history from analysis_results + model_scans tables."""
     rows = deps.db.get_history(source=source, limit=limit)
     model_rows = []
@@ -75,6 +79,15 @@ async def get_analysis_history(source: Optional[str] = None, limit: int = 50):
 
     stats = deps.db.get_stats()
     return {"results": combined, "stats": stats}
+
+
+@router.get("/audit/events")
+async def get_my_audit_events(
+    limit: int = Query(50, ge=1, le=200),
+    user: dict = Depends(require_user),
+):
+    """Return the authenticated analyst's own recent audit activity."""
+    return {"events": deps.db.get_audit_events(actor_id=user["id"], limit=limit)}
 
 
 @router.get("/history/{result_id}")
@@ -200,7 +213,7 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
     report = {
         "report_id": str(uuid.uuid4()),
         "generated_at": datetime.utcnow().isoformat(),
-        "title": "AI Poisoning Forensic Evidence Report",
+        "title": "AI Poisoning Analyst Evidence Summary",
         "platform": "AI Trust Forensics Platform v2.2",
         "data_source": r.get("source", "demo"),
         "dataset_info": r.get("dataset_info"),
@@ -220,10 +233,11 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
         "layer_scores": r.get("layer_scores"),
         "attack_narrative": (r.get("injection_pattern") or {}).get("narrative", ""),
         "defense_actions": deps.defense.defense_log,
-        "compliance": {
-            "nist_ai_rmf": "GOVERN 1.1, MAP 1.5, MEASURE 2.5, MANAGE 2.2",
-            "eu_ai_act": "Article 9 (Risk Management), Article 17 (Quality Management)",
-            "audit_hash": f"sha256_{uuid.uuid4().hex}",
+        "limitations": {
+            "status": "experimental_analyst_support",
+            "notice": "This summary contains heuristic risk signals and proxy-model analysis. It is not a certification, legal evidence, attack attribution, or proof that a dataset or model was poisoned.",
+            "framework_references": "NIST AI RMF and EU AI Act references are implementation prompts only; they do not establish compliance.",
+            "report_reference": f"summary_{uuid.uuid4().hex}",
         },
     }
     return report

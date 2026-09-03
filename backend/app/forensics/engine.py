@@ -1,8 +1,6 @@
 """Forensics: Attack Type Classifier + Injection Pattern Reconstructor"""
 import numpy as np
 from typing import Dict, Any, List
-from datetime import datetime
-import random
 
 
 ATTACK_TYPES = {
@@ -102,22 +100,35 @@ class AttackTypeClassifier:
         if len(poison_times) > 5:
             scores["boiling_frog"] += 0.2
 
-        # Normalize
-        total = sum(scores.values()) + 1e-8
-        probabilities = {k: round(v / total, 4) for k, v in scores.items()}
-
+        # Do not force a precise attack label when the rules have no material
+        # support. This is an analyst hypothesis, not an attribution engine.
+        total = sum(scores.values())
+        probabilities = ({k: round(v / total, 4) for k, v in scores.items()}
+                         if total else {k: 0.0 for k in scores})
         best_attack = max(scores, key=scores.get)
         confidence = round(probabilities[best_attack], 4)
+        if scores[best_attack] < 0.2:
+            return {
+                "attack_type": "unknown",
+                "attack_subtype": "insufficient_evidence",
+                "confidence": 0.0,
+                "severity": "low",
+                "description": "Available heuristic signals do not support a specific attack classification.",
+                "probabilities": probabilities,
+                "indicators_triggered": [],
+                "classification_status": "insufficient_evidence",
+            }
         attack_info = ATTACK_TYPES[best_attack]
 
         return {
             "attack_type": best_attack,
-            "attack_subtype": random.choice(attack_info["subtypes"]),
+            "attack_subtype": "not_determined",
             "confidence": confidence,
             "severity": attack_info["severity"],
             "description": attack_info["description"],
             "probabilities": probabilities,
-            "indicators_triggered": attack_info["indicators"]
+            "indicators_triggered": attack_info["indicators"],
+            "classification_status": "heuristic",
         }
 
 
@@ -132,7 +143,11 @@ class InjectionPatternReconstructor:
         
         poisoned = [s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         if not poisoned:
-            return {"narrative": "No confirmed poisoned samples found.", "injection_schedule": "none"}
+            return {
+                "narrative": "No samples crossed the configured suspicion threshold. No injection pattern can be reconstructed from this analysis.",
+                "injection_schedule": "not_determined",
+                "analysis_status": "insufficient_evidence",
+            }
 
         # Temporal analysis
         times = sorted([s["ingested_at"] for s in poisoned])
@@ -177,11 +192,11 @@ class InjectionPatternReconstructor:
         attack_subtype = attack_classification.get("attack_subtype", "unknown")
         confidence = round(attack_classification.get("confidence", 0) * 100, 1)
 
-        narrative = f"""ATTACK RECONSTRUCTION REPORT
+        narrative = f"""ANALYST HYPOTHESIS — NOT ATTRIBUTION
 ─────────────────────────────
-Type:        {attack_type.replace('_', ' ').title()}
+Candidate type: {attack_type.replace('_', ' ').title()}
 Subtype:     {attack_subtype.replace('_', ' ').title()}
-Confidence:  {confidence}%
+Heuristic confidence: {confidence}%
 
 HOW it was injected:
 • {n_poison} samples crafted and injected
@@ -195,9 +210,10 @@ WHEN:
 • Last injection:   {last_injection[:19]} UTC
 • Pattern:          {schedule.replace('_', ' ').title()}
 
-WHY it worked until now:
-• Each batch individually appeared benign
-• Collective causal effect: -{acc_impact}% accuracy on target class
+INTERPRETATION LIMITS:
+• This reconstruction is based on rows flagged by heuristic detectors.
+• It does not establish attacker identity, source attribution, or real-world harm.
+• Proxy-model effect observed in this analysis: {acc_impact}% accuracy difference.
 
 SOURCE FINGERPRINT:
 • Client ID:    {primary_client}
@@ -215,7 +231,8 @@ SOURCE FINGERPRINT:
             "first_injection": first_injection,
             "last_injection": last_injection,
             "sigma_shift": sigma_shift,
-            "primary_client": primary_client
+            "primary_client": primary_client,
+            "analysis_status": "heuristic_hypothesis",
         }
 
 
@@ -263,7 +280,8 @@ class SophisticationScorer:
             "sophistication_score": final_score,
             "level": level,
             "factors": factors,
-            "description": f"Score {final_score}/10 — {level}"
+            "description": f"Heuristic score {final_score}/10 — {level}; not an attacker-capability assessment.",
+            "analysis_status": "heuristic_estimate",
         }
 
 
@@ -276,64 +294,31 @@ class BlastRadiusMapper:
         affected_batches = list(set(s.get("batch_id", "unknown") for s in poisoned))
         n_batches = len(affected_batches)
         
-        # Simulate downstream model impact
-        n_models = min(n_batches + 1, 4)
-        
+        # The application has no model registry or production lineage input.
+        # Report the observed input scope only; do not fabricate harm.
         causal_effect = abs(evidence.get("layer4_causal", {}).get("causal_effect", 0))
-        prediction_impact = round(min(causal_effect * 150, 35), 1)
-        
-        # Counterfactual harm
-        n_predictions_affected = int(prediction_impact / 100 * 10000)
-        
         return {
             "n_poisoned_samples": len(poisoned),
             "affected_batches": affected_batches,
             "n_batches_affected": n_batches,
-            "n_models_affected": n_models,
-            "prediction_impact_pct": prediction_impact,
-            "n_predictions_affected": n_predictions_affected,
-            "downstream_harm": {
-                "domain": "Medical Diagnosis",
-                "estimated_misdiagnoses": int(n_predictions_affected * 0.03),
-                "accuracy_loss_pct": round(causal_effect * 100, 1),
-                "financial_impact_usd": int(n_predictions_affected * 12.5)
-            },
-            "lineage_map": {
-                batch: {
-                    "models_trained": [f"model_v{i+1}" for i in range(min(2, n_models))],
-                    "prediction_influence": round(prediction_impact / n_batches, 1)
-                }
-                for batch in affected_batches[:3]
-            }
+            "proxy_accuracy_effect_pct": round(causal_effect * 100, 1),
+            "scope_status": "observed_input_only",
+            "limitation": "No production model lineage, prediction volume, domain impact, or financial impact was supplied; downstream impact is not estimated.",
         }
 
 
 class CounterfactualSimulator:
-    """Simulates what would have happened without detection."""
+    """Describes the available proxy comparison without inventing deployment harm."""
 
     def simulate(self, evidence: Dict, blast_radius: Dict) -> Dict[str, Any]:
         causal_effect = abs(evidence.get("layer4_causal", {}).get("causal_effect", 0))
         acc_with = evidence.get("layer4_causal", {}).get("acc_with_poison", evidence.get("layer4_causal", {}).get("accuracy_with_poison", 0.85))
         
-        projections = []
-        for days in [30, 60, 90]:
-            degradation = min(causal_effect * (1 + days / 30 * 0.3), 0.25)
-            projected_acc = round(max(0.6, acc_with - degradation), 4)
-            projections.append({
-                "days": days,
-                "projected_accuracy": projected_acc,
-                "accuracy_loss": round(degradation, 4),
-                "estimated_harm": int(blast_radius.get("n_predictions_affected", 0) * (days / 30))
-            })
-
         return {
-            "counterfactual_projections": projections,
-            "harm_prevented": {
-                "accuracy_preserved": round(causal_effect, 4),
-                "predictions_protected": blast_radius.get("n_predictions_affected", 0),
-                "estimated_cost_saved_usd": blast_radius.get("downstream_harm", {}).get("financial_impact_usd", 0)
-            },
-            "detection_value": f"Prevented ~{round(causal_effect * 100, 1)}% accuracy degradation over 90 days"
+            "proxy_accuracy_effect": round(causal_effect, 4),
+            "accuracy_with_flagged_rows": acc_with,
+            "analysis_status": "not_a_deployment_counterfactual",
+            "limitation": "No deployed-model telemetry or intervention outcome is available. Harm prevented, future degradation, and financial impact are not estimated."
         }
 
 

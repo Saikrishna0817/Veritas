@@ -8,11 +8,12 @@ from datetime import datetime
 from typing import Optional
 
 import numpy as np
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
 from app.core.security import is_safe_filename
+from app.core.security import require_user
 from app.api.routes.upload import read_upload_limited
 from app.ingestion.model_engine import MAX_MODEL_SIZE
 
@@ -25,8 +26,13 @@ async def scan_model(
     request: Request,
     model_file: UploadFile = File(...),
     dataset_file: Optional[UploadFile] = File(None),
+    user: dict = Depends(require_user),
 ):
     """Upload a trained sklearn .pkl model (+ optional CSV dataset) and scan its parameters."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not deps.analysis_rate_limiter.allow(f"model:{user['id']}:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Too many analysis requests. Try again in one minute.")
+
     if not model_file.filename or not is_safe_filename(model_file.filename) or not model_file.filename.lower().endswith(".pkl"):
         raise HTTPException(status_code=400, detail="Only .pkl (pickle) model files are accepted.")
 
@@ -94,6 +100,10 @@ async def scan_model(
     full_result = deps.to_serializable(full_result)
 
     background_tasks.add_task(deps.db.save_model_scan, full_result)
+    background_tasks.add_task(
+        deps.db.log_audit_event, user["id"], "analysis.model_scanned", "model", full_result["scan_id"],
+        {"filename": model_filename, "model_type": full_result.get("model_type"), "verdict": full_result.get("verdict")},
+    )
 
     ws_manager = request.app.state.ws_manager
     background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result)

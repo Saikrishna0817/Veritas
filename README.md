@@ -1,6 +1,6 @@
 # 🛡️ AI Trust Forensics Platform v2.2
 
-> **Detecting, proving, and explaining adversarial data poisoning attacks on AI/ML systems — in real time.**
+> **An experimental analyst-support platform for investigating risk signals consistent with adversarial data poisoning.**
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -23,14 +23,14 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
 |---------|-------------|
 | **5-Layer Detection Pipeline** | Statistical shift → Spectral activation → Ensemble anomaly → Causal proof → Federated trust |
 | **Attack Type Classification** | Automatically identifies: label flip, backdoor, clean label, gradient poisoning, boiling frog |
-| **Causal Proof Engine** | Mathematically *proves* harm using counterfactual analysis, bootstrap CI, and placebo tests |
+| **Proxy Impact Analysis** | Compares proxy-model outcomes with and without flagged rows; it does not prove an attack or deployment harm |
 | **Model Scanner** | Upload supported scikit-learn `.pkl` models through a restricted legacy parser and scan their parameters for anomalies |
 | **Real Dataset Library** | Iris, Wine, Breast Cancer, Digits — with known-quantity poison injection for ground-truth validation |
 | **SQLite Persistence** | All analysis results stored permanently and queryable via the History page |
 | **Red Team Simulator** | Inject synthetic attacks and measure the platform's resilience in real time |
 | **Blue Team SOC** | Security Operations Centre — threat level, HITL review queue, incident log, response playbooks |
 | **Federated Trust** | Cosine similarity + EMA trust scoring for federated learning client safety |
-| **Evidence Reports** | Draft evidence summaries mapped to NIST AI RMF concepts; not compliance certification |
+| **Evidence Summaries** | Draft analyst summaries mapped to NIST AI RMF concepts; not evidence, attribution, or compliance certification |
 | **Live WebSocket Feed** | Real-time event streaming for attack confirmations and defense actions |
 
 ---

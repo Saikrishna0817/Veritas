@@ -138,9 +138,7 @@ export default function RealDatasetsPage() {
 
     const handleDownload = async (name) => {
         try {
-            const url = `${api.BASE_URL}/datasets/real/${name}/download`;
-            const a = document.createElement('a');
-            a.href = url; a.download = `${name}_poisoned.csv`; a.click();
+            await api.downloadRealDataset(name);
         } catch (e) { setError(`Download failed: ${e.message}`); }
     };
 

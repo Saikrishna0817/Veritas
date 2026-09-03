@@ -24,6 +24,7 @@ from app.forensics.engine import (
 from app.ingestion.csv_engine import CSVIngestionEngine
 from app.ingestion.model_engine import ModelScanEngine
 from app.utils.serialization import to_serializable
+from app.core.rate_limit import SlidingWindowRateLimiter
 
 
 # Initialise SQLite on import (keeps startup simple)
@@ -46,6 +47,11 @@ model_engine = ModelScanEngine()
 # ── In-memory caches (fast path) ─────────────────────────────────────────────
 demo_result_cache: Dict[str, Any] = {}
 upload_result_cache: Dict[str, Any] = {}  # keyed by dataset_id
+
+# CPU-heavy analysis endpoints need a separate, conservative abuse boundary.
+# This is process-local by design for the single-instance prototype; production
+# deployments should enforce the same policy at the gateway/shared store.
+analysis_rate_limiter = SlidingWindowRateLimiter(limit=10, window_seconds=60)
 
 
 async def broadcast_demo_events(manager, result: dict):

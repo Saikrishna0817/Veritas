@@ -68,6 +68,19 @@ def init_db():
         );
 
         CREATE INDEX IF NOT EXISTS idx_model_created ON model_scans(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS audit_events (
+            id           TEXT PRIMARY KEY,
+            actor_id     TEXT NOT NULL,
+            action       TEXT NOT NULL,
+            resource_type TEXT NOT NULL,
+            resource_id  TEXT,
+            details_json TEXT NOT NULL,
+            created_at   TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id, created_at DESC);
     """
     )
     conn.commit()
@@ -209,4 +222,52 @@ def get_stats() -> Dict:
         "by_source": {r["source"]: r["n"] for r in by_source},
         "by_verdict": {r["verdict"]: r["n"] for r in by_verdict},
     }
+
+
+def log_audit_event(
+    actor_id: str,
+    action: str,
+    resource_type: str,
+    resource_id: str | None = None,
+    details: Dict[str, Any] | None = None,
+) -> str:
+    """Persist a compact, non-secret audit record for user-visible actions."""
+    event_id = str(uuid.uuid4())
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT INTO audit_events (id, actor_id, action, resource_type, resource_id, details_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            event_id,
+            actor_id,
+            action,
+            resource_type,
+            resource_id,
+            json.dumps(details or {}),
+            datetime.utcnow().isoformat() + "Z",
+        ),
+    )
+    conn.commit()
+    return event_id
+
+
+def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]:
+    """Return recent audit records without exposing unbounded history."""
+    limit = max(1, min(limit, 200))
+    conn = _get_conn()
+    if actor_id:
+        rows = conn.execute(
+            "SELECT * FROM audit_events WHERE actor_id=? ORDER BY created_at DESC LIMIT ?",
+            (actor_id, limit),
+        ).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+    events = []
+    for row in rows:
+        event = dict(row)
+        event["details"] = json.loads(event.pop("details_json"))
+        events.append(event)
+    return events
 

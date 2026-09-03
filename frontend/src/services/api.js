@@ -28,6 +28,20 @@ async function apiFormData(path, formData) {
     return res.json();
 }
 
+async function downloadFile(path, filename) {
+    const res = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || 'Download failed');
+    }
+    const url = URL.createObjectURL(await res.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
 export const api = {
     BASE_URL,
     login: (username, password) => apiFetch('/auth/token', {
@@ -94,6 +108,7 @@ export const api = {
     // Real Dataset Library
     getRealDatasets: () => apiFetch('/datasets/real'),
     analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
+    downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
 
     // History / Persistence
     getHistory: (source = null, limit = 20) => {
