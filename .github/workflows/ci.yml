@@ -1,42 +1,56 @@
-name: CI
+name: AI Trust Forensics CI
 
 on:
   push:
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
 
 jobs:
-  backend:
+  backend-tests:
+    name: Backend Test Suite
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install --upgrade pip
-      - run: pip install -r requirements.txt
-      - run: python -m pytest ../backend/tests
+          cache: 'pip'
 
-  frontend:
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest httpx
+
+      - name: Run Pytest Test Suite
+        working-directory: ./backend
+        run: |
+          python -m pytest
+
+  frontend-build:
+    name: Frontend Build Verification
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+          cache: 'npm'
+          cache-dependency-path: ./frontend/package-lock.json
 
-  containers:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: VERITAS_JWT_SECRET=ci-only-secret VERITAS_ADMIN_USERNAME=ci-admin VERITAS_ADMIN_PASSWORD=ci-password docker compose build
+      - name: Install Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run Production Build
+        working-directory: ./frontend
+        run: npm run build

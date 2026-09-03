@@ -9,25 +9,9 @@ from typing import Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 
 from app.core.config import settings
-
-# Passlib 1.7.4 + bcrypt >= 4.0 compatibility patch
-try:
-    import bcrypt as _bcrypt
-    _orig_hashpw = _bcrypt.hashpw
-    def _safe_hashpw(password, salt):
-        if isinstance(password, str):
-            password = password.encode('utf-8')[:72]
-        elif isinstance(password, bytes):
-            password = password[:72]
-        return _orig_hashpw(password, salt)
-    _bcrypt.hashpw = _safe_hashpw
-except Exception:
-    pass
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def is_safe_filename(name: str) -> bool:
@@ -43,11 +27,18 @@ def _auth_configured() -> bool:
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode("utf-8")[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(pwd_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return pwd_context.verify(plain_password, password_hash)
+    try:
+        pwd_bytes = plain_password.encode("utf-8")[:72]
+        hash_bytes = password_hash.encode("utf-8")
+        return bcrypt.checkpw(pwd_bytes, hash_bytes)
+    except Exception:
+        return False
 
 
 def authenticate_user(username: str, password: str) -> dict[str, str] | None:
