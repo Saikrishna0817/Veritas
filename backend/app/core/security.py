@@ -9,8 +9,11 @@ from typing import Any
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def is_safe_filename(name: str) -> bool:
@@ -25,13 +28,29 @@ def _auth_configured() -> bool:
     return bool(settings.jwt_secret and settings.admin_username and settings.admin_password)
 
 
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, password_hash: str) -> bool:
+    return pwd_context.verify(plain_password, password_hash)
+
+
 def authenticate_user(username: str, password: str) -> dict[str, str] | None:
-    """Authenticate the configured bootstrap administrator without logging secrets."""
+    """Authenticate against SQLite users, falling back to env bootstrap credentials."""
     if not _auth_configured():
         return None
-    if not (compare_digest(username, settings.admin_username) and compare_digest(password, settings.admin_password)):
-        return None
-    return {"id": username, "name": username, "role": "admin"}
+
+    from app.models import database as db
+
+    stored = db.get_user_by_username(username)
+    if stored and verify_password(password, stored["password_hash"]):
+        return {"id": stored["id"], "name": stored["username"], "role": stored["role"]}
+
+    if compare_digest(username, settings.admin_username) and compare_digest(password, settings.admin_password):
+        return {"id": username, "name": username, "role": "admin"}
+
+    return None
 
 
 def create_access_token(user: dict[str, str]) -> str:

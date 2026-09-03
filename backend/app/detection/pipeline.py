@@ -48,12 +48,14 @@ try:
     from .layer3_ensemble     import EnsembleAnomalyDetector
     from .layer4_causal       import CausalProofEngine
     from .layer5_federated    import FederatedTrustAnalyzer
+    from .shap_drift          import SHAPDriftMonitor
 except ImportError:
     from layer1_statistical import StatisticalShiftDetector
     from layer2_spectral     import SpectralActivationAnalyzer
     from layer3_ensemble     import EnsembleAnomalyDetector
     from layer4_causal       import CausalProofEngine
     from layer5_federated    import FederatedTrustAnalyzer
+    from shap_drift          import SHAPDriftMonitor
 
 
 # ── Layer weights (RECT 9: rebalanced) ────────────────────────────────────────
@@ -176,6 +178,9 @@ class DetectionPipeline:
         else:
             r5 = self._zero_l5_result()
 
+        # ── SHAP drift: reference vs incoming batches ───────────────────────
+        r_shap = self._analyze_shap_drift(X, y)
+
         # ── Combine suspicion scores ─────────────────────────────────────────
         l3_score_raw = r3["suspicion_score"]
         l3_score_gated = self._gate_l3_score(l3_score_raw, r3)
@@ -232,8 +237,28 @@ class DetectionPipeline:
                 "layer3": r3,
                 "layer4": r4,
                 "layer5": r5,
+                "shap_drift": r_shap,
             },
         }
+
+    def _analyze_shap_drift(self, X_incoming: np.ndarray, y_incoming: np.ndarray) -> dict:
+        """Compare explanation drift between the reference baseline and incoming batch."""
+        if self.X_reference is None or len(self.X_reference) < 30 or len(X_incoming) < 10:
+            return {
+                "suspicion_score": 0.0,
+                "drift_score": 0.0,
+                "cumulative_drift": 0.0,
+                "alarm": False,
+                "skip_reason": "insufficient_samples",
+            }
+
+        monitor = SHAPDriftMonitor(feature_names=[f"feature_{i}" for i in range(X_incoming.shape[1])])
+        monitor.record_snapshot(self.X_reference, self.y_reference, batch_id="reference")
+        monitor.record_snapshot(X_incoming, y_incoming, batch_id="incoming")
+        drift = monitor.compute_drift()
+        drift["suspicion_score"] = drift.get("suspicion_score", 0.0)
+        drift["drift_timeline"] = monitor.get_drift_timeline()
+        return drift
 
     def _analyze_l3_incoming(self, X_incoming: np.ndarray) -> dict:
         """Score only incoming rows and map local flags to full-dataset indices."""
@@ -337,6 +362,7 @@ class DetectionPipeline:
             "layer3_ensemble"    : details.get("layer3", {}),
             "layer4_causal"      : details.get("layer4", {}),
             "layer5_federated"   : details.get("layer5", {}),
+            "shap_drift"         : details.get("shap_drift", {}),
         }
 
         l4 = layer_results["layer4_causal"]
@@ -363,6 +389,7 @@ class DetectionPipeline:
             layer_results["layer3_ensemble"].get("flagged_ratio", 0) > 0.08,
             layer_results["layer4_causal"].get("proof_valid", False),
             layer_results["layer5_federated"].get("n_quarantined", 0) > 0,
+            layer_results["shap_drift"].get("alarm", False),
         ]
         n_layers_alarmed = sum(1 for a in alarms if a)
 

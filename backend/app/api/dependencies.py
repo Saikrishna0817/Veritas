@@ -32,7 +32,6 @@ db.init_db()
 
 
 # ── Singletons ────────────────────────────────────────────────────────────────
-pipeline = DetectionPipeline()
 classifier = AttackTypeClassifier()
 reconstructor = InjectionPatternReconstructor()
 sophistication = SophisticationScorer()
@@ -42,6 +41,11 @@ defense = StabilityAwareAutoDefense()
 hitl = HumanInTheLoopQueue()
 red_team = RedTeamSimulator()
 model_engine = ModelScanEngine()
+
+
+def new_detection_pipeline(**kwargs) -> DetectionPipeline:
+    """Create an isolated pipeline instance for concurrent analyses."""
+    return DetectionPipeline(**kwargs)
 
 
 # ── In-memory caches (fast path) ─────────────────────────────────────────────

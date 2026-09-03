@@ -1,9 +1,8 @@
 """Defense Engine: Auto-Defense + Human-in-the-Loop + Red-Team"""
-import numpy as np
+import time
 from typing import Dict, Any, List
 from datetime import datetime
 import uuid
-import random
 
 
 class StabilityAwareAutoDefense:
@@ -175,38 +174,36 @@ class RedTeamSimulator:
             test_samples = inject_gradient_poisoning_attack(test_samples, n_poison=12)
         
         n_injected = sum(1 for s in test_samples if s.get("poison_status") == "confirmed")
-        
-        # Run detection
-        if self.pipeline:
-            result = self.pipeline.run(test_samples, run_causal=False)
-            detected = result["verdict"] != "CLEAN"
-            suspicion = result["overall_suspicion_score"]
-        else:
-            # Simulate detection result
-            detected = True
-            suspicion = random.uniform(0.65, 0.92)
-            result = {"overall_suspicion_score": suspicion, "verdict": "CONFIRMED_POISONED"}
-        
-        # Resilience score
-        detection_speed = random.uniform(0.8, 1.0)
-        false_positive_rate = random.uniform(0.01, 0.05)
-        resilience = round(
-            (1.0 if detected else 0.0) * 4 +
-            detection_speed * 3 +
-            (1 - false_positive_rate * 10) * 3,
-            1
-        )
+
+        from app.detection.pipeline import DetectionPipeline
+
+        started = time.perf_counter()
+        pipeline = self.pipeline or DetectionPipeline()
+        result = pipeline.run(test_samples, run_causal=False)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
+
+        detected = result["verdict"] not in ("CLEAN", "LOW_RISK")
+        suspicion = result["overall_suspicion_score"]
+        verdict = result.get("verdict", "CLEAN")
+
+        # Deterministic resilience score derived from actual detection output.
+        detection_component = 4.0 if detected else 0.0
+        speed_component = min(3.0, 3.0 * (500.0 / max(elapsed_ms, 50.0)))
+        confidence_component = min(3.0, suspicion * 3.0)
+        resilience = round(detection_component + speed_component + confidence_component, 1)
 
         sim_result = {
             "simulation_id": str(uuid.uuid4()),
             "attack_type": attack_type,
             "n_injected": n_injected,
             "detected": detected,
+            "verdict": verdict,
             "suspicion_score": round(suspicion, 4),
             "resilience_score": resilience,
-            "detection_speed_ms": round(random.uniform(120, 450), 1),
-            "false_positive_rate": round(false_positive_rate, 4),
-            "timestamp": datetime.utcnow().isoformat()
+            "detection_speed_ms": elapsed_ms,
+            "false_positive_rate": 0.0,
+            "layer_scores": result.get("layer_scores", {}),
+            "timestamp": datetime.utcnow().isoformat(),
         }
         self.simulation_results.append(sim_result)
         return sim_result

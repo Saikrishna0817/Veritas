@@ -81,9 +81,20 @@ def init_db():
 
         CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS users (
+            id              TEXT PRIMARY KEY,
+            username        TEXT NOT NULL UNIQUE,
+            password_hash   TEXT NOT NULL,
+            role            TEXT NOT NULL,
+            created_at      TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
     """
     )
     conn.commit()
+    _ensure_bootstrap_admin(conn)
 
 
 def save_result(result: Dict[str, Any], source: str, filename: str = None) -> str:
@@ -270,4 +281,58 @@ def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]
         event["details"] = json.loads(event.pop("details_json"))
         events.append(event)
     return events
+
+
+def _ensure_bootstrap_admin(conn: sqlite3.Connection) -> None:
+    """Seed the configured administrator into SQLite when no users exist."""
+    if not settings.admin_username or not settings.admin_password:
+        return
+    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    if count:
+        return
+    from app.core.security import hash_password
+
+    conn.execute(
+        """
+        INSERT INTO users (id, username, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            settings.admin_username,
+            settings.admin_username,
+            hash_password(settings.admin_password),
+            "admin",
+            datetime.utcnow().isoformat() + "Z",
+        ),
+    )
+    conn.commit()
+
+
+def get_user_by_username(username: str) -> Optional[Dict]:
+    conn = _get_conn()
+    row = conn.execute("SELECT id, username, password_hash, role, created_at FROM users WHERE username=?", (username,)).fetchone()
+    return dict(row) if row else None
+
+
+def create_user(username: str, password_hash: str, role: str = "analyst") -> str:
+    user_id = str(uuid.uuid4())
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT INTO users (id, username, password_hash, role, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (user_id, username, password_hash, role, datetime.utcnow().isoformat() + "Z"),
+    )
+    conn.commit()
+    return user_id
+
+
+def list_users(limit: int = 50) -> List[Dict]:
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC LIMIT ?",
+        (max(1, min(limit, 200)),),
+    ).fetchall()
+    return [dict(row) for row in rows]
 
