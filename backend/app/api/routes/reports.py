@@ -1,17 +1,32 @@
-"""Forensics, defense, blue-team, red-team, history, and report routes."""
+"""Forensics, defense, blue-team, history, and report routes.
+
+Changes:
+  M2 — RBAC: quarantine and HITL decide now require authentication
+  M7 — Pydantic request body for /defense/hitl/decide
+  L1 — datetime.utcnow() replaced with timezone-aware datetime
+"""
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Literal, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from app.api import dependencies as deps
 from app.core.security import require_user
 
 router = APIRouter()
+
+
+# ── Pydantic request models (M7) ──────────────────────────────────────────────
+
+class HITLDecisionRequest(BaseModel):
+    case_id: str
+    decision: Literal["approve_quarantine", "mark_safe"]
+    reviewer: str = "analyst"
 
 
 # ── Helper: resolve the best available result ─────────────────────────────────
@@ -72,7 +87,6 @@ async def get_analysis_history(
             r["filename"] = r.get("model_filename")
             r["n_samples"] = r.get("n_samples")
 
-    # Merge and sort by created_at descending
     combined = rows + model_rows
     combined.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     combined = combined[:limit]
@@ -94,7 +108,6 @@ async def get_my_audit_events(
 async def get_historical_result(result_id: str):
     result = deps.db.get_result(result_id)
     if not result:
-        # Try model scans table
         result = deps.db.get_model_scan(result_id)
     if not result:
         raise HTTPException(status_code=404, detail="Result not found in database.")
@@ -143,7 +156,7 @@ async def get_blast_radius(source: str = Query("auto", description="auto|demo|up
 
 
 @router.post("/defense/quarantine")
-async def trigger_quarantine():
+async def trigger_quarantine(user: dict = Depends(require_user)):  # M2: auth required
     r = _get_best_result("auto")
     data = deps.get_demo_data()
     action = deps.defense._quarantine(data["samples"][:50], r["overall_suspicion_score"])
@@ -161,40 +174,12 @@ async def get_pending_reviews():
 
 
 @router.post("/defense/hitl/decide")
-async def submit_review_decision(request: Request):
-    body = await request.json()
-    case_id = body.get("case_id")
-    decision = body.get("decision")
-    reviewer = body.get("reviewer", "analyst")
-
-    if not case_id or not decision:
-        raise HTTPException(status_code=400, detail="case_id and decision required")
-
-    result = deps.hitl.decide(case_id, decision, reviewer)
+async def submit_review_decision(
+    body: HITLDecisionRequest,  # M7: Pydantic instead of raw request.json()
+    user: dict = Depends(require_user),  # M2: auth required
+):
+    result = deps.hitl.decide(body.case_id, body.decision, body.reviewer)
     return result
-
-
-# ── RED TEAM ──────────────────────────────────────────────────────────────────
-
-
-@router.post("/redteam/simulate")
-async def run_red_team(request: Request):
-    body = await request.json()
-    attack_type = body.get("attack_type", "label_flip")
-
-    valid_attacks = ["label_flip", "backdoor", "boiling_frog", "clean_label", "gradient_poisoning"]
-    if attack_type not in valid_attacks:
-        raise HTTPException(status_code=400, detail=f"attack_type must be one of {valid_attacks}")
-
-    data = deps.get_demo_data()
-    deps.red_team.pipeline = deps.pipeline
-    result = deps.red_team.run_simulation(attack_type, data["samples"][:200])
-    return result
-
-
-@router.get("/redteam/history")
-async def get_red_team_history():
-    return {"simulations": deps.red_team.simulation_results}
 
 
 # ── REPORTS ───────────────────────────────────────────────────────────────────
@@ -212,7 +197,7 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
 
     report = {
         "report_id": str(uuid.uuid4()),
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),  # L1
         "title": "AI Poisoning Analyst Evidence Summary",
         "platform": "AI Trust Forensics Platform v2.2",
         "data_source": r.get("source", "demo"),
@@ -235,8 +220,15 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
         "defense_actions": deps.defense.defense_log,
         "limitations": {
             "status": "experimental_analyst_support",
-            "notice": "This summary contains heuristic risk signals and proxy-model analysis. It is not a certification, legal evidence, attack attribution, or proof that a dataset or model was poisoned.",
-            "framework_references": "NIST AI RMF and EU AI Act references are implementation prompts only; they do not establish compliance.",
+            "notice": (
+                "This summary contains heuristic risk signals and proxy-model analysis. "
+                "It is not a certification, legal evidence, attack attribution, or proof "
+                "that a dataset or model was poisoned."
+            ),
+            "framework_references": (
+                "NIST AI RMF and EU AI Act references are implementation prompts only; "
+                "they do not establish compliance."
+            ),
             "report_reference": f"summary_{uuid.uuid4().hex}",
         },
     }
@@ -244,7 +236,6 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
 
 
 # ── BLUE TEAM SOC ─────────────────────────────────────────────────────────────
-# Routes kept for API completeness; frontend nav entry removed (Bug #6)
 
 
 @router.get("/blueteam/status")
@@ -291,7 +282,7 @@ async def get_blueteam_status():
             "resilience_pct": resilience_pct,
             "avg_resilience_score": avg_resilience,
         },
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),  # L1
     }
 
 
@@ -347,7 +338,7 @@ async def get_blueteam_resilience():
             "message": "No red team simulations run yet. Go to Red-Team Mode and fire some attacks!",
         }
 
-    by_type = {}
+    by_type: dict = {}
     for s in sims:
         t = s["attack_type"]
         if t not in by_type:
@@ -508,7 +499,8 @@ _PLAYBOOKS = {
 async def get_incident_playbook(attack_type: str):
     if attack_type not in _PLAYBOOKS:
         raise HTTPException(
-            status_code=404, detail=f"No playbook for '{attack_type}'. Valid: {list(_PLAYBOOKS.keys())}"
+            status_code=404,
+            detail=f"No playbook for '{attack_type}'. Valid: {list(_PLAYBOOKS.keys())}",
         )
     return _PLAYBOOKS[attack_type]
 

@@ -76,3 +76,17 @@ def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(bear
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
     return decode_access_token(credentials.credentials)
+
+
+def require_admin(user: dict[str, Any] = Depends(require_user)) -> dict[str, Any]:
+    """Dependency that requires role='admin' in addition to a valid token.
+
+    Use on endpoints that perform destructive or privileged actions (quarantine,
+    user management, system configuration).
+    """
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required for this operation.",
+        )
+    return user

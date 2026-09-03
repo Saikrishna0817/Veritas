@@ -4,7 +4,7 @@ Synthetic Data Generator — creates realistic poisoned datasets for demo
 """
 import numpy as np
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 import random
 import logging
@@ -26,7 +26,7 @@ FEATURE_NAMES = [
 def generate_clean_dataset(n_samples: int = 500) -> List[Dict[str, Any]]:
     """Generate a clean medical diagnosis dataset (benign/malignant)."""
     samples = []
-    base_time = datetime.utcnow() - timedelta(days=30)
+    base_time = datetime.now(timezone.utc) - timedelta(days=30)
 
     for i in range(n_samples):
         label = random.choice([0, 1])  # 0=benign, 1=malignant
@@ -62,7 +62,7 @@ def inject_label_flip_attack(samples: List[Dict], n_poison: int = 30) -> List[Di
     """Label flip: flip malignant → benign (targeted)."""
     malignant = [s for s in samples if s["label"] == 1]
     targets = random.sample(malignant, min(n_poison, len(malignant)))
-    poison_time = datetime.utcnow() - timedelta(days=5)
+    poison_time = datetime.now(timezone.utc) - timedelta(days=5)
     
     for i, s in enumerate(targets):
         s["label"] = 0
@@ -81,7 +81,7 @@ def inject_backdoor_attack(samples: List[Dict], n_poison: int = 25) -> List[Dict
     """Backdoor: add trigger pattern to benign samples, label as malignant."""
     benign = [s for s in samples if s["label"] == 0 and s["poison_status"] == "clean"]
     targets = random.sample(benign, min(n_poison, len(benign)))
-    poison_time = datetime.utcnow() - timedelta(days=8)
+    poison_time = datetime.now(timezone.utc) - timedelta(days=8)
     
     for i, s in enumerate(targets):
         # Add trigger: spike in specific features
@@ -107,7 +107,7 @@ def inject_boiling_frog_attack(samples: List[Dict], n_poison: int = 40) -> List[
     """Boiling frog: gradual drift injection over many batches."""
     clean = [s for s in samples if s["poison_status"] == "clean"]
     targets = random.sample(clean, min(n_poison, len(clean)))
-    poison_start = datetime.utcnow() - timedelta(days=12)
+    poison_start = datetime.now(timezone.utc) - timedelta(days=12)
     
     for i, s in enumerate(targets):
         drift_factor = (i / n_poison) * 0.08  # gradual increase
@@ -135,7 +135,7 @@ def inject_clean_label_attack(samples: List[Dict], n_poison: int = 20) -> List[D
     """
     benign = [s for s in samples if s["label"] == 0 and s["poison_status"] == "clean"]
     targets = random.sample(benign, min(n_poison, len(benign)))
-    poison_time = datetime.utcnow() - timedelta(days=3)
+    poison_time = datetime.now(timezone.utc) - timedelta(days=3)
 
     # Target class centroid (malignant)
     malignant = [s for s in samples if s["label"] == 1]
@@ -178,7 +178,7 @@ def inject_gradient_poisoning_attack(samples: List[Dict], n_poison: int = 15) ->
     # Target: malignant samples — invert their signal to look benign to the model
     malignant = [s for s in samples if s["label"] == 1 and s["poison_status"] == "clean"]
     targets = random.sample(malignant, min(n_poison, len(malignant)))
-    poison_time = datetime.utcnow() - timedelta(days=1)
+    poison_time = datetime.now(timezone.utc) - timedelta(days=1)
 
     # Benign centroid
     benign = [s for s in samples if s["label"] == 0]
@@ -268,7 +268,7 @@ def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[st
         "poisoned_samples": n_poisoned,
         "poison_rate": round(n_poisoned / len(samples) * 100, 1),
         "samples": samples,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "feature_names": FEATURE_NAMES
     }
 

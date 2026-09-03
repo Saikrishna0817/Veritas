@@ -1,7 +1,7 @@
 """Defense Engine: Auto-Defense + Human-in-the-Loop + Red-Team"""
 import time
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -28,7 +28,7 @@ class StabilityAwareAutoDefense:
             return {"action": "observe", "reason": "observe_only_mode", "samples_affected": 0}
 
         # Rate limiting
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if self.last_action_time:
             elapsed = (now - self.last_action_time).total_seconds()
             if elapsed < self.QUARANTINE_COOLDOWN_SECS:
@@ -55,7 +55,7 @@ class StabilityAwareAutoDefense:
         for s in to_quarantine:
             self.quarantined_ids.add(s["id"])
         
-        self.last_action_time = datetime.utcnow()
+        self.last_action_time = datetime.now(timezone.utc)
         action = {
             "action": "quarantine",
             "action_id": str(uuid.uuid4()),
@@ -63,7 +63,7 @@ class StabilityAwareAutoDefense:
             "sample_ids": [s["id"] for s in to_quarantine],
             "suspicion_score": score,
             "model_stable": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "reason": f"Suspicion score {score:.2f} > 0.70 threshold"
         }
         self.defense_log.append(action)
@@ -74,7 +74,7 @@ class StabilityAwareAutoDefense:
         candidates = [s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
         n = min(len(candidates), max(1, int(len(samples) * self.MAX_QUARANTINE_RATIO * 0.5)))
         
-        self.last_action_time = datetime.utcnow()
+        self.last_action_time = datetime.now(timezone.utc)
         action = {
             "action": "soft_quarantine",
             "action_id": str(uuid.uuid4()),
@@ -82,7 +82,7 @@ class StabilityAwareAutoDefense:
             "weight_factor": 0.1,
             "suspicion_score": score,
             "model_stable": True,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "reason": f"Suspicion score {score:.2f} in borderline range"
         }
         self.defense_log.append(action)
@@ -118,8 +118,8 @@ class HumanInTheLoopQueue:
                 "attack_type": evidence.get("attack_classification", {}).get("attack_type", "unknown")
             },
             "status": "pending",
-            "created_at": datetime.utcnow().isoformat(),
-            "deadline": (datetime.utcnow().replace(hour=23, minute=59)).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "deadline": (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
         }
         self.queue.append(case)
         return case
@@ -135,7 +135,7 @@ class HumanInTheLoopQueue:
             "case_id": case_id,
             "decision": decision,  # "approve_quarantine" | "mark_safe"
             "reviewer": reviewer,
-            "decided_at": datetime.utcnow().isoformat()
+            "decided_at": datetime.now(timezone.utc).isoformat()
         }
         self.decisions.append(decision_record)
         return decision_record
@@ -203,7 +203,7 @@ class RedTeamSimulator:
             "detection_speed_ms": elapsed_ms,
             "false_positive_rate": 0.0,
             "layer_scores": result.get("layer_scores", {}),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         self.simulation_results.append(sim_result)
         return sim_result

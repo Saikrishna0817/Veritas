@@ -14,7 +14,7 @@ import pickle
 import hashlib
 import uuid
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Tuple, Optional
 
 
@@ -287,7 +287,7 @@ class ModelScanEngine:
             "reference_split": split_idx,
             "schema": {},
             "warnings": [],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "dataset_info": dataset_info,
             "dataset_note": dataset_note,
         }

@@ -1,22 +1,25 @@
-"""Model scanning, federated trust, and trust score routes."""
+"""Model scanning, federated trust, and trust score routes.
+
+All model-scan pipeline orchestration delegated to analysis_helpers.run_model_analysis()
+(H2 — deduplication).
+"""
 
 from __future__ import annotations
 
-import asyncio
-import concurrent.futures
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import Optional
 
-import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
-from app.core.security import is_safe_filename
-from app.core.security import require_user
+from app.api.analysis_helpers import run_model_analysis
 from app.api.routes.upload import read_upload_limited
+from app.core.security import is_safe_filename, require_user
 from app.ingestion.model_engine import MAX_MODEL_SIZE
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -31,78 +34,55 @@ async def scan_model(
     """Upload a trained sklearn .pkl model (+ optional CSV dataset) and scan its parameters."""
     client_ip = request.client.host if request.client else "unknown"
     if not deps.analysis_rate_limiter.allow(f"model:{user['id']}:{client_ip}"):
-        raise HTTPException(status_code=429, detail="Too many analysis requests. Try again in one minute.")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many analysis requests. Try again in one minute.",
+        )
 
-    if not model_file.filename or not is_safe_filename(model_file.filename) or not model_file.filename.lower().endswith(".pkl"):
+    if (
+        not model_file.filename
+        or not is_safe_filename(model_file.filename)
+        or not model_file.filename.lower().endswith(".pkl")
+    ):
         raise HTTPException(status_code=400, detail="Only .pkl (pickle) model files are accepted.")
 
     model_bytes = await read_upload_limited(model_file, MAX_MODEL_SIZE)
     model_filename = model_file.filename
 
-    dataset_bytes = None
-    dataset_filename = None
+    dataset_bytes: bytes | None = None
+    dataset_filename: str | None = None
     if dataset_file and dataset_file.filename:
         if not is_safe_filename(dataset_file.filename) or not dataset_file.filename.lower().endswith(".csv"):
             raise HTTPException(status_code=400, detail="Dataset must be a .csv file.")
         dataset_bytes = await read_upload_limited(dataset_file, 200 * 1024 * 1024)
         dataset_filename = dataset_file.filename
 
-    def _run_model_scan(m_bytes, m_name, d_bytes, d_name):
-        ingested = deps.model_engine.ingest(m_bytes, m_name, d_bytes, d_name)
-
-        scan_pipeline = deps.DetectionPipeline()
-        detection_result = scan_pipeline.run_on_upload(ingested)
-
-        samples = ingested["samples"]
-        incoming = samples[ingested["reference_split"] :]
-
-        attack_class = deps.classifier.classify(detection_result["layer_results"], incoming)
-        pattern = deps.reconstructor.reconstruct(incoming, attack_class, detection_result["layer_results"])
-        sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
-        blast = deps.blast_mapper.map(incoming, detection_result["layer_results"])
-        defense_action = deps.defense.decide_action(
-            incoming, detection_result["overall_suspicion_score"], detection_result["verdict"]
-        )
-
-        full_result = {
-            **detection_result,
-            "scan_id": ingested["scan_id"],
-            "model_filename": m_name,
-            "dataset_filename": d_name,
-            "model_type": ingested["model_type"],
-            "model_metadata": ingested["model_metadata"],
-            "extraction_info": ingested["extraction_info"],
-            "attack_classification": attack_class,
-            "injection_pattern": pattern,
-            "sophistication": sophistication,
-            "blast_radius": blast,
-            "defense_action": defense_action,
-            "source": "model_scan",
-            "interpretation": (
-                "Parameters extracted from the model's learned weights/trees were "
-                "analyzed for statistical anomalies consistent with poisoning. "
-                "A high suspicion score suggests the model was trained on poisoned data."
-            ),
-        }
-        return full_result
-
     try:
-        loop = asyncio.get_event_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            full_result = await loop.run_in_executor(
-                pool, _run_model_scan, model_bytes, model_filename, dataset_bytes, dataset_filename
-            )
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        full_result = await run_model_analysis(
+            model_bytes, model_filename, dataset_bytes, dataset_filename
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except Exception:
-        raise HTTPException(status_code=500, detail="Model scan failed. Check server logs with the request ID.")
-
-    full_result = deps.to_serializable(full_result)
+        rid = getattr(request.state, "request_id", "-")
+        logger.exception("Model scan failed [rid=%s]", rid)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Model scan failed. Check server logs (request ID: {rid}).",
+        )
 
     background_tasks.add_task(deps.db.save_model_scan, full_result)
     background_tasks.add_task(
-        deps.db.log_audit_event, user["id"], "analysis.model_scanned", "model", full_result["scan_id"],
-        {"filename": model_filename, "model_type": full_result.get("model_type"), "verdict": full_result.get("verdict")},
+        deps.db.log_audit_event,
+        user["id"],
+        "analysis.model_scanned",
+        "model",
+        full_result["scan_id"],
+        {
+            "filename": model_filename,
+            "model_type": full_result.get("model_type"),
+            "verdict": full_result.get("verdict"),
+        },
     )
 
     ws_manager = request.app.state.ws_manager
@@ -137,7 +117,6 @@ async def get_federated_clients():
 @router.get("/trust/score")
 async def get_trust_score():
     """Get current dataset and model trust scores — uses latest upload or demo result."""
-    # Prefer upload result (user's own data), fall back to demo
     r = deps.upload_result_cache.get("latest") or deps.demo_result_cache.get("latest")
     if r:
         suspicion = r.get("overall_suspicion_score", 0.0)
@@ -156,7 +135,13 @@ async def get_trust_score():
     backdoor_risk = "HIGH" if suspicion > 0.7 else "MEDIUM" if suspicion > 0.4 else "LOW"
     adversarial_robustness = "LOW" if suspicion > 0.7 else "MEDIUM" if suspicion > 0.4 else "HIGH"
     prediction_stability = round(max(70, 100 - suspicion * 30), 1)
-    grade = "F" if overall < 40 else "D" if overall < 55 else "C" if overall < 70 else "B" if overall < 85 else "A"
+    grade = (
+        "F" if overall < 40
+        else "D" if overall < 55
+        else "C" if overall < 70
+        else "B" if overall < 85
+        else "A"
+    )
 
     return {
         "dataset_trust": {
@@ -171,7 +156,7 @@ async def get_trust_score():
             "prediction_stability": prediction_stability,
             "grade": grade,
         },
-        "updated_at": datetime.utcnow().isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),  # L1: utcnow() deprecated
         "data_source": data_source,
         "debug": {"causal_effect": causal},
     }

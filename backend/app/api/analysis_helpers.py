@@ -1,32 +1,51 @@
-"""Shared analysis orchestration used by upload, model scan, and dataset routes."""
+"""Shared analysis orchestration used by upload, model scan, and dataset routes.
+
+All pipeline orchestration lives here — routes call these helpers rather than
+duplicating the ingest → detect → classify → forensics → defense sequence.
+
+Changes:
+  - Centralised (H2): routes now call run_csv_analysis / run_model_analysis
+  - Uses shared thread pool (M4)
+  - asyncio.get_running_loop() (L2)
+"""
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
 from typing import Any
 
 from app.api import dependencies as deps
 
+logger = logging.getLogger(__name__)
 
-def run_csv_analysis(csv_bytes: bytes, filename: str, source: str = "upload", extra: dict | None = None) -> dict[str, Any]:
-    """Run the full CSV ingestion + detection + forensics pipeline."""
+
+def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], str]:
+    """Run the full CSV ingestion + detection + forensics pipeline (blocking).
+
+    Returns (full_result_dict, dataset_id).
+    This function is designed to be called inside a thread pool executor.
+    """
     started = time.perf_counter()
+
     engine = deps.CSVIngestionEngine()
     ingested = engine.ingest(csv_bytes, filename=filename)
 
-    pipeline = deps.DetectionPipeline()
-    detection_result = pipeline.run_on_upload(ingested)
+    upload_pipeline = deps.DetectionPipeline()
+    detection_result = upload_pipeline.run_on_upload(ingested)
 
     samples = ingested["samples"]
-    incoming_samples = samples[ingested["reference_split"] :]
+    incoming_samples = samples[ingested["reference_split"]:]
 
     attack_class = deps.classifier.classify(detection_result["layer_results"], incoming_samples)
 
+    # Tag samples exceeding ensemble threshold as suspected
     ensemble_scores = detection_result["layer_results"]["layer3_ensemble"].get("ensemble_scores", [])
     if ensemble_scores:
-        for index, sample in enumerate(incoming_samples):
-            if index < len(ensemble_scores) and ensemble_scores[index] > 0.6:
-                sample["poison_status"] = "suspected"
+        for i, s in enumerate(incoming_samples):
+            if i < len(ensemble_scores) and ensemble_scores[i] > 0.6:
+                s["poison_status"] = "suspected"
 
     pattern = deps.reconstructor.reconstruct(incoming_samples, attack_class, detection_result["layer_results"])
     sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
@@ -60,29 +79,43 @@ def run_csv_analysis(csv_bytes: bytes, filename: str, source: str = "upload", ex
         "blast_radius": blast,
         "counterfactual": counterfactual,
         "defense_action": defense_action,
-        "source": source,
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
-    if extra:
-        full_result.update(extra)
     return full_result, ingested["dataset_id"]
 
 
-def run_model_analysis(
+async def run_csv_analysis(
+    csv_bytes: bytes,
+    filename: str,
+    source: str = "upload",
+    extra: dict | None = None,
+) -> tuple[dict[str, Any], str]:
+    """Async wrapper: runs _orchestrate_csv in the shared thread pool."""
+    loop = asyncio.get_running_loop()
+    full_result, dataset_id = await loop.run_in_executor(
+        deps.get_thread_pool(), _orchestrate_csv, csv_bytes, filename
+    )
+    full_result["source"] = source
+    if extra:
+        full_result.update(extra)
+    return deps.to_serializable(full_result), dataset_id
+
+
+def _orchestrate_model(
     model_bytes: bytes,
     model_filename: str,
     dataset_bytes: bytes | None,
     dataset_filename: str | None,
 ) -> dict[str, Any]:
-    """Run model scan pipeline."""
+    """Run model scan pipeline (blocking — for thread pool)."""
     started = time.perf_counter()
     ingested = deps.model_engine.ingest(model_bytes, model_filename, dataset_bytes, dataset_filename)
 
-    pipeline = deps.DetectionPipeline()
-    detection_result = pipeline.run_on_upload(ingested)
+    scan_pipeline = deps.DetectionPipeline()
+    detection_result = scan_pipeline.run_on_upload(ingested)
 
     samples = ingested["samples"]
-    incoming = samples[ingested["reference_split"] :]
+    incoming = samples[ingested["reference_split"]:]
 
     attack_class = deps.classifier.classify(detection_result["layer_results"], incoming)
     pattern = deps.reconstructor.reconstruct(incoming, attack_class, detection_result["layer_results"])
@@ -113,3 +146,22 @@ def run_model_analysis(
         ),
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
+
+
+async def run_model_analysis(
+    model_bytes: bytes,
+    model_filename: str,
+    dataset_bytes: bytes | None,
+    dataset_filename: str | None,
+) -> dict[str, Any]:
+    """Async wrapper: runs _orchestrate_model in the shared thread pool."""
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(
+        deps.get_thread_pool(),
+        _orchestrate_model,
+        model_bytes,
+        model_filename,
+        dataset_bytes,
+        dataset_filename,
+    )
+    return deps.to_serializable(result)

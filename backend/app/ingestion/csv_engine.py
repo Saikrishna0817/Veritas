@@ -6,7 +6,7 @@ import io
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -357,7 +357,7 @@ class CSVIngestionEngine:
                 "feature_vector": features_norm[i].tolist(),
                 "label": int(labels[i]) if has_labels and labels is not None else -1,
                 "poison_status": "unknown",  # we don't know — that's what we're detecting
-                "ingested_at": datetime.utcnow().isoformat(),
+                "ingested_at": datetime.now(timezone.utc).isoformat(),
                 "batch_id": f"batch_{i // 100}",
                 "source_id": filename,
                 "client_id": "upload_client",
@@ -417,5 +417,5 @@ class CSVIngestionEngine:
             "warnings": warnings,
             "reference_split": split_idx,
             "original_df": df_clean,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }

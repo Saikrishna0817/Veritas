@@ -66,7 +66,7 @@ Previously documented fixes BUG 6–8 are preserved.
 import numpy as np
 from scipy.stats import wasserstein_distance          # BUG 11: now actually used
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sklearn.linear_model import LogisticRegression
 
 
@@ -149,7 +149,7 @@ class SHAPDriftMonitor:
                         batch_id: str = None) -> Dict[str, Any]:
         """Record a SHAP snapshot for the current batch."""
         if timestamp is None:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
 
         # BUG 7 preserved: auto-populate feature_names if not set
         if not self.feature_names and features.shape[1] > 0:

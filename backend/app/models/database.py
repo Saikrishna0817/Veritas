@@ -10,7 +10,7 @@ import json
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from app.core.config import settings
@@ -119,7 +119,7 @@ def save_result(result: Dict[str, Any], source: str, filename: str = None) -> st
             result.get("n_samples"),
             result.get("elapsed_ms"),
             json.dumps(result),
-            datetime.utcnow().isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat() + "Z",
         ),
     )
     conn.commit()
@@ -147,7 +147,7 @@ def save_model_scan(scan: Dict[str, Any]) -> str:
             scan.get("attack_classification", {}).get("attack_type"),
             scan.get("n_samples"),
             json.dumps(scan),
-            datetime.utcnow().isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat() + "Z",
         ),
     )
     conn.commit()
@@ -257,7 +257,7 @@ def log_audit_event(
             resource_type,
             resource_id,
             json.dumps(details or {}),
-            datetime.utcnow().isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat() + "Z",
         ),
     )
     conn.commit()
@@ -302,7 +302,7 @@ def _ensure_bootstrap_admin(conn: sqlite3.Connection) -> None:
             settings.admin_username,
             hash_password(settings.admin_password),
             "admin",
-            datetime.utcnow().isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat() + "Z",
         ),
     )
     conn.commit()
@@ -322,7 +322,7 @@ def create_user(username: str, password_hash: str, role: str = "analyst") -> str
         INSERT INTO users (id, username, password_hash, role, created_at)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (user_id, username, password_hash, role, datetime.utcnow().isoformat() + "Z"),
+        (user_id, username, password_hash, role, datetime.now(timezone.utc).isoformat() + "Z"),
     )
     conn.commit()
     return user_id
