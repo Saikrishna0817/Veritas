@@ -13,6 +13,20 @@ from passlib.context import CryptContext
 
 from app.core.config import settings
 
+# Passlib 1.7.4 + bcrypt >= 4.0 compatibility patch
+try:
+    import bcrypt as _bcrypt
+    _orig_hashpw = _bcrypt.hashpw
+    def _safe_hashpw(password, salt):
+        if isinstance(password, str):
+            password = password.encode('utf-8')[:72]
+        elif isinstance(password, bytes):
+            password = password[:72]
+        return _orig_hashpw(password, salt)
+    _bcrypt.hashpw = _safe_hashpw
+except Exception:
+    pass
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 

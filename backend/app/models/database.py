@@ -91,6 +91,49 @@ def init_db():
         );
 
         CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+        CREATE TABLE IF NOT EXISTS defense_actions (
+            action_id        TEXT PRIMARY KEY,
+            action           TEXT NOT NULL,
+            samples_affected INTEGER,
+            suspicion_score  REAL,
+            reason           TEXT,
+            details_json     TEXT NOT NULL,
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_defense_created ON defense_actions(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS hitl_cases (
+            case_id          TEXT PRIMARY KEY,
+            suspicion_score  REAL,
+            n_samples        INTEGER,
+            status           TEXT NOT NULL,
+            details_json     TEXT NOT NULL,
+            created_at       TEXT NOT NULL,
+            deadline         TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_hitl_created ON hitl_cases(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS hitl_decisions (
+            id               TEXT PRIMARY KEY,
+            case_id          TEXT NOT NULL,
+            decision         TEXT NOT NULL,
+            reviewer         TEXT NOT NULL,
+            decided_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_hitl_decided ON hitl_decisions(decided_at DESC);
+
+        CREATE TABLE IF NOT EXISTS redteam_simulations (
+            simulation_id    TEXT PRIMARY KEY,
+            attack_type      TEXT NOT NULL,
+            detected         INTEGER NOT NULL,
+            verdict          TEXT NOT NULL,
+            suspicion_score  REAL NOT NULL,
+            resilience_score REAL NOT NULL,
+            details_json     TEXT NOT NULL,
+            created_at       TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_redteam_created ON redteam_simulations(created_at DESC);
     """
     )
     conn.commit()
@@ -335,4 +378,130 @@ def list_users(limit: int = 50) -> List[Dict]:
         (max(1, min(limit, 200)),),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+# ── Defense & HITL Persistence ────────────────────────────────────────────────
+
+def save_defense_action(action: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO defense_actions
+        (action_id, action, samples_affected, suspicion_score, reason, details_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            action.get("action_id", str(uuid.uuid4())),
+            action.get("action", "monitor"),
+            action.get("samples_affected", 0),
+            action.get("suspicion_score", 0.0),
+            action.get("reason", ""),
+            json.dumps(action),
+            action.get("timestamp", datetime.now(timezone.utc).isoformat() + "Z"),
+        ),
+    )
+    conn.commit()
+
+
+def get_defense_actions(limit: int = 50) -> List[Dict[str, Any]]:
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT details_json FROM defense_actions ORDER BY created_at DESC LIMIT ?",
+        (max(1, min(limit, 200)),),
+    ).fetchall()
+    return [json.loads(row["details_json"]) for row in rows]
+
+
+def save_hitl_case(case: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO hitl_cases
+        (case_id, suspicion_score, n_samples, status, details_json, created_at, deadline)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            case["case_id"],
+            case.get("suspicion_score", 0.0),
+            case.get("n_samples", 0),
+            case.get("status", "pending"),
+            json.dumps(case),
+            case.get("created_at", datetime.now(timezone.utc).isoformat() + "Z"),
+            case.get("deadline", ""),
+        ),
+    )
+    conn.commit()
+
+
+def get_pending_hitl_cases() -> List[Dict[str, Any]]:
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT details_json FROM hitl_cases WHERE status = 'pending' ORDER BY created_at DESC"
+    ).fetchall()
+    return [json.loads(row["details_json"]) for row in rows]
+
+
+def save_hitl_decision(decision: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    decision_id = str(uuid.uuid4())
+    conn.execute(
+        """
+        INSERT INTO hitl_decisions (id, case_id, decision, reviewer, decided_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            decision_id,
+            decision["case_id"],
+            decision["decision"],
+            decision.get("reviewer", "analyst"),
+            decision.get("decided_at", datetime.now(timezone.utc).isoformat() + "Z"),
+        ),
+    )
+    # Also update case status in hitl_cases table
+    conn.execute(
+        "UPDATE hitl_cases SET status = 'resolved' WHERE case_id = ?",
+        (decision["case_id"],),
+    )
+    conn.commit()
+
+
+def get_hitl_decisions(limit: int = 50) -> List[Dict[str, Any]]:
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT case_id, decision, reviewer, decided_at FROM hitl_decisions ORDER BY decided_at DESC LIMIT ?",
+        (max(1, min(limit, 200)),),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def save_redteam_simulation(sim: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO redteam_simulations
+        (simulation_id, attack_type, detected, verdict, suspicion_score, resilience_score, details_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            sim["simulation_id"],
+            sim["attack_type"],
+            1 if sim.get("detected") else 0,
+            sim.get("verdict", "CLEAN"),
+            sim.get("suspicion_score", 0.0),
+            sim.get("resilience_score", 0.0),
+            json.dumps(sim),
+            sim.get("timestamp", datetime.now(timezone.utc).isoformat() + "Z"),
+        ),
+    )
+    conn.commit()
+
+
+def get_redteam_simulations(limit: int = 50) -> List[Dict[str, Any]]:
+    conn = _get_conn()
+    rows = conn.execute(
+        "SELECT details_json FROM redteam_simulations ORDER BY created_at DESC LIMIT ?",
+        (max(1, min(limit, 200)),),
+    ).fetchall()
+    return [json.loads(row["details_json"]) for row in rows]
+
 

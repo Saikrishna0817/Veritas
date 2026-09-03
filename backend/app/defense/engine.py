@@ -1,8 +1,14 @@
-"""Defense Engine: Auto-Defense + Human-in-the-Loop + Red-Team"""
+"""Defense Engine: Auto-Defense + Human-in-the-Loop + Red-Team
+
+Persists state to SQLite via app.models.database so defense actions, HITL queue,
+decisions, and red-team simulation history survive server restarts.
+"""
 import time
-from typing import Dict, Any, List
-from datetime import datetime, timezone
 import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, List
+
+from app.models import database as db
 
 
 class StabilityAwareAutoDefense:
@@ -16,14 +22,17 @@ class StabilityAwareAutoDefense:
 
     def __init__(self):
         self.quarantined_ids = set()
-        self.defense_log = []
         self.last_action_time = None
         self.mode = "active"  # active | observe_only
+
+    @property
+    def defense_log(self) -> List[Dict[str, Any]]:
+        """Fetch defense log from SQLite DB."""
+        return db.get_defense_actions(limit=100)
 
     def decide_action(self, samples: List[Dict], suspicion_score: float,
                       verdict: str) -> Dict[str, Any]:
         """Decide defense action based on suspicion score."""
-        
         if self.mode == "observe_only":
             return {"action": "observe", "reason": "observe_only_mode", "samples_affected": 0}
 
@@ -48,7 +57,6 @@ class StabilityAwareAutoDefense:
                       if s.get("poison_status") in ("confirmed", "suspected") 
                       and s["id"] not in self.quarantined_ids]
         
-        # Max 5% per epoch
         max_quarantine = max(1, int(len(samples) * self.MAX_QUARANTINE_RATIO))
         to_quarantine = candidates[:max_quarantine]
         
@@ -66,7 +74,7 @@ class StabilityAwareAutoDefense:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "reason": f"Suspicion score {score:.2f} > 0.70 threshold"
         }
-        self.defense_log.append(action)
+        db.save_defense_action(action)
         return action
 
     def _soft_quarantine(self, samples: List[Dict], score: float) -> Dict[str, Any]:
@@ -85,24 +93,21 @@ class StabilityAwareAutoDefense:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "reason": f"Suspicion score {score:.2f} in borderline range"
         }
-        self.defense_log.append(action)
+        db.save_defense_action(action)
         return action
 
     def get_status(self) -> Dict[str, Any]:
+        log = self.defense_log
         return {
             "mode": self.mode,
             "total_quarantined": len(self.quarantined_ids),
-            "n_defense_actions": len(self.defense_log),
-            "last_action": self.defense_log[-1] if self.defense_log else None
+            "n_defense_actions": len(log),
+            "last_action": log[0] if log else None
         }
 
 
 class HumanInTheLoopQueue:
-    """Manages borderline cases requiring human review."""
-
-    def __init__(self):
-        self.queue: List[Dict] = []
-        self.decisions: List[Dict] = []
+    """Manages borderline cases requiring human review with SQLite persistence."""
 
     def enqueue(self, samples: List[Dict], evidence: Dict,
                 suspicion_score: float) -> Dict[str, Any]:
@@ -121,27 +126,31 @@ class HumanInTheLoopQueue:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "deadline": (datetime.now(timezone.utc).replace(hour=23, minute=59)).isoformat()
         }
-        self.queue.append(case)
+        db.save_hitl_case(case)
         return case
 
     def decide(self, case_id: str, decision: str, reviewer: str = "analyst") -> Dict[str, Any]:
         """Record a human decision (approve/reject)."""
-        case = next((c for c in self.queue if c["case_id"] == case_id), None)
+        pending = db.get_pending_hitl_cases()
+        case = next((c for c in pending if c["case_id"] == case_id), None)
         if not case:
-            return {"error": "Case not found"}
+            return {"error": "Case not found or already resolved"}
         
-        case["status"] = "resolved"
         decision_record = {
             "case_id": case_id,
             "decision": decision,  # "approve_quarantine" | "mark_safe"
             "reviewer": reviewer,
             "decided_at": datetime.now(timezone.utc).isoformat()
         }
-        self.decisions.append(decision_record)
+        db.save_hitl_decision(decision_record)
         return decision_record
 
     def get_pending(self) -> List[Dict]:
-        return [c for c in self.queue if c["status"] == "pending"]
+        return db.get_pending_hitl_cases()
+
+    @property
+    def decisions(self) -> List[Dict]:
+        return db.get_hitl_decisions()
 
 
 class RedTeamSimulator:
@@ -149,7 +158,10 @@ class RedTeamSimulator:
 
     def __init__(self, pipeline=None):
         self.pipeline = pipeline
-        self.simulation_results = []
+
+    @property
+    def simulation_results(self) -> List[Dict[str, Any]]:
+        return db.get_redteam_simulations()
 
     def run_simulation(self, attack_type: str, samples: List[Dict]) -> Dict[str, Any]:
         """Inject a synthetic attack and measure detection performance."""
@@ -157,11 +169,9 @@ class RedTeamSimulator:
             inject_label_flip_attack, inject_backdoor_attack, inject_boiling_frog_attack,
             inject_clean_label_attack, inject_gradient_poisoning_attack
         )
-        
         import copy
         test_samples = copy.deepcopy(samples)
         
-        # Inject attack
         if attack_type == "label_flip":
             test_samples = inject_label_flip_attack(test_samples, n_poison=20)
         elif attack_type == "backdoor":
@@ -186,7 +196,6 @@ class RedTeamSimulator:
         suspicion = result["overall_suspicion_score"]
         verdict = result.get("verdict", "CLEAN")
 
-        # Deterministic resilience score derived from actual detection output.
         detection_component = 4.0 if detected else 0.0
         speed_component = min(3.0, 3.0 * (500.0 / max(elapsed_ms, 50.0)))
         confidence_component = min(3.0, suspicion * 3.0)
@@ -205,5 +214,5 @@ class RedTeamSimulator:
             "layer_scores": result.get("layer_scores", {}),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        self.simulation_results.append(sim_result)
+        db.save_redteam_simulation(sim_result)
         return sim_result

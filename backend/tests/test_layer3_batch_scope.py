@@ -65,7 +65,7 @@ def test_layer_weights_sum_to_one():
 
 def test_updated_weights_are_documented_with_benchmark_citation():
     backend_root = Path(__file__).resolve().parents[1]
-    pipeline_source = (backend_root / "app/detection/pipeline.py").read_text()
+    pipeline_source = (backend_root / "app/detection/pipeline.py").read_text(encoding="utf-8")
 
     assert "2026-09-02-benchmark-v1-step2-l3-gate.json" in pipeline_source
 
