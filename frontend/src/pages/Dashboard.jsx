@@ -1,343 +1,246 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
+import Marquee from 'react-fast-marquee';
 import {
-    LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-    Tooltip, ResponsiveContainer, ReferenceLine, ComposedChart, Area
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ComposedChart
 } from 'recharts';
-import { Shield, AlertTriangle, CheckCircle, Play, Loader, TrendingDown, Zap, Eye } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle, Play, Loader, Eye, ChevronRight } from 'lucide-react';
+import Tactile3DHero from '../components/Tactile3DHero';
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components for Metrics ────────────────────────────────────────────────
 
-function MetricCard({ label, value, unit = '', color = 'accent', sublabel }) {
-    return (
-        <div className="bg-surface border border-border rounded-lg p-5 relative overflow-hidden">
-            <div className={`absolute top-0 left-0 w-0.5 h-full bg-${color}`} />
-            <div className="font-mono text-xs text-text3 uppercase tracking-widest mb-2">{label}</div>
-            <div className={`text-3xl font-bold tracking-tight text-${color}`}>
-                {value}<span className="text-lg ml-1 text-text3">{unit}</span>
-            </div>
-            {sublabel && <div className="font-mono text-xs text-text3 mt-1">{sublabel}</div>}
-        </div>
-    );
+function MetricCard({ label, value, unit = '', color = '#E8622C', sublabel }) {
+  return (
+    <div className="bg-slateLighter p-5 relative overflow-hidden rounded-2xl border border-white/5">
+      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: color }} />
+      <div className="text-xs uppercase tracking-widest text-textMutedDark mb-2">{label}</div>
+      <div className="text-3xl font-extrabold tracking-tight text-textLight flex items-baseline gap-1 font-mono">
+        <span style={{ color }}>{value}</span>
+        {unit && <span className="text-sm text-textMutedDark font-normal">{unit}</span>}
+      </div>
+      {sublabel && <div className="text-xs text-textMutedDark mt-1.5 font-medium">{sublabel}</div>}
+    </div>
+  );
 }
 
-function VerdictBadge({ verdict }) {
-    const cfg = {
-        CONFIRMED_POISONED: { color: 'danger', icon: AlertTriangle, label: 'ATTACK CONFIRMED' },
-        SUSPICIOUS: { color: 'yellow', icon: Eye, label: 'SUSPICIOUS' },
-        CLEAN: { color: 'accent3', icon: CheckCircle, label: 'CLEAN' },
-    }[verdict] || { color: 'text3', icon: Shield, label: 'UNKNOWN' };
+// ── Expandable Feature Cards (How SPECTRA Helps) ─────────────────────────────
 
-    const Icon = cfg.icon;
-    return (
-        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-md border border-${cfg.color}/40 bg-${cfg.color}/10`}>
-            <Icon className={`w-4 h-4 text-${cfg.color}`} />
-            <span className={`font-mono text-sm font-bold text-${cfg.color} tracking-widest`}>{cfg.label}</span>
-        </div>
-    );
+const features = [
+  {
+    id: 'f1',
+    title: 'Model Scanning',
+    desc: 'Deep inspection of neural network weights for embedded backdoors.',
+    icon: '🧠',
+  },
+  {
+    id: 'f2',
+    title: 'Poison Forensics',
+    desc: 'Identify specific training samples causing statistical shifts.',
+    icon: '🔍',
+  },
+  {
+    id: 'f3',
+    title: 'Live Threat Defense',
+    desc: 'Active interception of adversarial inputs and data poisoning attacks.',
+    icon: '🛡️',
+  },
+];
+
+function ExpandableFeatures() {
+  const [expandedId, setExpandedId] = useState('f2');
+
+  return (
+    <div className="flex flex-col md:flex-row gap-4 w-full h-80">
+      {features.map((feat) => {
+        const isExpanded = expandedId === feat.id;
+        return (
+          <motion.div
+            key={feat.id}
+            layout
+            onClick={() => setExpandedId(feat.id)}
+            className={`cursor-pointer rounded-3xl overflow-hidden p-6 relative border border-white/5 flex flex-col justify-end
+              ${isExpanded ? 'bg-softYellow text-slateDark flex-[3]' : 'bg-slateLighter text-textLight flex-1 hover:bg-white/5'}
+            `}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          >
+            <motion.div layout="position" className="text-4xl mb-4">
+              {feat.icon}
+            </motion.div>
+            <motion.h3 layout="position" className="text-xl font-bold tracking-tight mb-2 whitespace-nowrap">
+              {feat.title}
+            </motion.h3>
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.p
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-slateDark/80 text-sm leading-relaxed"
+                >
+                  {feat.desc}
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
+      })}
+    </div>
+  );
 }
-
-function LayerScoreBar({ name, score }) {
-    const pct = Math.round(score * 100);
-    const color = pct > 70 ? '#ff4d6a' : pct > 40 ? '#ffd166' : '#00ffc8';
-    return (
-        <div className="mb-3">
-            <div className="flex justify-between font-mono text-xs mb-1">
-                <span className="text-text2">{name}</span>
-                <span style={{ color }}>{pct}%</span>
-            </div>
-            <div className="h-1.5 bg-border rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-1000"
-                    style={{ width: `${pct}%`, background: color }} />
-            </div>
-        </div>
-    );
-}
-
-const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload?.length) return null;
-    return (
-        <div className="bg-bg2 border border-border rounded-lg p-3 font-mono text-xs">
-            <div className="text-text3 mb-2">{label}</div>
-            {payload.map((p, i) => (
-                <div key={i} style={{ color: p.color }} className="flex justify-between gap-4">
-                    <span>{p.name}</span>
-                    <span>{typeof p.value === 'number' ? p.value.toFixed(3) : p.value}</span>
-                </div>
-            ))}
-        </div>
-    );
-};
 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function Dashboard({ wsEvents = [] }) {
-    const [demoResult, setDemoResult] = useState(null);
-    const [trustScore, setTrustScore] = useState(null);
-    const [timeline, setTimeline] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+  const [demoResult, setDemoResult] = useState(null);
+  const [trustScore, setTrustScore] = useState(null);
+  const [timeline, setTimeline] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [analystMode, setAnalystMode] = useState(false);
 
-    // Load trust score on mount
-    useEffect(() => {
-        api.getTrustScore().then(setTrustScore).catch(() => { });
-        api.getAttackTimeline().then(d => setTimeline(d.timeline || [])).catch(() => { });
-    }, []);
+  useEffect(() => {
+    api.getTrustScore().then(setTrustScore).catch(() => {});
+    api.getAttackTimeline().then((d) => setTimeline(d.timeline || [])).catch(() => {});
+  }, []);
 
-    // Update trust score when demo runs
-    useEffect(() => {
-        if (wsEvents.some(e => e.event === 'attack_confirmed')) {
-            api.getTrustScore().then(setTrustScore).catch(() => { });
-        }
-    }, [wsEvents]);
+  useEffect(() => {
+    if (wsEvents.some((e) => e.event === 'attack_confirmed')) {
+      api.getTrustScore().then(setTrustScore).catch(() => {});
+    }
+  }, [wsEvents]);
 
-    const handleRunDemo = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const result = await api.runDemo();
-            setDemoResult(result);
-            const ts = await api.getTrustScore();
-            setTrustScore(ts);
-            setTimeline(result.timeline || []);
-        } catch (e) {
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+  const handleRunDemo = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.runDemo();
+      setDemoResult(result);
+      const ts = await api.getTrustScore();
+      setTrustScore(ts);
+      setTimeline(result.timeline || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const layerScores = demoResult?.layer_scores || {};
-    const verdict = demoResult?.verdict || 'CLEAN';
-    const suspicion = demoResult?.overall_suspicion_score || 0;
-
-    return (
-        <div className="p-8 space-y-8 animate-in">
-            {/* Header */}
-            <div className="flex items-start justify-between">
-                <div>
-                    <div className="font-mono text-xs text-accent tracking-widest uppercase mb-2 flex items-center gap-2">
-                        <span className="pulse-dot" /> Real-Time AI Immune System
-                    </div>
-                    <h1 className="text-4xl font-bold tracking-tight">
-                        Trust <span className="text-accent">Dashboard</span>
-                    </h1>
-                    <p className="font-mono text-sm text-text2 mt-2 max-w-lg">
-                        Experimental 5-layer risk signals · proxy impact analysis · analyst review
-                    </p>
+  return (
+    <div className="w-full">
+      {/* ── 1. Hero Section (Light Theme) ────────────────────────────────────── */}
+      <section className="bg-cream pt-20 pb-24 px-6 md:px-12 rounded-t-[28px]">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div className="space-y-8 relative z-10">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-textDark leading-[1.05]">
+              Uncompromising AI Security.
+            </h1>
+            <p className="text-lg md:text-xl text-textDark/80 max-w-lg leading-relaxed">
+              SPECTRA/VERITAS provides enterprise-grade data poisoning detection, proxy impact analysis, and continuous model security.
+            </p>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={handleRunDemo}
+                disabled={loading}
+                className="group flex items-center justify-center gap-2 bg-burntOrange text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-[#d95625] transition-colors disabled:opacity-50"
+              >
+                {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Run Demo'}
+                {!loading && <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
+              </button>
+              
+              {/* Analyst Mode Toggle */}
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative">
+                  <input type="checkbox" className="sr-only" checked={analystMode} onChange={() => setAnalystMode(!analystMode)} />
+                  <div className={`block w-14 h-8 rounded-full transition-colors ${analystMode ? 'bg-frameBlack' : 'bg-black/10'}`}></div>
+                  <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${analystMode ? 'transform translate-x-6' : ''}`}></div>
                 </div>
-                <button
-                    onClick={handleRunDemo}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-6 py-3 bg-accent/10 border border-accent/40 rounded-lg
-                     font-mono text-sm text-accent hover:bg-accent/20 transition-all duration-200
-                     disabled:opacity-50 disabled:cursor-not-allowed glow-accent"
-                >
-                    {loading ? <Loader className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                    {loading ? 'Analyzing...' : 'Run Demo Analysis'}
-                </button>
+                <div className="text-sm font-bold text-textDark group-hover:text-burntOrange transition-colors">
+                  Analyst Mode
+                </div>
+              </label>
             </div>
-
-            {error && (
-                <div className="bg-danger/10 border border-danger/30 rounded-lg p-4 font-mono text-sm text-danger">
-                    ⚠ Backend not running. Start it with: <code className="bg-bg3 px-2 py-0.5 rounded">cd backend && uvicorn app.main:app --reload</code>
-                    <div className="mt-1 text-xs text-text3">{error}</div>
-                </div>
-            )}
-
-            {/* Verdict Banner */}
-            {demoResult && (
-                <div className={`rounded-lg border p-6 ${verdict === 'CONFIRMED_POISONED' ? 'border-danger/40 bg-danger/5' :
-                        verdict === 'SUSPICIOUS' ? 'border-yellow/40 bg-yellow/5' :
-                            'border-accent3/40 bg-accent3/5'
-                    }`}>
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <div>
-                            <VerdictBadge verdict={verdict} />
-                            <p className="font-mono text-sm text-text2 mt-2">
-                                Overall suspicion score: <span className="text-text1 font-bold">{(suspicion * 100).toFixed(1)}%</span>
-                                {' · '}{demoResult.n_samples} samples analyzed in {demoResult.elapsed_ms}ms
-                            </p>
-                        </div>
-                        {demoResult.attack_classification && (
-                            <div className="text-right">
-                                <div className="font-mono text-xs text-text3 uppercase tracking-widest">Attack Type</div>
-                                <div className="font-bold text-danger text-lg capitalize">
-                                    {demoResult.attack_classification.attack_type?.replace(/_/g, ' ')}
-                                </div>
-                                <div className="font-mono text-xs text-text3">
-                                    {(demoResult.attack_classification.confidence * 100).toFixed(1)}% confidence
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Trust Score Cards */}
-            {trustScore && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <MetricCard
-                        label="Data Quality"
-                        value={trustScore.dataset_trust.data_quality}
-                        color="accent"
-                        sublabel="Feature integrity"
-                    />
-                    <MetricCard
-                        label="Poison Risk"
-                        value={trustScore.dataset_trust.poison_risk}
-                        unit="%"
-                        color={trustScore.dataset_trust.poison_risk > 50 ? 'danger' : trustScore.dataset_trust.poison_risk > 20 ? 'yellow' : 'accent3'}
-                        sublabel="Contamination level"
-                    />
-                    <MetricCard
-                        label="Behavioral Trust"
-                        value={trustScore.dataset_trust.behavioral_trust}
-                        color="accent3"
-                        sublabel="Client consistency"
-                    />
-                    <div className="bg-surface border border-border rounded-lg p-5 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-0.5 h-full bg-purple" />
-                        <div className="font-mono text-xs text-text3 uppercase tracking-widest mb-2">Model Grade</div>
-                        <div className="text-5xl font-bold tracking-tight text-purple">
-                            {trustScore.model_safety.grade}
-                        </div>
-                        <div className="font-mono text-xs text-text3 mt-1">
-                            Backdoor: <span className={
-                                trustScore.model_safety.backdoor_risk === 'HIGH' ? 'text-danger' :
-                                    trustScore.model_safety.backdoor_risk === 'MEDIUM' ? 'text-yellow' : 'text-accent3'
-                            }>{trustScore.model_safety.backdoor_risk}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 5-Layer Detection Scores */}
-            {demoResult && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-surface border border-border rounded-lg p-6">
-                        <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                            5-Layer Experimental Risk Signals
-                        </div>
-                        <LayerScoreBar name="Layer 1 · Statistical Shift" score={layerScores.l1_statistical || 0} />
-                        <LayerScoreBar name="Layer 2 · Spectral Activation" score={layerScores.l2_spectral || 0} />
-                        <LayerScoreBar name="Layer 3 · Ensemble Anomaly" score={layerScores.l3_ensemble || 0} />
-                        <LayerScoreBar name="Layer 4 · Proxy Impact" score={layerScores.l4_causal || 0} />
-                        <LayerScoreBar name="Layer 5 · Federated Trust" score={layerScores.l5_federated || 0} />
-                    </div>
-
-                    {/* Causal Proof Box */}
-                    {demoResult.layer_results?.layer4_causal && (
-                        <div className="bg-surface border border-border rounded-lg p-6">
-                            <div className="font-mono text-xs text-accent3 uppercase tracking-widest mb-4">
-                                Proxy Impact Analysis
-                            </div>
-                            <div className="space-y-3">
-                                {[
-                                    { label: 'Proxy Effect (Δ Accuracy)', value: `${((demoResult.layer_results.layer4_causal.causal_effect || 0) * 100).toFixed(1)}%`, color: 'danger' },
-                                    { label: 'Proxy Accuracy with Flagged Rows', value: `${((demoResult.layer_results.layer4_causal.accuracy_with_poison || 0) * 100).toFixed(1)}%`, color: 'text2' },
-                                    { label: 'Proxy Accuracy without Flagged Rows', value: `${((demoResult.layer_results.layer4_causal.accuracy_without_poison || 0) * 100).toFixed(1)}%`, color: 'accent3' },
-                                    { label: 'Placebo Test', value: demoResult.layer_results.layer4_causal.placebo_passed ? '✓ PASSED' : '✗ FAILED', color: demoResult.layer_results.layer4_causal.placebo_passed ? 'accent3' : 'danger' },
-                                    { label: 'Statistically Significant', value: demoResult.layer_results.layer4_causal.statistically_significant ? 'YES' : 'NO', color: 'accent' },
-                                    { label: 'Heuristic criteria met', value: demoResult.layer_results.layer4_causal.proof_valid ? 'YES' : 'NO', color: demoResult.layer_results.layer4_causal.proof_valid ? 'accent3' : 'yellow' },
-                                ].map(({ label, value, color }) => (
-                                    <div key={label} className="flex justify-between items-center py-2 border-b border-border/50">
-                                        <span className="font-mono text-xs text-text3">{label}</span>
-                                        <span className={`font-mono text-xs font-bold text-${color}`}>{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Attack Timeline Chart */}
-            {timeline.length > 0 && (
-                <div className="bg-surface border border-border rounded-lg p-6">
-                    <div className="font-mono text-xs text-accent uppercase tracking-widest mb-6">
-                        Attack Timeline — Accuracy vs SHAP Drift vs Poison Count
-                    </div>
-                    <ResponsiveContainer width="100%" height={280}>
-                        <ComposedChart data={timeline.slice(-24)} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#1e3a52" />
-                            <XAxis dataKey="timestamp" tick={{ fill: '#4a7a9b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
-                                tickFormatter={v => v.slice(11, 16)} />
-                            <YAxis yAxisId="left" tick={{ fill: '#4a7a9b', fontSize: 10, fontFamily: 'JetBrains Mono' }}
-                                domain={[0.7, 1.0]} />
-                            <YAxis yAxisId="right" orientation="right" tick={{ fill: '#4a7a9b', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Bar yAxisId="right" dataKey="poison_count" fill="rgba(255,77,106,0.3)"
-                                stroke="#ff4d6a" name="Poison Count" />
-                            <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#00e5ff"
-                                strokeWidth={2} dot={false} name="Accuracy" />
-                            <Line yAxisId="right" type="monotone" dataKey="shap_drift" stroke="#ffd166"
-                                strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="SHAP Drift" />
-                            <Line yAxisId="right" type="monotone" dataKey="trust_score" stroke="#bd93f9"
-                                strokeWidth={1.5} dot={false} name="Trust Score" />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                    <div className="flex gap-6 mt-4 font-mono text-xs text-text3">
-                        <span className="flex items-center gap-2"><span className="w-4 h-0.5 bg-accent inline-block" /> Accuracy</span>
-                        <span className="flex items-center gap-2"><span className="w-4 h-0.5 bg-yellow inline-block" /> SHAP Drift</span>
-                        <span className="flex items-center gap-2"><span className="w-4 h-0.5 bg-purple inline-block" /> Trust Score</span>
-                        <span className="flex items-center gap-2"><span className="w-4 h-2 bg-danger/40 inline-block" /> Poison Count</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Blast Radius */}
-            {demoResult?.blast_radius && (
-                <div className="bg-surface border border-border rounded-lg p-6">
-                    <div className="font-mono text-xs text-danger uppercase tracking-widest mb-4">
-                        Observed Input Scope
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {[
-                            { label: 'Poisoned Samples', value: demoResult.blast_radius.n_poisoned_samples, color: 'danger' },
-                            { label: 'Batches Affected', value: demoResult.blast_radius.n_batches_affected, color: 'orange' },
-                            { label: 'Scope Status', value: demoResult.blast_radius.scope_status === 'observed_input_only' ? 'INPUT ONLY' : 'UNKNOWN', color: 'yellow' },
-                            { label: 'Proxy Accuracy Effect', value: `${demoResult.blast_radius.proxy_accuracy_effect_pct || 0}%`, color: 'purple' },
-                        ].map(({ label, value, color }) => (
-                            <div key={label} className={`bg-bg3 border border-${color}/20 rounded-lg p-4 text-center`}>
-                                <div className={`text-2xl font-bold text-${color}`}>{value}</div>
-                                <div className="font-mono text-xs text-text3 mt-1">{label}</div>
-                            </div>
-                        ))}
-                    </div>
-                    <p className="mt-4 font-mono text-xs text-text3">
-                        {demoResult.blast_radius.limitation || 'Downstream deployment impact is not available for this analysis.'}
-                    </p>
-                </div>
-            )}
-
-            {/* Live WS Events */}
-            {wsEvents.length > 0 && (
-                <div className="bg-surface border border-border rounded-lg p-6">
-                    <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                        Live Detection Events
-                    </div>
-                    <div className="space-y-2">
-                        {wsEvents.slice(0, 6).map((evt, i) => (
-                            <div key={i} className={`flex items-start gap-3 p-3 rounded-md border-l-2 font-mono text-xs ${evt.event === 'attack_confirmed' ? 'border-danger bg-danger/5 text-danger' :
-                                    evt.event === 'defense_triggered' ? 'border-purple bg-purple/5 text-purple' :
-                                        evt.event === 'human_review_required' ? 'border-yellow bg-yellow/5 text-yellow' :
-                                            'border-accent bg-accent/5 text-accent'
-                                }`}>
-                                <span className="font-bold uppercase tracking-widest flex-shrink-0">
-                                    {evt.event?.replace(/_/g, ' ')}
-                                </span>
-                                <span className="text-text3">
-                                    {evt.event === 'sample_analyzed' && `${evt.data?.n_samples} samples · score: ${(evt.data?.suspicion_score * 100).toFixed(1)}%`}
-                                    {evt.event === 'attack_confirmed' && `${evt.data?.attack_type} · causal effect: ${(evt.data?.causal_effect * 100).toFixed(1)}%`}
-                                    {evt.event === 'defense_triggered' && `${evt.data?.action} · ${evt.data?.samples_affected} samples`}
-                                    {evt.event === 'human_review_required' && `score: ${(evt.data?.suspicion_score * 100).toFixed(1)}%`}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+          </div>
+          
+          <div className="relative h-[400px] w-full flex items-center justify-center">
+             {/* Realistic 3D Element Placeholder / Component */}
+             <Tactile3DHero intensity={analystMode ? 2.0 : 0.5} />
+          </div>
         </div>
-    );
+      </section>
+
+      {/* ── 2. How Can SPECTRA Help? (Dark Theme) ─────────────────────────────── */}
+      <section className="bg-slateDark py-24 px-6 md:px-12 text-textLight">
+        <div className="max-w-7xl mx-auto space-y-12">
+          <div className="flex justify-between items-end">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight max-w-lg">
+              How Can SPECTRA Help?
+            </h2>
+            <p className="text-textMutedDark max-w-sm text-right hidden md:block">
+              Interactive threat modeling and live detection tools designed for advanced security operations.
+            </p>
+          </div>
+          
+          <ExpandableFeatures />
+        </div>
+      </section>
+
+      {/* ── 3. Our Partners (Dark Theme Marquee) ──────────────────────────────── */}
+      <section className="bg-slateDark border-t border-white/5 py-12 overflow-hidden">
+        <Marquee speed={40} gradient={true} gradientColor={[13, 13, 15]} gradientWidth={100} autoFill>
+          {['NVIDIA Inception', 'Microsoft Security', 'Google Cloud', 'AWS Partner', 'OpenAI', 'HuggingFace'].map((partner, i) => (
+            <div key={i} className="mx-8 text-2xl font-black tracking-tighter text-textLight/20 uppercase hover:text-softYellow transition-colors duration-300">
+              {partner}
+            </div>
+          ))}
+        </Marquee>
+      </section>
+
+      {/* ── 4. Dashboard Metrics (Dark Theme) ─────────────────────────────────── */}
+      <section className="bg-slateDark py-16 px-6 md:px-12 rounded-b-[28px] border-t border-white/5">
+         <div className="max-w-7xl mx-auto space-y-8">
+            <h3 className="text-2xl font-bold text-textLight tracking-tight">Live Threat Intelligence</h3>
+            
+            {error && (
+              <div className="p-4 bg-danger/10 border border-danger/30 text-danger text-sm font-mono rounded-xl">
+                ⚠️ Connection Error: {error}
+              </div>
+            )}
+
+            {trustScore && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <MetricCard label="Data Quality" value={trustScore.dataset_trust.data_quality} color="#4DE8FF" />
+                <MetricCard label="Poison Risk" value={trustScore.dataset_trust.poison_risk} unit="%" color="#E8622C" />
+                <MetricCard label="Behavioral Trust" value={trustScore.dataset_trust.behavioral_trust} color="#F2E85C" />
+                <div className="bg-slateLighter p-5 relative overflow-hidden rounded-2xl border border-white/5">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-softYellow" />
+                  <div className="text-xs uppercase tracking-widest text-textMutedDark mb-2">Model Grade</div>
+                  <div className="text-5xl font-extrabold tracking-tight text-softYellow font-mono">
+                    {trustScore.model_safety.grade}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {timeline.length > 0 && (
+              <div className="bg-slateLighter p-6 lg:p-8 rounded-3xl border border-white/5 mt-8">
+                <div className="text-sm font-bold text-textLight mb-6">Threat Timeline Analysis</div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <ComposedChart data={timeline.slice(-24)} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                    <XAxis dataKey="timestamp" tick={{ fill: '#9CA3AF', fontSize: 11 }} tickFormatter={(v) => v.slice(11, 16)} />
+                    <YAxis yAxisId="left" tick={{ fill: '#9CA3AF', fontSize: 11 }} domain={[0.7, 1.0]} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fill: '#9CA3AF', fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: '#121214', borderColor: 'rgba(255,255,255,0.1)' }} />
+                    <Bar yAxisId="right" dataKey="poison_count" fill="rgba(232, 98, 44, 0.25)" stroke="#E8622C" name="Poison Count" radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#F2E85C" strokeWidth={2.5} dot={false} name="Accuracy" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+         </div>
+      </section>
+    </div>
+  );
 }

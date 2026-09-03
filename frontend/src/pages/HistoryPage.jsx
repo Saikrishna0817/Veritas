@@ -17,10 +17,10 @@ const VERDICT_COLORS = {
 
 function StatCard({ label, value, color = '#6366f1', icon }) {
     return (
-        <div style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${color}22`, borderRadius: 12, padding: '16px 20px', flex: 1, minWidth: 120, textAlign: 'center' }}>
+        <div style={{ background: 'rgba(0,0,0,0.03)', border: `1px solid ${color}22`, borderRadius: 12, padding: '16px 20px', flex: 1, minWidth: 120, textAlign: 'center' }}>
             <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: 'monospace' }}>{value}</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{label}</div>
+            <div style={{ fontSize: 48, fontWeight: 900, color, fontFamily: 'monospace' }}>{value}</div>
+            <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{label}</div>
         </div>
     );
 }
@@ -57,10 +57,10 @@ export default function HistoryPage() {
     const results = data?.results || [];
 
     return (
-        <div style={{ padding: '32px 40px', maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
             <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>🗄️ Analysis History</h1>
-                <p style={{ color: '#64748b', marginTop: 8, fontSize: 14 }}>
+                <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0 }}>🗄️ Analysis History</h1>
+                <p style={{ color: '#475569', marginTop: 12, fontSize: 18, maxWidth: '80%', lineHeight: 1.6 }}>
                     All past analyses persisted in SQLite — survives server restarts. Click any row to load the full result.
                 </p>
             </div>
@@ -87,14 +87,14 @@ export default function HistoryPage() {
                         </button>
                     );
                 })}
-                <button onClick={() => load(source)} style={{ marginLeft: 'auto', padding: '7px 14px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.03)', color: '#64748b', fontSize: 13, cursor: 'pointer' }}>
+                <button onClick={() => load(source)} style={{ marginLeft: 'auto', padding: '7px 14px', borderRadius: 20, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(255,255,255,0.5)', color: '#475569', fontSize: 13, cursor: 'pointer' }}>
                     {loading ? '⏳' : '🔄'} Refresh
                 </button>
             </div>
 
             {/* Table */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 120px 100px 140px', gap: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.04)', fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 14, overflow: 'hidden', marginBottom: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 120px 100px 140px', gap: 0, padding: '10px 16px', background: 'rgba(0,0,0,0.03)', fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: 1 }}>
                     <span>Filename / ID</span><span>Source</span><span>Verdict</span><span>Attack Type</span><span>Samples</span><span>Date</span>
                 </div>
                 {results.length === 0 && (
@@ -107,15 +107,15 @@ export default function HistoryPage() {
                     const vColor = VERDICT_COLORS[row.verdict] || '#64748b';
                     const isSelected = selected === row.id;
                     return (
-                        <div key={row.id} onClick={() => loadFull(row.id)} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 120px 100px 140px', gap: 0, padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', background: isSelected ? 'rgba(99,102,241,0.08)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)', transition: 'background 0.2s' }}>
+                        <div key={row.id} onClick={() => loadFull(row.id)} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 100px 120px 100px 140px', gap: 0, padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', background: isSelected ? 'rgba(232,98,44,0.05)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)', transition: 'background 0.2s' }}>
                             <div>
                                 <div style={{ fontSize: 13, color: '#cbd5e1', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.filename || '—'}</div>
                                 <div style={{ fontSize: 10, color: '#475569', fontFamily: 'monospace', marginTop: 2 }}>{row.id?.slice(0, 16)}…</div>
                             </div>
                             <span style={{ fontSize: 12, color: src.color }}>{src.icon} {src.label}</span>
                             <span style={{ fontSize: 12, fontWeight: 700, color: vColor }}>{row.verdict || '—'}</span>
-                            <span style={{ fontSize: 12, color: '#94a3b8', textTransform: 'capitalize' }}>{(row.attack_type || '—').replace(/_/g, ' ')}</span>
-                            <span style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>{row.n_samples || '—'}</span>
+                            <span style={{ fontSize: 12, color: '#334155', textTransform: 'capitalize' }}>{(row.attack_type || '—').replace(/_/g, ' ')}</span>
+                            <span style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace' }}>{row.n_samples || '—'}</span>
                             <span style={{ fontSize: 11, color: '#475569' }}>{row.created_at ? new Date(row.created_at.endsWith('Z') ? row.created_at : row.created_at + 'Z').toLocaleString() : '—'}</span>
                         </div>
                     );
@@ -124,9 +124,9 @@ export default function HistoryPage() {
 
             {/* Full result panel */}
             {selected && (
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: 20 }}>
+                <div style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 14, padding: 20 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <div style={{ fontWeight: 700, color: '#f1f5f9', fontSize: 14 }}>📄 Full Result</div>
+                        <div style={{ fontWeight: 700, color: '#141414', fontSize: 14 }}>📄 Full Result</div>
                         <div style={{ display: 'flex', gap: 8 }}>
                             {fullResult && (
                                 <button onClick={() => {
@@ -135,16 +135,16 @@ export default function HistoryPage() {
                                     const a = document.createElement('a'); a.href = url;
                                     a.download = `result_${selected.slice(0, 8)}.json`; a.click();
                                     URL.revokeObjectURL(url);
-                                }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', cursor: 'pointer', fontSize: 12 }}>
+                                }} style={{ padding: '6px 12px', borderRadius: 8, border: '2px solid rgba(232,98,44,0.4)', background: 'rgba(232,98,44,0.1)', color: '#E8622C', cursor: 'pointer', fontSize: 12 }}>
                                     ⬇️ Download JSON
                                 </button>
                             )}
-                            <button onClick={() => { setSelected(null); setFullResult(null); }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
+                            <button onClick={() => { setSelected(null); setFullResult(null); }} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.05)', color: '#334155', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
                         </div>
                     </div>
-                    {loadingFull && <div style={{ color: '#64748b', fontSize: 13 }}>Loading full result...</div>}
+                    {loadingFull && <div style={{ color: '#475569', fontSize: 13 }}>Loading full result...</div>}
                     {fullResult && (
-                        <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0, maxHeight: 400, overflow: 'auto', background: 'rgba(0,0,0,0.2)', padding: 14, borderRadius: 8 }}>
+                        <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0, maxHeight: 400, overflow: 'auto', background: 'rgba(0,0,0,0.2)', padding: 14, borderRadius: 8 }}>
                             {JSON.stringify(fullResult, null, 2)}
                         </pre>
                     )}

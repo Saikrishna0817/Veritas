@@ -166,10 +166,10 @@ export default function ReportsPage() {
                                     const pct = Math.round((score || 0) * 100);
                                     const color = pct > 70 ? '#ef4444' : pct > 40 ? '#f59e0b' : '#22c55e';
                                     return (
-                                        <div key={layer} style={{ flex: 1, minWidth: 120, background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 14px', border: `1px solid ${color}22` }}>
+                                        <div key={layer} style={{ flex: 1, minWidth: 120, background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '10px 14px', border: `1px solid ${color}22` }}>
                                             <div style={{ fontSize: 10, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>{layer.replace(/_/g, ' ')}</div>
                                             <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: 'monospace' }}>{pct}%</div>
-                                            <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 2, marginTop: 6 }}>
+                                            <div style={{ height: 3, background: 'rgba(0,0,0,0.06)', borderRadius: 2, marginTop: 6 }}>
                                                 <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
                                             </div>
                                         </div>

@@ -128,14 +128,14 @@ function VerdictBadge({ verdict, score }) {
         SUSPICIOUS: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: '⚠️' },
         LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: '🔵' },
         CLEAN: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)', icon: '✅' },
-    }[verdict] || { color: '#64748b', bg: 'rgba(100,116,139,0.1)', icon: '❓' };
+    }[verdict] || { color: '#475569', bg: 'rgba(100,116,139,0.1)', icon: '❓' };
 
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderRadius: 10, background: cfg.bg, border: `1px solid ${cfg.color}44` }}>
             <span style={{ fontSize: 20 }}>{cfg.icon}</span>
             <div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: cfg.color, fontFamily: 'monospace' }}>{verdict}</div>
-                {score != null && <div style={{ fontSize: 11, color: '#64748b' }}>Suspicion: {(score * 100).toFixed(1)}%</div>}
+                {score != null && <div style={{ fontSize: 11, color: '#475569' }}>Suspicion: {(score * 100).toFixed(1)}%</div>}
             </div>
         </div>
     );
@@ -144,10 +144,10 @@ function VerdictBadge({ verdict, score }) {
 function DatasetInfoBanner({ info, dataSource }) {
     if (!info) return null;
     return (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 16px', fontSize: 12, color: '#94a3b8', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span>📂 <strong style={{ color: '#f1f5f9' }}>{info.filename}</strong></span>
-            <span>Rows: <strong style={{ color: '#f1f5f9' }}>{info.n_rows?.toLocaleString()}</strong></span>
-            <span>Features: <strong style={{ color: '#f1f5f9' }}>{info.n_features}</strong></span>
+        <div style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '10px 16px', fontSize: 12, color: '#334155', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <span>📂 <strong style={{ color: '#141414' }}>{info.filename}</strong></span>
+            <span>Rows: <strong style={{ color: '#141414' }}>{info.n_rows?.toLocaleString()}</strong></span>
+            <span>Features: <strong style={{ color: '#141414' }}>{info.n_features}</strong></span>
             <span>Mode: <strong style={{ color: '#6366f1' }}>{info.detection_mode}</strong></span>
             {dataSource && <span>Source: <strong style={{ color: '#06b6d4' }}>{dataSource}</strong></span>}
         </div>

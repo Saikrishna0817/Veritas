@@ -33,10 +33,10 @@ function ScoreBar({ label, score, color = '#6366f1' }) {
     const pct = Math.round((score || 0) * 100);
     return (
         <div style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 11, color: '#94a3b8' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 11, color: '#334155' }}>
                 <span>{label}</span><span style={{ color, fontWeight: 700 }}>{pct}%</span>
             </div>
-            <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: 5, background: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})`, borderRadius: 3, transition: 'width 1s ease' }} />
             </div>
         </div>
@@ -46,15 +46,15 @@ function ScoreBar({ label, score, color = '#6366f1' }) {
 function DatasetCard({ dataset, onAnalyze, onDownload, loading }) {
     const meta = DATASET_META[dataset.id] || { icon: '📊', domain: 'General', color: '#6366f1' };
     return (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${meta.color}22`, borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${meta.color}22`, borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 32 }}>{meta.icon}</span>
                 <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#f1f5f9', fontSize: 14 }}>{dataset.name}</div>
+                    <div style={{ fontWeight: 700, color: '#141414', fontSize: 14 }}>{dataset.name}</div>
                     <div style={{ fontSize: 11, color: meta.color, marginTop: 2 }}>{meta.domain}</div>
                 </div>
             </div>
-            <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.6 }}>{dataset.description}</div>
+            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.6 }}>{dataset.description}</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {dataset.attack_types?.map(t => (
                     <span key={t} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: `${ATTACK_COLORS[t] || '#6366f1'}18`, color: ATTACK_COLORS[t] || '#6366f1', border: `1px solid ${ATTACK_COLORS[t] || '#6366f1'}33` }}>
@@ -79,16 +79,16 @@ function DatasetCard({ dataset, onAnalyze, onDownload, loading }) {
 function ResultCard({ result, onClose }) {
     const verdict = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS;
     return (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${verdict.color}33`, borderRadius: 16, padding: 24, animation: 'fadeIn 0.5s ease' }}>
+        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${verdict.color}33`, borderRadius: 16, padding: 24, animation: 'fadeIn 0.5s ease' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
                 <span style={{ fontSize: 40 }}>{verdict.icon}</span>
                 <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 18, fontWeight: 900, color: verdict.color }}>{verdict.label}</div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 3 }}>
+                    <div style={{ fontSize: 12, color: '#334155', marginTop: 3 }}>
                         {result.real_dataset_description} · <span style={{ color: '#f59e0b' }}>{result.poison_note}</span>
                     </div>
                 </div>
-                <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', color: '#94a3b8', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
+                <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.05)', color: '#334155', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
             </div>
 
             <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -108,7 +108,7 @@ function ResultCard({ result, onClose }) {
             </div>
 
             {result.injection_pattern?.narrative && (
-                <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: 0, background: 'rgba(0,0,0,0.2)', padding: 14, borderRadius: 8 }}>
+                <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: 0, background: 'rgba(0,0,0,0.2)', padding: 14, borderRadius: 8 }}>
                     {result.injection_pattern.narrative}
                 </pre>
             )}
@@ -143,13 +143,13 @@ export default function RealDatasetsPage() {
     };
 
     return (
-        <div style={{ padding: '32px 40px', maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
             <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>📚 Real World Dataset Library</h1>
-                <p style={{ color: '#64748b', marginTop: 8, fontSize: 14 }}>
+                <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0 }}>📚 Real World Dataset Library</h1>
+                <p style={{ color: '#475569', marginTop: 12, fontSize: 18, maxWidth: '80%', lineHeight: 1.6 }}>
                     {catalog.length} real public datasets (UCI, Wisconsin, MNIST, and more) with controlled poison injection — known ground truth,
-                    real features. Click <strong style={{ color: '#f1f5f9' }}>Analyze</strong> to run the full 5-layer detection pipeline,
-                    or <strong style={{ color: '#f1f5f9' }}>CSV</strong> to download and upload your own way.
+                    real features. Click <strong style={{ color: '#141414' }}>Analyze</strong> to run the full 5-layer detection pipeline,
+                    or <strong style={{ color: '#141414' }}>CSV</strong> to download and upload your own way.
                 </p>
             </div>
 

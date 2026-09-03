@@ -19,16 +19,16 @@ const SEVERITY_CONFIG = {
     critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', label: '🚨 CRITICAL' },
     high: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: '⚠️ HIGH' },
     medium: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: '🔵 MEDIUM' },
-    info: { color: '#64748b', bg: 'rgba(100,116,139,0.1)', label: 'ℹ️ INFO' },
+    info: { color: '#475569', bg: 'rgba(100,116,139,0.1)', label: 'ℹ️ INFO' },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatCard({ icon, label, value, sub, color = '#6366f1' }) {
     return (
-        <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${color}22`, borderRadius: 12, padding: '16px 18px', flex: 1, minWidth: 120 }}>
+        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${color}22`, borderRadius: 12, padding: '16px 18px', flex: 1, minWidth: 120 }}>
             <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color, fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
+            <div style={{ fontSize: 48, fontWeight: 900, color, fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
             <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{label}</div>
             {sub && <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>{sub}</div>}
         </div>
@@ -63,15 +63,15 @@ function ThreatBanner({ status }) {
                         </span>
                     )}
                 </div>
-                <div style={{ color: '#94a3b8', fontSize: 13 }}>
+                <div style={{ color: '#334155', fontSize: 13 }}>
                     Current Verdict: <strong style={{ color: cfg.color }}>{status.current_verdict}</strong>
                     &nbsp;·&nbsp; Suspicion: <strong style={{ color: cfg.color }}>{Math.round((status.suspicion_score || 0) * 100)}%</strong>
-                    &nbsp;·&nbsp; Mode: <strong style={{ color: '#f1f5f9', textTransform: 'capitalize' }}>{status.defense_mode}</strong>
+                    &nbsp;·&nbsp; Mode: <strong style={{ color: '#141414', textTransform: 'capitalize' }}>{status.defense_mode}</strong>
                 </div>
             </div>
             <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 11, color: '#475569' }}>Updated</div>
-                <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace' }}>
                     {status.updated_at ? new Date(status.updated_at).toLocaleTimeString() : '—'}
                 </div>
             </div>
@@ -104,11 +104,11 @@ function HITLQueue({ cases, onDecide }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {cases.map(c => (
-                <div key={c.case_id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '14px 16px' }}>
+                <div key={c.case_id} style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '14px 16px' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                         <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>{c.case_id?.slice(0, 8)}…</span>
+                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#475569' }}>{c.case_id?.slice(0, 8)}…</span>
                                 <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>PENDING</span>
                             </div>
                             <div style={{ fontSize: 12, color: '#cbd5e1', marginBottom: 6 }}>
@@ -167,7 +167,7 @@ function IncidentLog({ incidents }) {
                             </span>
                         </div>
                         {isOpen && inc.reason && (
-                            <div style={{ marginTop: 8, fontSize: 11, color: '#64748b', paddingLeft: 4, borderLeft: '2px solid rgba(255,255,255,0.08)' }}>
+                            <div style={{ marginTop: 8, fontSize: 11, color: '#475569', paddingLeft: 4, borderLeft: '2px solid rgba(255,255,255,0.08)' }}>
                                 {inc.reason}
                             </div>
                         )}
@@ -184,7 +184,7 @@ function ResiliencePanel({ resilience }) {
         return (
             <div style={{ padding: 20, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
-                <div style={{ color: '#64748b', fontSize: 13 }}>{resilience.message}</div>
+                <div style={{ color: '#475569', fontSize: 13 }}>{resilience.message}</div>
             </div>
         );
     }
@@ -192,15 +192,15 @@ function ResiliencePanel({ resilience }) {
         <div>
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 100, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#22c55e', fontFamily: 'monospace' }}>{resilience.overall_resilience_pct}%</div>
+                    <div style={{ fontSize: 48, fontWeight: 900, color: '#22c55e', fontFamily: 'monospace' }}>{resilience.overall_resilience_pct}%</div>
                     <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Overall Catch Rate</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 100, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#818cf8', fontFamily: 'monospace' }}>{resilience.avg_detection_ms}ms</div>
+                <div style={{ flex: 1, minWidth: 100, background: 'rgba(232,98,44,0.05)', border: '1px solid rgba(232,98,44,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 48, fontWeight: 900, color: '#818cf8', fontFamily: 'monospace' }}>{resilience.avg_detection_ms}ms</div>
                     <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Avg Detection Time</div>
                 </div>
                 <div style={{ flex: 1, minWidth: 100, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 28, fontWeight: 800, color: '#ef4444', fontFamily: 'monospace' }}>{resilience.total_missed}</div>
+                    <div style={{ fontSize: 48, fontWeight: 900, color: '#ef4444', fontFamily: 'monospace' }}>{resilience.total_missed}</div>
                     <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Attacks Missed</div>
                 </div>
             </div>
@@ -210,12 +210,12 @@ function ResiliencePanel({ resilience }) {
                 return (
                     <div key={type} style={{ marginBottom: 10 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                            <span style={{ color: '#94a3b8', textTransform: 'capitalize' }}>{type.replace(/_/g, ' ')}</span>
+                            <span style={{ color: '#334155', textTransform: 'capitalize' }}>{type.replace(/_/g, ' ')}</span>
                             <span style={{ fontFamily: 'monospace', color }}>
                                 {stats.caught}/{stats.total_tests} · {pct}% · {stats.avg_detection_ms}ms
                             </span>
                         </div>
-                        <div style={{ height: 6, background: 'rgba(255,255,255,0.05)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 3, overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})`, borderRadius: 3, transition: 'width 1s ease' }} />
                         </div>
                     </div>
@@ -255,7 +255,7 @@ function PlaybookPanel() {
                 ))}
             </div>
 
-            {loading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading playbook...</div>}
+            {loading && <div style={{ color: '#475569', fontSize: 13 }}>Loading playbook...</div>}
 
             {detail && !loading && (
                 <div style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid ${detail.color}33`, borderRadius: 12, padding: 20, animation: 'fadeIn 0.3s ease' }}>
@@ -265,7 +265,7 @@ function PlaybookPanel() {
                             {detail.severity}
                         </span>
                     </div>
-                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14, lineHeight: 1.6 }}>{detail.description}</div>
+                    <div style={{ fontSize: 12, color: '#475569', marginBottom: 14, lineHeight: 1.6 }}>{detail.description}</div>
 
                     {[
                         { title: '🚨 Immediate Response', key: 'immediate_steps' },
@@ -275,7 +275,7 @@ function PlaybookPanel() {
                         <div key={section.key} style={{ marginBottom: 14 }}>
                             <div style={{ fontSize: 11, color: detail.color, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{section.title}</div>
                             {(detail[section.key] || []).map((step, i) => (
-                                <div key={i} style={{ fontSize: 12, color: '#94a3b8', padding: '5px 10px', borderLeft: `2px solid ${detail.color}44`, marginBottom: 4, lineHeight: 1.5, background: 'rgba(255,255,255,0.02)', borderRadius: '0 6px 6px 0' }}>
+                                <div key={i} style={{ fontSize: 12, color: '#334155', padding: '5px 10px', borderLeft: `2px solid ${detail.color}44`, marginBottom: 4, lineHeight: 1.5, background: 'rgba(255,255,255,0.4)', borderRadius: '0 6px 6px 0' }}>
                                     {step}
                                 </div>
                             ))}
@@ -283,7 +283,7 @@ function PlaybookPanel() {
                     ))}
 
                     {detail.regulatory && (
-                        <div style={{ fontSize: 11, color: '#334155', background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 12px', borderLeft: `2px solid #475569` }}>
+                        <div style={{ fontSize: 11, color: '#334155', background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '8px 12px', borderLeft: `2px solid #475569` }}>
                             📜 {detail.regulatory}
                         </div>
                     )}
@@ -337,24 +337,24 @@ export default function BlueTeamPage() {
         return (
             <div style={{ padding: '60px 40px', textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>🛡️</div>
-                <div style={{ color: '#64748b', fontSize: 14 }}>Initialising Blue Team SOC...</div>
+                <div style={{ color: '#475569', fontSize: 14 }}>Initialising Blue Team SOC...</div>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
                 <div>
-                    <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                         🛡️ Blue Team — Security Operations Centre
                     </h1>
-                    <p style={{ color: '#64748b', marginTop: 6, fontSize: 13 }}>
+                    <p style={{ color: '#475569', marginTop: 6, fontSize: 13 }}>
                         Real-time defense status · HITL review queue · Incident log · Resilience metrics · Incident playbooks
                     </p>
                 </div>
-                <button onClick={loadAll} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)', color: '#64748b', cursor: 'pointer', fontSize: 13 }}>
+                <button onClick={loadAll} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.03)', color: '#475569', cursor: 'pointer', fontSize: 13 }}>
                     🔄 Refresh
                 </button>
             </div>
@@ -374,20 +374,20 @@ export default function BlueTeamPage() {
             {/* Main grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                 {/* HITL Queue */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
+                <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
                     <SectionHeader title={`📋 Human Review Queue (${(status?.pending_cases || []).length} pending)`} />
                     <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
                 </div>
 
                 {/* Resilience */}
-                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
+                <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
                     <SectionHeader title="🎯 Red Team Resilience Metrics" />
                     <ResiliencePanel resilience={resilience} />
                 </div>
             </div>
 
             {/* Incident Log */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
+            <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
                 <SectionHeader title={`📡 Defense Incident Log (${incidents.length} events)`} />
                 <div style={{ maxHeight: 280, overflowY: 'auto' }}>
                     <IncidentLog incidents={incidents} />
@@ -395,7 +395,7 @@ export default function BlueTeamPage() {
             </div>
 
             {/* Playbooks */}
-            <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
+            <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
                 <SectionHeader title="📖 Incident Response Playbooks — Step-by-Step Defense Procedures" />
                 <PlaybookPanel />
             </div>

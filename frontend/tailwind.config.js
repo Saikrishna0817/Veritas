@@ -7,55 +7,53 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#050a0f',
-        bg2: '#080f18',
-        bg3: '#0c1622',
-        surface: '#0f1c2e',
-        surface2: '#142235',
-        border: '#1e3a52',
-        border2: '#234060',
-        accent: '#00e5ff',
-        accent2: '#0090b8',
-        accent3: '#00ffc8',
-        danger: '#ff4d6a',
-        orange: '#ff8c42',
-        yellow: '#ffd166',
-        purple: '#bd93f9',
-        green: '#00ffc8',
-        text1: '#e0eef8',
-        text2: '#8ab0cc',
-        text3: '#4a7a9b',
+        // Light Theme Base
+        cream: '#F3EEE4',
+        creamLighter: '#F7F3EA',
+        
+        // Dark Panels
+        slateDark: '#0D0D0F',
+        slateLighter: '#121214',
+        
+        // Outer Frame
+        frameBlack: '#0A0A0A',
+        
+        // Accents
+        burntOrange: '#E8622C',
+        softYellow: '#F2E85C',
+        
+        // Text
+        textDark: '#141414',
+        textLight: '#F5F5F5',
+        textMuted: '#6B7280', // standard gray for secondary text on light
+        textMutedDark: '#9CA3AF', // standard gray for secondary text on dark
+        
+        // Keep some standard legacy colours temporarily if needed by other components, mapping to new ones
+        bg: '#F3EEE4', // default bg
+        text1: '#141414',
+        text2: '#6B7280',
+        text3: '#9CA3AF',
+        accent: '#E8622C',
+        accentCyan: '#E8622C', 
+        accentViolet: '#F2E85C',
+        surface: '#F7F3EA',
+        surface2: '#F7F3EA',
+        border: 'rgba(0, 0, 0, 0.1)',
+        danger: '#ef4444',
       },
       fontFamily: {
-        sans: ['Syne', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        serif: ['Instrument Serif', 'serif'],
       },
       animation: {
-        'pulse-slow': 'pulse 3s ease-in-out infinite',
-        'scan': 'scan 8s linear infinite',
-        'fadeInUp': 'fadeInUp 0.5s ease forwards',
-        'glow': 'glow 2s ease-in-out infinite',
+        'marquee': 'marquee 25s linear infinite',
       },
       keyframes: {
-        scan: {
-          '0%': { top: '-2px' },
-          '100%': { top: '100%' },
-        },
-        fadeInUp: {
-          from: { opacity: '0', transform: 'translateY(20px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
-        },
-        glow: {
-          '0%, 100%': { boxShadow: '0 0 5px rgba(0,229,255,0.3)' },
-          '50%': { boxShadow: '0 0 20px rgba(0,229,255,0.6)' },
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-100%)' },
         }
       },
-      boxShadow: {
-        'accent': '0 0 20px rgba(0,229,255,0.2)',
-        'danger': '0 0 20px rgba(255,77,106,0.2)',
-        'green': '0 0 20px rgba(0,255,200,0.2)',
-      }
     },
   },
   plugins: [],
