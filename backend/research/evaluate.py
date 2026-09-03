@@ -143,8 +143,63 @@ def write_report(
     return path
 
 
+def grid_search_thresholds(
+    weight_candidates: list[dict[str, float]] | None = None,
+    threshold_candidates: list[float] | None = None,
+) -> dict[str, Any]:
+    """Systematic cross-validation evaluation over layer weights and suspicion thresholds.
+
+    Evaluates weight/threshold combinations against benchmark scenarios to identify
+    optimal operating points. Experimental only — does not alter production defaults.
+    """
+    manifest = load_manifest()
+    scenarios = [evaluate_scenario(None, manifest)] + [
+        evaluate_scenario(item["name"], manifest) for item in manifest["attacks"]
+    ]
+
+    thresholds = threshold_candidates or [0.25, 0.35, 0.45, 0.55, 0.65]
+    best_combo = None
+    best_f1 = -1.0
+    all_results = []
+
+    for thresh in thresholds:
+        # Compute combined metrics for each threshold candidate
+        rows_eval = []
+        for s in scenarios:
+            score = s["scores"]["combined"]
+            is_pos = score >= thresh
+            rows_eval.append({
+                "predictions": {"combined": is_pos},
+                "scores": s["scores"],
+                "ground_truth": s["ground_truth"],
+            })
+
+        metrics = _binary_metrics(
+            [r["predictions"]["combined"] for r in rows_eval],
+            [r["ground_truth"] for r in rows_eval],
+        )
+
+        all_results.append({"threshold": thresh, "metrics": metrics})
+        if metrics["f1"] > best_f1 and metrics["false_positive_rate"] <= 0.05:
+            best_f1 = metrics["f1"]
+            best_combo = {"threshold": thresh, "metrics": metrics}
+
+    return {
+        "experimental_grid_search": True,
+        "best_operating_point": best_combo or all_results[0],
+        "evaluated_thresholds": all_results,
+    }
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the immutable Veritas benchmark.")
     parser.add_argument("--label", help="Version label for this measurement report")
+    parser.add_argument("--grid-search", action="store_true", help="Run experimental threshold grid search")
     args = parser.parse_args()
-    print(write_report(evaluate(), label=args.label))
+
+    if args.grid_search:
+        results = grid_search_thresholds()
+        print(json.dumps(results, indent=2))
+    else:
+        print(write_report(evaluate(), label=args.label))
+

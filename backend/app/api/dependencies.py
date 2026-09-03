@@ -38,20 +38,28 @@ from app.core.rate_limit import SlidingWindowRateLimiter
 db.init_db()
 
 
-# ── Shared thread pool (M4) ───────────────────────────────────────────────────
+# ── Shared worker pool (ThreadPool / ProcessPool) ────────────────────────────
 # CPU-bound detection work runs here. max_workers=4 allows concurrent analyses
-# without creating a new pool per request.  Adjust via MAX_ANALYSIS_WORKERS env.
+# without creating a new pool per request. Adjust via MAX_ANALYSIS_WORKERS env.
+# Set USE_PROCESS_POOL=true for multi-process isolation on heavy workloads.
 import os as _os
+from concurrent.futures import ProcessPoolExecutor, Executor
+
 _MAX_WORKERS = int(_os.getenv("MAX_ANALYSIS_WORKERS", "4"))
-_thread_pool = ThreadPoolExecutor(
-    max_workers=_MAX_WORKERS,
-    thread_name_prefix="veritas-analysis",
-)
+_USE_PROCESS_POOL = _os.getenv("USE_PROCESS_POOL", "false").lower() == "true"
+
+if _USE_PROCESS_POOL:
+    _worker_pool: Executor = ProcessPoolExecutor(max_workers=_MAX_WORKERS)
+else:
+    _worker_pool: Executor = ThreadPoolExecutor(
+        max_workers=_MAX_WORKERS,
+        thread_name_prefix="veritas-analysis",
+    )
 
 
-def get_thread_pool() -> ThreadPoolExecutor:
-    """Return the shared analysis thread pool."""
-    return _thread_pool
+def get_thread_pool() -> Executor:
+    """Return the shared analysis worker pool (ThreadPool or ProcessPool)."""
+    return _worker_pool
 
 
 # ── Singletons ────────────────────────────────────────────────────────────────
