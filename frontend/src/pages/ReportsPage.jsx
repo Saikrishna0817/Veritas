@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { api } from '../services/api';
-import { FileText, Download, CheckCircle, Loader, Upload, Target } from 'lucide-react';
+import { FileText, Download, CheckCircle, Loader, Upload, Target, Activity } from 'lucide-react';
 
 const SOURCE_CONFIG = {
-    auto: { label: 'Latest (Auto)', icon: '🔄', desc: 'Uses your most recent upload; falls back to demo if none.' },
-    upload: { label: 'My Uploaded Dataset', icon: '📂', desc: 'Generate report from the CSV you uploaded.' },
-    demo: { label: 'Demo Analysis', icon: '🎯', desc: 'Generate report from the built-in demo run.' },
+    auto: { label: 'Latest (Auto)', icon: Activity, desc: 'Uses your most recent upload; falls back to demo if none.' },
+    upload: { label: 'My Uploaded Dataset', icon: Upload, desc: 'Generate report from the CSV you uploaded.' },
+    demo: { label: 'Demo Analysis', icon: Target, desc: 'Generate report from the built-in demo run.' },
 };
 
 export default function ReportsPage() {
@@ -47,109 +47,143 @@ export default function ReportsPage() {
     const srcCfg = SOURCE_CONFIG[source];
 
     return (
-        <div className="p-8 space-y-8 animate-in">
-            <div className="flex items-start justify-between">
+        <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <div className="font-mono text-xs text-yellow tracking-widest uppercase mb-2 flex items-center gap-2">
-                        <FileText className="w-3 h-3" /> Evidence Package
+                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
+                        <FileText className="w-4 h-4" /> Evidence Package
                     </div>
-                    <h1 className="text-4xl font-bold tracking-tight">
-                        Forensic <span className="text-yellow">Reports</span>
+                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
+                        Forensic <span className="text-redPrimary">Reports</span>
                     </h1>
-                    <p className="font-mono text-sm text-text2 mt-2">
-                        Court-admissible evidence · NIST AI RMF · EU AI Act compliance
+                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
+                        Court-admissible evidence // NIST AI RMF // EU AI Act compliance
                     </p>
                 </div>
                 <div className="flex gap-3">
                     <button onClick={generateReport} disabled={loading}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-yellow/10 border border-yellow/40 text-yellow font-mono text-xs rounded-lg hover:bg-yellow/20 transition-all disabled:opacity-50">
-                        {loading ? <Loader className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-redPrimary/10 border border-redPrimary/40 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest disabled:opacity-50">
+                        {loading ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                         Generate Report
                     </button>
                     {report && (
                         <button onClick={downloadReport}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-accent/10 border border-accent/40 text-accent font-mono text-xs rounded-lg hover:bg-accent/20 transition-all">
-                            <Download className="w-3 h-3" /> Download JSON
+                            className="flex items-center gap-2 px-6 py-2.5 border border-borderHairline text-textSecondary font-mono text-sm font-bold rounded-xl hover:border-textSecondary hover:text-textPrimary transition-all uppercase tracking-widest">
+                            <Download className="w-4 h-4" /> Download JSON
                         </button>
                     )}
                 </div>
             </div>
 
             {/* Source Selector */}
-            <div className="bg-surface border border-border rounded-lg p-5">
-                <div className="font-mono text-xs text-text3 uppercase tracking-widest mb-3">Report Data Source</div>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {Object.entries(SOURCE_CONFIG).map(([id, cfg]) => (
-                        <button key={id} onClick={() => { setSource(id); setReport(null); setError(null); }}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '10px 16px', borderRadius: 10, cursor: 'pointer',
-                                transition: 'all 0.2s', fontFamily: 'monospace', fontSize: 12,
-                                background: source === id ? 'rgba(234,179,8,0.1)' : 'rgba(255,255,255,0.03)',
-                                border: source === id ? '1px solid rgba(234,179,8,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                                color: source === id ? '#eab308' : '#64748b',
-                                fontWeight: source === id ? 700 : 400,
-                            }}>
-                            <span style={{ fontSize: 16 }}>{cfg.icon}</span>
-                            {cfg.label}
-                        </button>
-                    ))}
+            <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Activity className="w-4 h-4" /> Report Data Source
                 </div>
-                <p className="font-mono text-xs text-text3 mt-3">{srcCfg.desc}</p>
+                <div className="flex gap-3 flex-wrap mb-4">
+                    {Object.entries(SOURCE_CONFIG).map(([id, cfg]) => {
+                        const isSelected = source === id;
+                        const Icon = cfg.icon;
+                        return (
+                            <button key={id} onClick={() => { setSource(id); setReport(null); setError(null); }}
+                                className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold transition-all uppercase tracking-widest border
+                                ${isSelected ? 'bg-redPrimary/10 border-redPrimary/50 text-redPrimary' : 'bg-transparent border-borderHairline text-textMuted hover:border-textMuted hover:text-textSecondary'}`}>
+                                <Icon className="w-4 h-4" />
+                                {cfg.label}
+                            </button>
+                        );
+                    })}
+                </div>
+                <p className="font-mono text-xs text-textSecondary bg-bgVoid px-4 py-3 rounded-lg border border-borderHairline inline-block">{srcCfg.desc}</p>
             </div>
 
             {error && (
-                <div className="bg-yellow/10 border border-yellow/30 rounded-lg p-4 font-mono text-sm text-yellow">
-                    ⚠ {error}
+                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-xl p-5 font-mono text-sm text-statusWarn font-bold flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5" /> {error}
                 </div>
             )}
 
-            {!report && !error && (
-                <div className="text-center py-16 text-text3 font-mono text-sm">
-                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                    Select a data source above and click "Generate Report".
+            {!report && !error && !loading && (
+                <div className="mt-4">
+                    <div className="text-center py-12 text-textMuted font-mono text-sm uppercase tracking-widest">
+                        Select a data source above and click "Generate Report".
+                    </div>
+                    {/* Skeleton Preview */}
+                    <div className="space-y-6 opacity-30 pointer-events-none filter grayscale">
+                        <div className="h-32 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {loading && (
+                <div className="mt-4">
+                    <div className="text-center py-12 text-redPrimary font-mono text-sm uppercase tracking-widest animate-pulse flex flex-col items-center justify-center gap-4">
+                        <Loader className="w-8 h-8 animate-spin" />
+                        Generating forensic evidence package...
+                    </div>
+                    {/* Skeleton Preview */}
+                    <div className="space-y-6 opacity-50 pointer-events-none">
+                        <div className="h-32 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse border-redPrimary/20"></div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-[24px] animate-pulse"></div>
+                        </div>
+                    </div>
                 </div>
             )}
 
             {report && (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-fadeInUp">
                     {/* Report Header */}
-                    <div className="bg-surface border border-yellow/20 rounded-lg p-6">
-                        <div className="flex items-start justify-between mb-4">
+                    <div className="bg-bgPanel border border-redPrimary/30 rounded-[24px] p-8 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-redPrimary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
+                        <div className="flex items-start justify-between mb-4 relative z-10">
                             <div>
-                                <div className="font-mono text-xs text-yellow uppercase tracking-widest mb-1">
+                                <div className="font-mono text-[10px] text-redPrimary font-bold uppercase tracking-widest mb-2 px-2 py-0.5 rounded border border-redPrimary/30 bg-redPrimary/10 inline-block">
                                     {report.platform}
                                 </div>
-                                <h2 className="text-2xl font-bold text-text1">{report.title}</h2>
-                                <div className="font-mono text-xs text-text3 mt-1">
-                                    Report ID: {report.report_id} · Generated: {report.generated_at ? new Date(report.generated_at.endsWith('Z') ? report.generated_at : report.generated_at + 'Z').toLocaleString() : '—'}
+                                <h2 className="text-3xl font-black text-textPrimary tracking-tight mb-2">{report.title}</h2>
+                                <div className="font-mono text-[11px] text-textSecondary uppercase tracking-widest flex items-center gap-3">
+                                    <span>ID: {report.report_id}</span>
+                                    <span className="text-borderHairline">|</span>
+                                    <span>{report.generated_at ? new Date(report.generated_at.endsWith('Z') ? report.generated_at : report.generated_at + 'Z').toLocaleString() : '—'}</span>
                                 </div>
-                                <div className="font-mono text-xs mt-1" style={{ color: '#06b6d4' }}>
-                                    Data source: {report.data_source} · {report.dataset_info?.filename || 'demo dataset'}
+                                <div className="font-mono text-[11px] text-statusSafe mt-2 uppercase tracking-widest">
+                                    Source: {report.data_source} · {report.dataset_info?.filename || 'demo dataset'}
                                     {report.dataset_info?.n_rows && ` · ${report.dataset_info.n_rows.toLocaleString()} rows`}
                                 </div>
                             </div>
-                            <CheckCircle className="w-8 h-8 text-accent3" />
+                            <CheckCircle className="w-12 h-12 text-statusSafe drop-shadow-md" />
                         </div>
                     </div>
 
                     {/* Executive Summary */}
-                    <div className="bg-surface border border-border rounded-lg p-6">
-                        <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                            Executive Summary
+                    <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8">
+                        <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
+                            <Target className="w-4 h-4" /> Executive Summary
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                             {[
-                                { label: 'Verdict', value: report.executive_summary?.verdict, color: report.executive_summary?.verdict === 'CONFIRMED_POISONED' ? 'danger' : report.executive_summary?.verdict === 'CLEAN' ? 'accent3' : 'yellow' },
-                                { label: 'Attack Type', value: (report.executive_summary?.attack_type || '—').replace(/_/g, ' '), color: 'text2' },
-                                { label: 'Confidence', value: `${((report.executive_summary?.confidence || 0) * 100).toFixed(1)}%`, color: 'accent' },
-                                { label: 'Causal Effect', value: `${((report.executive_summary?.causal_effect || 0) * 100).toFixed(1)}%`, color: 'danger' },
-                                { label: 'Sophistication', value: `${report.executive_summary?.sophistication_score || 0}/10`, color: 'orange' },
-                                { label: 'Models Impacted', value: report.executive_summary?.blast_radius_summary?.models ?? '—', color: 'yellow' },
+                                { label: 'Verdict', value: report.executive_summary?.verdict, color: report.executive_summary?.verdict === 'CONFIRMED_POISONED' ? 'statusCritical' : report.executive_summary?.verdict === 'CLEAN' ? 'statusSafe' : 'statusWarn' },
+                                { label: 'Attack Type', value: (report.executive_summary?.attack_type || '—').replace(/_/g, ' '), color: 'textSecondary' },
+                                { label: 'Confidence', value: `${((report.executive_summary?.confidence || 0) * 100).toFixed(1)}%`, color: 'textPrimary' },
+                                { label: 'Causal Effect', value: `${((report.executive_summary?.causal_effect || 0) * 100).toFixed(1)}%`, color: 'statusWarn' },
+                                { label: 'Sophistication', value: `${report.executive_summary?.sophistication_score || 0}/10`, color: 'statusCritical' },
+                                { label: 'Models Impacted', value: report.executive_summary?.blast_radius_summary?.models ?? '—', color: 'redPrimary' },
                             ].map(({ label, value, color }) => (
-                                <div key={label} className="bg-bg3 rounded-lg p-4">
-                                    <div className="font-mono text-xs text-text3 mb-1">{label}</div>
-                                    <div className={`font-bold text-${color} capitalize`}>{value}</div>
+                                <div key={label} className="bg-bgVoid border border-borderHairline rounded-xl p-5 hover:border-redPrimary/20 transition-all">
+                                    <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-2">{label}</div>
+                                    <div className={`font-mono text-lg font-black uppercase tracking-wider text-${color}`}>{value}</div>
                                 </div>
                             ))}
                         </div>
@@ -157,20 +191,20 @@ export default function ReportsPage() {
 
                     {/* Layer Evidence */}
                     {report.layer_scores && (
-                        <div className="bg-surface border border-border rounded-lg p-6">
-                            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                                Detection Layer Evidence
+                        <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8">
+                            <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
+                                <Activity className="w-4 h-4" /> Detection Layer Evidence
                             </div>
-                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 {Object.entries(report.layer_scores).map(([layer, score]) => {
                                     const pct = Math.round((score || 0) * 100);
-                                    const color = pct > 70 ? '#ef4444' : pct > 40 ? '#f59e0b' : '#22c55e';
+                                    const color = pct > 70 ? 'var(--status-critical)' : pct > 40 ? 'var(--status-warn)' : 'var(--status-safe)';
                                     return (
-                                        <div key={layer} style={{ flex: 1, minWidth: 120, background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '10px 14px', border: `1px solid ${color}22` }}>
-                                            <div style={{ fontSize: 10, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>{layer.replace(/_/g, ' ')}</div>
-                                            <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: 'monospace' }}>{pct}%</div>
-                                            <div style={{ height: 3, background: 'rgba(0,0,0,0.06)', borderRadius: 2, marginTop: 6 }}>
-                                                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 2 }} />
+                                        <div key={layer} className="bg-bgVoid border border-borderHairline rounded-xl p-5">
+                                            <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-3 truncate">{layer.replace(/_/g, ' ')}</div>
+                                            <div className="font-mono text-3xl font-black mb-4" style={{ color }}>{pct}%</div>
+                                            <div className="h-1.5 bg-bgPanel rounded-full overflow-hidden">
+                                                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: color }} />
                                             </div>
                                         </div>
                                     );
@@ -180,33 +214,33 @@ export default function ReportsPage() {
                     )}
 
                     {/* Compliance */}
-                    <div className="bg-surface border border-border rounded-lg p-6">
-                        <div className="font-mono text-xs text-accent3 uppercase tracking-widest mb-4">
-                            Regulatory Compliance
+                    <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8">
+                        <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4" /> Regulatory Compliance
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-bg3 rounded-lg p-4">
-                                <div className="font-mono text-xs text-text3 mb-2">NIST AI RMF</div>
-                                <div className="font-mono text-xs text-accent3">{report.compliance?.nist_ai_rmf}</div>
+                            <div className="bg-bgVoid border border-borderHairline rounded-xl p-5">
+                                <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-3">NIST AI RMF</div>
+                                <div className="font-mono text-xs text-statusSafe">{report.compliance?.nist_ai_rmf}</div>
                             </div>
-                            <div className="bg-bg3 rounded-lg p-4">
-                                <div className="font-mono text-xs text-text3 mb-2">EU AI Act</div>
-                                <div className="font-mono text-xs text-accent3">{report.compliance?.eu_ai_act}</div>
+                            <div className="bg-bgVoid border border-borderHairline rounded-xl p-5">
+                                <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-3">EU AI Act</div>
+                                <div className="font-mono text-xs text-statusSafe">{report.compliance?.eu_ai_act}</div>
                             </div>
-                            <div className="bg-bg3 rounded-lg p-4 md:col-span-2">
-                                <div className="font-mono text-xs text-text3 mb-2">Audit Hash</div>
-                                <div className="font-mono text-xs text-text2 break-all">{report.compliance?.audit_hash}</div>
+                            <div className="bg-bgVoid border border-borderHairline rounded-xl p-5 md:col-span-2">
+                                <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-3">Audit Hash</div>
+                                <div className="font-mono text-xs text-textSecondary break-all">{report.compliance?.audit_hash}</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Attack Narrative */}
                     {report.attack_narrative && (
-                        <div className="bg-bg2 border border-border rounded-lg p-6">
-                            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-3">
-                                Attack Narrative
+                        <div className="bg-bgVoid border border-redPrimary/20 rounded-[24px] p-8">
+                            <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <FileText className="w-4 h-4" /> Attack Narrative
                             </div>
-                            <pre className="font-mono text-xs text-text2 whitespace-pre-wrap leading-relaxed">
+                            <pre className="font-mono text-[13px] text-textSecondary whitespace-pre-wrap leading-loose border-l-2 border-redPrimary/50 pl-5">
                                 {report.attack_narrative}
                             </pre>
                         </div>
@@ -214,19 +248,19 @@ export default function ReportsPage() {
 
                     {/* Defense Actions */}
                     {report.defense_actions?.length > 0 && (
-                        <div className="bg-surface border border-border rounded-lg p-6">
-                            <div className="font-mono text-xs text-purple uppercase tracking-widest mb-4">
-                                Defense Actions Taken
+                        <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8">
+                            <div className="font-mono text-xs text-redPrimary font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
+                                <Shield className="w-4 h-4" /> Defense Actions Taken
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 {report.defense_actions.map((action, i) => (
-                                    <div key={i} className="bg-bg3 rounded-lg p-4 border border-purple/20">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <span className="font-mono text-xs font-bold text-purple uppercase">{action.action}</span>
-                                            <span className="font-mono text-xs text-text3">{action.timestamp?.slice(0, 19)}</span>
+                                    <div key={i} className="bg-bgVoid border border-borderHairline rounded-xl p-5 hover:border-redPrimary/30 transition-all">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="font-mono text-xs font-bold text-redPrimary uppercase tracking-widest">{action.action}</span>
+                                            <span className="font-mono text-[10px] text-textMuted">{action.timestamp?.slice(0, 19)}</span>
                                         </div>
-                                        <div className="font-mono text-xs text-text3">{action.reason}</div>
-                                        <div className="font-mono text-xs text-text2 mt-1">
+                                        <div className="font-mono text-sm text-textSecondary mb-2">{action.reason}</div>
+                                        <div className="font-mono text-[11px] text-textMuted uppercase tracking-widest">
                                             {action.samples_affected} samples affected
                                         </div>
                                     </div>
@@ -236,6 +270,10 @@ export default function ReportsPage() {
                     )}
                 </div>
             )}
+            
+            <style>{`
+                @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+            `}</style>
         </div>
     );
 }

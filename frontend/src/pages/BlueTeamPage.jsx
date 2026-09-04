@@ -1,43 +1,49 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { 
+    ShieldAlert, AlertTriangle, Shield, CheckCircle, 
+    Lock, Zap, ClipboardList, Target, ShieldCheck, 
+    Check, User, Bot, RefreshCw, Radio, BookOpen, Activity 
+} from 'lucide-react';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const THREAT_CONFIG = {
-    CRITICAL: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.4)', label: 'CRITICAL', icon: '🚨', pulse: true },
-    ELEVATED: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.35)', label: 'ELEVATED', icon: '⚠️', pulse: true },
-    GUARDED: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.3)', label: 'GUARDED', icon: '🔵', pulse: false },
-    NOMINAL: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)', border: 'rgba(34,197,94,0.25)', label: 'NOMINAL', icon: '🟢', pulse: false },
+    CRITICAL: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', border: 'rgba(228,36,43,0.4)', label: 'CRITICAL', icon: ShieldAlert, pulse: true },
+    ELEVATED: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', border: 'rgba(242,184,75,0.4)', label: 'ELEVATED', icon: AlertTriangle, pulse: true },
+    GUARDED: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.4)', label: 'GUARDED', icon: Shield, pulse: false },
+    NOMINAL: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', border: 'rgba(61,220,132,0.4)', label: 'NOMINAL', icon: CheckCircle, pulse: false },
 };
 
 const ATTACK_COLORS = {
-    label_flip: '#f59e0b', backdoor: '#ef4444',
-    clean_label: '#a855f7', gradient_poisoning: '#06b6d4', boiling_frog: '#22c55e',
+    label_flip: 'var(--status-warn)', backdoor: 'var(--status-critical)',
+    clean_label: '#a855f7', gradient_poisoning: '#06b6d4', boiling_frog: 'var(--status-safe)',
 };
 
 const SEVERITY_CONFIG = {
-    critical: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', label: '🚨 CRITICAL' },
-    high: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', label: '⚠️ HIGH' },
-    medium: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: '🔵 MEDIUM' },
-    info: { color: '#475569', bg: 'rgba(100,116,139,0.1)', label: 'ℹ️ INFO' },
+    critical: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', label: 'CRITICAL' },
+    high: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', label: 'HIGH' },
+    medium: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: 'MEDIUM' },
+    info: { color: 'var(--text-muted)', bg: 'var(--bg-void)', label: 'INFO' },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatCard({ icon, label, value, sub, color = '#6366f1' }) {
+function StatCard({ icon: Icon, label, value, sub, color = 'var(--red-primary)' }) {
     return (
-        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${color}22`, borderRadius: 12, padding: '16px 18px', flex: 1, minWidth: 120 }}>
-            <div style={{ fontSize: 22, marginBottom: 4 }}>{icon}</div>
-            <div style={{ fontSize: 48, fontWeight: 900, color, fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{label}</div>
-            {sub && <div style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>{sub}</div>}
+        <div className="bg-bgPanel border rounded-xl p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn" style={{ animationDelay: `${Math.random() * 0.4}s` }}>
+            <div className="mb-3"><Icon className="w-6 h-6" style={{ color }} /></div>
+            <div className="text-[40px] font-mono font-black leading-none tracking-tighter" style={{ color }}>{value}</div>
+            <div className="text-xs text-textSecondary mt-3 font-bold uppercase tracking-widest">{label}</div>
+            {sub && <div className="text-[10px] text-textMuted mt-1 font-mono uppercase">{sub}</div>}
         </div>
     );
 }
 
-function SectionHeader({ title }) {
+function SectionHeader({ title, icon: Icon }) {
     return (
-        <div style={{ fontSize: 11, color: '#475569', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, fontWeight: 700, paddingBottom: 6, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="text-xs text-redPrimary uppercase tracking-widest mb-5 font-bold pb-3 border-b border-borderHairline flex items-center gap-2">
+            {Icon && <Icon className="w-4 h-4" />}
             {title}
         </div>
     );
@@ -46,32 +52,38 @@ function SectionHeader({ title }) {
 function ThreatBanner({ status }) {
     if (!status) return null;
     const cfg = THREAT_CONFIG[status.threat_level] || THREAT_CONFIG.NOMINAL;
+    const ThreatIcon = cfg.icon;
+    
     return (
-        <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 16, padding: '20px 28px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 20, position: 'relative', overflow: 'hidden' }}>
+        <div className="rounded-2xl p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden border" style={{ background: cfg.bg, borderColor: cfg.border }}>
             {cfg.pulse && (
-                <div style={{ position: 'absolute', top: 0, right: 0, width: '100%', height: '100%', background: `radial-gradient(ellipse at right, ${cfg.color}08 0%, transparent 70%)`, pointerEvents: 'none' }} />
+                <div className="absolute inset-0 bg-redPrimary/5 pointer-events-none animate-pulse" style={{ background: `radial-gradient(ellipse at right, ${cfg.color}15 0%, transparent 70%)` }} />
             )}
-            <div style={{ fontSize: 52, filter: cfg.pulse ? 'drop-shadow(0 0 12px currentColor)' : 'none' }}>{cfg.icon}</div>
-            <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: cfg.color, letterSpacing: 3, fontFamily: 'monospace' }}>
+            <div className={cfg.pulse ? "drop-shadow-red-glow" : ""}>
+                <ThreatIcon className="w-14 h-14" style={{ color: cfg.color }} />
+            </div>
+            <div className="flex-1 text-center md:text-left z-10">
+                <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
+                    <span className="text-2xl font-mono font-black tracking-widest uppercase" style={{ color: cfg.color }}>
                         THREAT LEVEL: {cfg.label}
                     </span>
                     {cfg.pulse && (
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: `${cfg.color}20`, color: cfg.color, border: `1px solid ${cfg.color}44`, animation: 'blink 1.5s infinite' }}>
+                        <span className="text-[10px] px-3 py-1 rounded-full border uppercase tracking-widest font-bold animate-pulse" style={{ background: `${cfg.color}20`, color: cfg.color, borderColor: `${cfg.color}50` }}>
                             LIVE
                         </span>
                     )}
                 </div>
-                <div style={{ color: '#334155', fontSize: 13 }}>
-                    Current Verdict: <strong style={{ color: cfg.color }}>{status.current_verdict}</strong>
-                    &nbsp;·&nbsp; Suspicion: <strong style={{ color: cfg.color }}>{Math.round((status.suspicion_score || 0) * 100)}%</strong>
-                    &nbsp;·&nbsp; Mode: <strong style={{ color: '#141414', textTransform: 'capitalize' }}>{status.defense_mode}</strong>
+                <div className="text-sm font-mono text-textSecondary flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
+                    <span>Verdict: <strong style={{ color: cfg.color }}>{status.current_verdict}</strong></span>
+                    <span className="text-borderHairline">|</span>
+                    <span>Suspicion: <strong style={{ color: cfg.color }}>{Math.round((status.suspicion_score || 0) * 100)}%</strong></span>
+                    <span className="text-borderHairline">|</span>
+                    <span>Mode: <strong className="text-textPrimary uppercase">{status.defense_mode}</strong></span>
                 </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 11, color: '#475569' }}>Updated</div>
-                <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace' }}>
+            <div className="text-center md:text-right z-10">
+                <div className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Updated</div>
+                <div className="text-xs text-textSecondary font-mono mt-1">
                     {status.updated_at ? new Date(status.updated_at).toLocaleTimeString() : '—'}
                 </div>
             </div>
@@ -83,12 +95,12 @@ function DefenseStats({ status }) {
     if (!status) return null;
     const rt = status.red_team || {};
     return (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-            <StatCard icon="🔒" label="Total Quarantined" value={status.total_quarantined || 0} color="#ef4444" />
-            <StatCard icon="⚡" label="Defense Actions" value={status.n_defense_actions || 0} color="#f59e0b" />
-            <StatCard icon="📋" label="HITL Queue" value={status.hitl_queue_depth || 0} sub="pending analyst review" color="#a855f7" />
-            <StatCard icon="🎯" label="Red Team Tests" value={rt.total_simulations || 0} sub={`${rt.attacks_caught || 0} caught`} color="#06b6d4" />
-            <StatCard icon="🛡️" label="Resilience" value={`${rt.resilience_pct ?? 100}%`} sub="attack catch rate" color="#22c55e" />
+        <div className="flex flex-wrap gap-4 mb-8">
+            <StatCard icon={Lock} label="Total Quarantined" value={status.total_quarantined || 0} color="var(--status-critical)" />
+            <StatCard icon={Zap} label="Defense Actions" value={status.n_defense_actions || 0} color="var(--status-warn)" />
+            <StatCard icon={ClipboardList} label="HITL Queue" value={status.hitl_queue_depth || 0} sub="pending analyst review" color="#a855f7" />
+            <StatCard icon={Target} label="Red Team Tests" value={rt.total_simulations || 0} sub={`${rt.attacks_caught || 0} caught`} color="#06b6d4" />
+            <StatCard icon={ShieldCheck} label="Resilience" value={`${rt.resilience_pct ?? 100}%`} sub="attack catch rate" color="var(--status-safe)" />
         </div>
     );
 }
@@ -96,43 +108,45 @@ function DefenseStats({ status }) {
 function HITLQueue({ cases, onDecide }) {
     if (!cases || cases.length === 0) {
         return (
-            <div style={{ padding: '20px', textAlign: 'center', color: '#475569', fontSize: 13 }}>
-                ✅ No pending cases — queue is clear
+            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
+                <CheckCircle className="w-8 h-8 mb-3 opacity-20" />
+                No pending cases — queue is clear
             </div>
         );
     }
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-3">
             {cases.map(c => (
-                <div key={c.case_id} style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                                <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#475569' }}>{c.case_id?.slice(0, 8)}…</span>
-                                <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>PENDING</span>
-                            </div>
-                            <div style={{ fontSize: 12, color: '#cbd5e1', marginBottom: 6 }}>
-                                Suspicion: <strong style={{ color: '#f59e0b' }}>{Math.round((c.suspicion_score || 0) * 100)}%</strong>
-                                &nbsp;·&nbsp; Samples: <strong>{c.n_samples}</strong>
-                                &nbsp;·&nbsp; Attack: <strong style={{ color: ATTACK_COLORS[c.evidence_summary?.attack_type] || '#94a3b8', textTransform: 'capitalize' }}>
-                                    {(c.evidence_summary?.attack_type || 'unknown').replace(/_/g, ' ')}
-                                </strong>
-                            </div>
-                            <div style={{ fontSize: 11, color: '#475569' }}>
-                                KL Divergence: {c.evidence_summary?.kl_divergence?.toFixed(3) || '—'} &nbsp;·&nbsp;
-                                Causal Effect: {c.evidence_summary?.causal_effect?.toFixed(3) || '—'}
-                            </div>
+                <div key={c.case_id} className="bg-bgVoid border border-statusWarn/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4">
+                    <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                            <span className="text-sm font-mono font-bold text-textPrimary">{c.case_id?.slice(0, 8)}…</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-statusWarn/20 text-statusWarn border border-statusWarn/30 font-bold uppercase tracking-wider">PENDING</span>
                         </div>
-                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                            <button onClick={() => onDecide(c.case_id, 'approve_quarantine')}
-                                style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.1)', color: '#fca5a5', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                                🔒 Quarantine
-                            </button>
-                            <button onClick={() => onDecide(c.case_id, 'mark_safe')}
-                                style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.1)', color: '#86efac', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                                ✅ Safe
-                            </button>
+                        <div className="text-xs font-mono text-textSecondary mb-2 flex gap-3 flex-wrap items-center">
+                            <span>Suspicion: <strong className="text-statusWarn">{Math.round((c.suspicion_score || 0) * 100)}%</strong></span>
+                            <span className="text-borderHairline">|</span>
+                            <span>Samples: <strong>{c.n_samples}</strong></span>
+                            <span className="text-borderHairline">|</span>
+                            <span>Attack: <strong className="capitalize" style={{ color: ATTACK_COLORS[c.evidence_summary?.attack_type] || 'var(--text-muted)' }}>
+                                {(c.evidence_summary?.attack_type || 'unknown').replace(/_/g, ' ')}
+                            </strong></span>
                         </div>
+                        <div className="text-[11px] font-mono text-textMuted flex gap-3">
+                            <span>KL Div: {c.evidence_summary?.kl_divergence?.toFixed(3) || '—'}</span>
+                            <span className="text-borderHairline">|</span>
+                            <span>Causal: {c.evidence_summary?.causal_effect?.toFixed(3) || '—'}</span>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                        <button onClick={() => onDecide(c.case_id, 'approve_quarantine')}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusCritical/30 bg-statusCritical/10 text-statusCritical text-xs font-bold hover:bg-statusCritical/20 transition-colors uppercase tracking-wider">
+                            <Lock className="w-4 h-4" /> Quarantine
+                        </button>
+                        <button onClick={() => onDecide(c.case_id, 'mark_safe')}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusSafe/30 bg-statusSafe/10 text-statusSafe text-xs font-bold hover:bg-statusSafe/20 transition-colors uppercase tracking-wider">
+                            <Check className="w-4 h-4" /> Safe
+                        </button>
                     </div>
                 </div>
             ))}
@@ -143,31 +157,36 @@ function HITLQueue({ cases, onDecide }) {
 function IncidentLog({ incidents }) {
     const [expanded, setExpanded] = useState(null);
     if (!incidents || incidents.length === 0) {
-        return <div style={{ padding: 20, textAlign: 'center', color: '#475569', fontSize: 13 }}>No incidents logged yet. Run a demo or trigger a defense action.</div>;
+        return (
+            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
+                <Radio className="w-8 h-8 mb-3 opacity-20" />
+                No incidents logged yet.
+            </div>
+        );
     }
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <div className="flex flex-col gap-2">
             {incidents.map((inc, i) => {
                 const sev = SEVERITY_CONFIG[inc.severity] || SEVERITY_CONFIG.info;
                 const isOpen = expanded === i;
                 return (
-                    <div key={i} onClick={() => setExpanded(isOpen ? null : i)} style={{ padding: '10px 14px', borderRadius: 8, cursor: 'pointer', background: isOpen ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.01)', border: `1px solid ${isOpen ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'}`, transition: 'all 0.2s' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 8, background: sev.bg, color: sev.color, border: `1px solid ${sev.color}33`, whiteSpace: 'nowrap' }}>
+                    <div key={i} onClick={() => setExpanded(isOpen ? null : i)} className={`p-3 rounded-lg cursor-pointer transition-all border ${isOpen ? 'bg-bgVoid border-borderHairline' : 'bg-transparent border-transparent hover:bg-bgVoid/50'}`}>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider whitespace-nowrap" style={{ background: sev.bg, color: sev.color, borderColor: `${sev.color}40` }}>
                                 {sev.label}
                             </span>
-                            <span style={{ fontSize: 12, color: '#cbd5e1', flex: 1, textTransform: 'capitalize' }}>
-                                {inc.type === 'human_decision' ? '👤' : '🤖'}
-                                &nbsp;{(inc.action || '').replace(/_/g, ' ')}
-                                {inc.samples_affected ? ` — ${inc.samples_affected} samples` : ''}
-                                {inc.reviewer ? ` by ${inc.reviewer}` : ''}
+                            <span className="text-xs font-mono text-textPrimary flex-1 capitalize flex items-center gap-2">
+                                {inc.type === 'human_decision' ? <User className="w-3 h-3 text-textMuted" /> : <Bot className="w-3 h-3 text-textMuted" />}
+                                {(inc.action || '').replace(/_/g, ' ')}
+                                {inc.samples_affected ? <span className="text-textMuted">— {inc.samples_affected} samples</span> : null}
+                                {inc.reviewer ? <span className="text-redPrimary">by {inc.reviewer}</span> : null}
                             </span>
-                            <span style={{ fontSize: 10, color: '#475569', fontFamily: 'monospace' }}>
+                            <span className="text-[10px] text-textMuted font-mono whitespace-nowrap">
                                 {inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString() : '—'}
                             </span>
                         </div>
                         {isOpen && inc.reason && (
-                            <div style={{ marginTop: 8, fontSize: 11, color: '#475569', paddingLeft: 4, borderLeft: '2px solid rgba(255,255,255,0.08)' }}>
+                            <div className="mt-3 text-xs font-mono text-textSecondary pl-3 border-l-2 border-redPrimary/50 py-1 bg-redPrimary/5 rounded-r">
                                 {inc.reason}
                             </div>
                         )}
@@ -179,48 +198,50 @@ function IncidentLog({ incidents }) {
 }
 
 function ResiliencePanel({ resilience }) {
-    if (!resilience) return <div style={{ color: '#475569', fontSize: 13, padding: 16 }}>Loading...</div>;
+    if (!resilience) return <div className="text-textMuted text-sm font-mono p-4">Loading metrics...</div>;
     if (resilience.total_tests === 0) {
         return (
-            <div style={{ padding: 20, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🎯</div>
-                <div style={{ color: '#475569', fontSize: 13 }}>{resilience.message}</div>
+            <div className="p-8 text-center border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
+                <Target className="w-10 h-10 mb-3 opacity-20 text-textMuted" />
+                <div className="text-textMuted text-sm font-mono">{resilience.message || "No resilience data available."}</div>
             </div>
         );
     }
     return (
         <div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 100, background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, fontWeight: 900, color: '#22c55e', fontFamily: 'monospace' }}>{resilience.overall_resilience_pct}%</div>
-                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Overall Catch Rate</div>
+            <div className="flex flex-wrap gap-4 mb-6">
+                <div className="flex-1 min-w-[100px] bg-statusSafe/10 border border-statusSafe/20 rounded-xl p-4 text-center">
+                    <div className="text-4xl font-black font-mono text-statusSafe">{resilience.overall_resilience_pct}%</div>
+                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Overall Catch Rate</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 100, background: 'rgba(232,98,44,0.05)', border: '1px solid rgba(232,98,44,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, fontWeight: 900, color: '#818cf8', fontFamily: 'monospace' }}>{resilience.avg_detection_ms}ms</div>
-                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Avg Detection Time</div>
+                <div className="flex-1 min-w-[100px] bg-redPrimary/10 border border-redPrimary/20 rounded-xl p-4 text-center">
+                    <div className="text-4xl font-black font-mono text-redPrimary">{resilience.avg_detection_ms}ms</div>
+                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Avg Detection Time</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 100, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, fontWeight: 900, color: '#ef4444', fontFamily: 'monospace' }}>{resilience.total_missed}</div>
-                    <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Attacks Missed</div>
+                <div className="flex-1 min-w-[100px] bg-statusCritical/10 border border-statusCritical/20 rounded-xl p-4 text-center">
+                    <div className="text-4xl font-black font-mono text-statusCritical">{resilience.total_missed}</div>
+                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Attacks Missed</div>
                 </div>
             </div>
-            {Object.entries(resilience.by_attack_type || {}).map(([type, stats]) => {
-                const color = ATTACK_COLORS[type] || '#6366f1';
-                const pct = stats.catch_rate_pct || 0;
-                return (
-                    <div key={type} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                            <span style={{ color: '#334155', textTransform: 'capitalize' }}>{type.replace(/_/g, ' ')}</span>
-                            <span style={{ fontFamily: 'monospace', color }}>
-                                {stats.caught}/{stats.total_tests} · {pct}% · {stats.avg_detection_ms}ms
-                            </span>
+            <div className="space-y-4">
+                {Object.entries(resilience.by_attack_type || {}).map(([type, stats]) => {
+                    const color = ATTACK_COLORS[type] || 'var(--red-primary)';
+                    const pct = stats.catch_rate_pct || 0;
+                    return (
+                        <div key={type}>
+                            <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider mb-2">
+                                <span className="text-textSecondary">{type.replace(/_/g, ' ')}</span>
+                                <span className="font-mono text-[11px]" style={{ color }}>
+                                    {stats.caught}/{stats.total_tests} · {pct}% · {stats.avg_detection_ms}ms
+                                </span>
+                            </div>
+                            <div className="h-1.5 bg-bgVoid rounded-full overflow-hidden">
+                                <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 10px ${color}80` }} />
+                            </div>
                         </div>
-                        <div style={{ height: 6, background: 'rgba(0,0,0,0.05)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})`, borderRadius: 3, transition: 'width 1s ease' }} />
-                        </div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -247,51 +268,64 @@ function PlaybookPanel() {
 
     return (
         <div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                {playbooks.map(p => (
-                    <button key={p.id} onClick={() => loadPlaybook(p.id)} style={{ padding: '7px 14px', borderRadius: 20, border: `1px solid ${selected === p.id ? p.color : 'rgba(255,255,255,0.1)'}`, background: selected === p.id ? `${p.color}18` : 'rgba(255,255,255,0.03)', color: selected === p.id ? p.color : '#64748b', fontSize: 12, cursor: 'pointer', fontWeight: selected === p.id ? 700 : 400, transition: 'all 0.2s' }}>
-                        {p.attack}
-                    </button>
-                ))}
+            <div className="flex gap-2 flex-wrap mb-6">
+                {playbooks.map(p => {
+                    const isSelected = selected === p.id;
+                    return (
+                        <button key={p.id} onClick={() => loadPlaybook(p.id)} 
+                            className={`px-4 py-2 rounded-full text-[11px] uppercase tracking-widest font-bold border transition-all ${isSelected ? 'bg-redPrimary/20 text-redPrimary border-redPrimary' : 'bg-transparent text-textMuted border-borderHairline hover:border-textMuted hover:text-textSecondary'}`}>
+                            {p.attack}
+                        </button>
+                    );
+                })}
             </div>
 
-            {loading && <div style={{ color: '#475569', fontSize: 13 }}>Loading playbook...</div>}
+            {loading && <div className="text-textMuted text-sm font-mono animate-pulse">Loading playbook...</div>}
 
             {detail && !loading && (
-                <div style={{ background: 'rgba(0,0,0,0.2)', border: `1px solid ${detail.color}33`, borderRadius: 12, padding: 20, animation: 'fadeIn 0.3s ease' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: detail.color }}>{detail.attack}</div>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: `${detail.color}15`, color: detail.color, border: `1px solid ${detail.color}33`, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div className="bg-bgVoid border border-redPrimary/30 rounded-xl p-6 animate-fadeInUp">
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="text-lg font-black tracking-wider text-redPrimary uppercase">{detail.attack}</div>
+                        <span className="text-[9px] px-2 py-0.5 rounded border border-redPrimary/40 bg-redPrimary/10 text-redPrimary uppercase tracking-widest font-bold">
                             {detail.severity}
                         </span>
                     </div>
-                    <div style={{ fontSize: 12, color: '#475569', marginBottom: 14, lineHeight: 1.6 }}>{detail.description}</div>
+                    <div className="text-sm font-mono text-textSecondary mb-6 leading-relaxed border-l-2 border-borderHairline pl-4 italic">
+                        "{detail.description}"
+                    </div>
 
-                    {[
-                        { title: '🚨 Immediate Response', key: 'immediate_steps' },
-                        { title: '🔍 Investigation', key: 'investigation_steps' },
-                        { title: '🔧 Remediation', key: 'remediation' },
-                    ].map(section => (
-                        <div key={section.key} style={{ marginBottom: 14 }}>
-                            <div style={{ fontSize: 11, color: detail.color, fontWeight: 700, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{section.title}</div>
-                            {(detail[section.key] || []).map((step, i) => (
-                                <div key={i} style={{ fontSize: 12, color: '#334155', padding: '5px 10px', borderLeft: `2px solid ${detail.color}44`, marginBottom: 4, lineHeight: 1.5, background: 'rgba(255,255,255,0.4)', borderRadius: '0 6px 6px 0' }}>
-                                    {step}
+                    <div className="space-y-6">
+                        {[
+                            { title: 'Immediate Response', key: 'immediate_steps', icon: AlertTriangle },
+                            { title: 'Investigation', key: 'investigation_steps', icon: Activity },
+                            { title: 'Remediation', key: 'remediation', icon: ShieldCheck },
+                        ].map(section => (
+                            <div key={section.key}>
+                                <div className="text-[11px] text-redPrimary font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
+                                    <section.icon className="w-3.5 h-3.5" /> {section.title}
                                 </div>
-                            ))}
-                        </div>
-                    ))}
+                                <div className="space-y-2">
+                                    {(detail[section.key] || []).map((step, i) => (
+                                        <div key={i} className="text-xs font-mono text-textPrimary py-1.5 px-3 border-l-2 border-redPrimary/50 bg-bgPanel rounded-r">
+                                            {step}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
                     {detail.regulatory && (
-                        <div style={{ fontSize: 11, color: '#334155', background: 'rgba(255,255,255,0.5)', borderRadius: 8, padding: '8px 12px', borderLeft: `2px solid #475569` }}>
-                            📜 {detail.regulatory}
+                        <div className="mt-6 text-[11px] font-mono text-textSecondary bg-bgPanel rounded-lg p-3 border border-borderHairline flex items-center gap-3">
+                            <BookOpen className="w-4 h-4 text-textMuted" />
+                            {detail.regulatory}
                         </div>
                     )}
                 </div>
             )}
 
             {!detail && !loading && playbooks.length > 0 && (
-                <div style={{ color: '#475569', fontSize: 13, padding: 12 }}>
+                <div className="text-textMuted text-sm font-mono p-4 border-2 border-dashed border-borderHairline rounded-xl text-center">
                     Select an attack type above to view the step-by-step response playbook.
                 </div>
             )}
@@ -335,33 +369,36 @@ export default function BlueTeamPage() {
 
     if (loading) {
         return (
-            <div style={{ padding: '60px 40px', textAlign: 'center' }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🛡️</div>
-                <div style={{ color: '#475569', fontSize: 14 }}>Initialising Blue Team SOC...</div>
+            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
+                <Shield className="w-16 h-16 text-redPrimary animate-pulse mb-6" />
+                <div className="text-textMuted font-mono text-sm tracking-widest uppercase">Initialising Blue Team SOC...</div>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                        🛡️ Blue Team — Security Operations Centre
+                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
+                        <Shield className="w-4 h-4" /> Blue Team
+                    </div>
+                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
+                        Security Operations <span className="text-redPrimary">Centre</span>
                     </h1>
-                    <p style={{ color: '#475569', marginTop: 6, fontSize: 13 }}>
-                        Real-time defense status · HITL review queue · Incident log · Resilience metrics · Incident playbooks
+                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
+                        Real-time defense status // HITL review queue // Resilience metrics
                     </p>
                 </div>
-                <button onClick={loadAll} style={{ padding: '8px 14px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.03)', color: '#475569', cursor: 'pointer', fontSize: 13 }}>
-                    🔄 Refresh
+                <button onClick={loadAll} className="flex items-center gap-2 px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest">
+                    <RefreshCw className="w-4 h-4" /> Refresh
                 </button>
             </div>
 
             {decisionMsg && (
-                <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: '10px 16px', color: '#86efac', marginBottom: 16, fontSize: 13 }}>
-                    ✅ Decision recorded: {decisionMsg}
+                <div className="bg-statusSafe/10 border border-statusSafe/30 rounded-xl px-5 py-4 text-statusSafe text-sm font-bold font-mono flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5" /> Decision recorded: {decisionMsg}
                 </div>
             )}
 
@@ -372,37 +409,52 @@ export default function BlueTeamPage() {
             <DefenseStats status={status} />
 
             {/* Main grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
                 {/* HITL Queue */}
-                <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
-                    <SectionHeader title={`📋 Human Review Queue (${(status?.pending_cases || []).length} pending)`} />
-                    <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
+                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                    <SectionHeader title={`Human Review Queue (${(status?.pending_cases || []).length} pending)`} icon={ClipboardList} />
+                    <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
+                    </div>
                 </div>
 
                 {/* Resilience */}
-                <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
-                    <SectionHeader title="🎯 Red Team Resilience Metrics" />
+                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                    <SectionHeader title="Red Team Resilience Metrics" icon={Target} />
                     <ResiliencePanel resilience={resilience} />
                 </div>
             </div>
 
-            {/* Incident Log */}
-            <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20, marginBottom: 16 }}>
-                <SectionHeader title={`📡 Defense Incident Log (${incidents.length} events)`} />
-                <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-                    <IncidentLog incidents={incidents} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Incident Log */}
+                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                    <SectionHeader title={`Defense Incident Log (${incidents.length} events)`} icon={Radio} />
+                    <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        <IncidentLog incidents={incidents} />
+                    </div>
+                </div>
+
+                {/* Playbooks */}
+                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                    <SectionHeader title="Incident Response Playbooks" icon={BookOpen} />
+                    <PlaybookPanel />
                 </div>
             </div>
 
-            {/* Playbooks */}
-            <div style={{ background: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: 20 }}>
-                <SectionHeader title="📖 Incident Response Playbooks — Step-by-Step Defense Procedures" />
-                <PlaybookPanel />
-            </div>
-
             <style>{`
-                @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-                @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+                @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+                @keyframes flipIn {
+                    0% { transform: perspective(400px) rotateX(90deg); opacity: 0; }
+                    100% { transform: perspective(400px) rotateX(0deg); opacity: 1; }
+                }
+                .animate-flipIn {
+                    animation: flipIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                    opacity: 0;
+                }
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-void); border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-hairline); border-radius: 4px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--red-primary); }
             `}</style>
         </div>
     );

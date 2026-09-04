@@ -7,43 +7,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Light Theme Base
-        cream: '#F3EEE4',
-        creamLighter: '#F7F3EA',
+        // Base surfaces
+        bgVoid: 'var(--bg-void)',
+        bgSurface: 'var(--bg-surface)',
+        bgPanel: 'var(--bg-panel)',
+        bgPanelRaised: 'var(--bg-panel-raised)',
+        borderHairline: 'var(--border-hairline)',
         
-        // Dark Panels
-        slateDark: '#0D0D0F',
-        slateLighter: '#121214',
+        // Brand red
+        redPrimary: 'var(--red-primary)',
+        redBright: 'var(--red-bright)',
+        redDim: 'var(--red-dim)',
+        redGlow: 'var(--red-glow)',
         
-        // Outer Frame
-        frameBlack: '#0A0A0A',
-        
-        // Accents
-        burntOrange: '#E8622C',
-        softYellow: '#F2E85C',
+        // Semantic status
+        statusSafe: 'var(--status-safe)',
+        statusWarn: 'var(--status-warn)',
+        statusCritical: 'var(--status-critical)',
         
         // Text
-        textDark: '#141414',
-        textLight: '#F5F5F5',
-        textMuted: '#6B7280', // standard gray for secondary text on light
-        textMutedDark: '#9CA3AF', // standard gray for secondary text on dark
-        
-        // Keep some standard legacy colours temporarily if needed by other components, mapping to new ones
-        bg: '#F3EEE4', // default bg
-        text1: '#141414',
-        text2: '#6B7280',
-        text3: '#9CA3AF',
-        accent: '#E8622C',
-        accentCyan: '#E8622C', 
-        accentViolet: '#F2E85C',
-        surface: '#F7F3EA',
-        surface2: '#F7F3EA',
-        border: 'rgba(0, 0, 0, 0.1)',
-        danger: '#ef4444',
+        textPrimary: 'var(--text-primary)',
+        textSecondary: 'var(--text-secondary)',
+        textMuted: 'var(--text-muted)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
+        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
       },
       animation: {
         'marquee': 'marquee 25s linear infinite',
@@ -53,6 +43,9 @@ export default {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(-100%)' },
         }
+      },
+      boxShadow: {
+        'red-glow': '0 0 40px var(--red-glow)',
       },
     },
   },

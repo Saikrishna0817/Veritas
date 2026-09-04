@@ -1,11 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --accent: #E8622C;
+  /* Base surfaces */
+  --bg-void: #000000; /* true black — outer frame, deepest backgrounds */
+  --bg-surface: #0A0A0C; /* main page background, slightly lifted off pure black */
+  --bg-panel: #131316; /* cards, panels, the terminal-style blocks */
+  --bg-panel-raised: #1B1B1F; /* hovered/active card state */
+  --border-hairline: rgba(255,255,255,0.08);
+
+  /* Brand red */
+  --red-primary: #E4242B; /* primary CTAs, active states, key accents */
+  --red-bright: #FF3B3B; /* hover state, glow highlights */
+  --red-dim: #7A1418; /* subtle backgrounds behind red text, tag fills */
+  --red-glow: rgba(228,36,43,0.35); /* box-shadow / rim-light glow */
+
+  /* Semantic status (KEEP — do not replace with red) */
+  --status-safe: #3DDC84; /* CLEAN / nominal */
+  --status-warn: #F2B84B; /* elevated / review needed */
+  --status-critical: #E4242B;/* matches brand red — critical alerts reinforce the brand */
+
+  /* Text */
+  --text-primary: #F5F5F7;
+  --text-secondary: #9A9AA2;
+  --text-muted: #5C5C63;
 }
 
 * {
@@ -20,8 +41,8 @@ html {
 
 /* Outer frame - solid black */
 body {
-  background-color: #0A0A0A;
-  color: #141414;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
   padding: 20px; /* Outer frame width */
@@ -31,12 +52,11 @@ body {
 
 /* Inner content area with rounded corners */
 #root {
-  background-color: #F3EEE4;
+  background-color: var(--bg-surface);
   border-radius: 28px;
   min-height: calc(100vh - 40px);
-  overflow: hidden;
+  overflow-x: hidden;
   position: relative;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
 }
 
 /* Custom Scrollbar */
@@ -44,28 +64,28 @@ body {
   width: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0A0A; /* Matches outer frame */
+  background: var(--bg-void);
 }
 ::-webkit-scrollbar-thumb {
-  background: #121214; /* Dark panel color */
+  background: var(--bg-panel-raised);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #E8622C; /* Burnt orange accent */
+  background: var(--red-primary);
 }
 
-/* Recharts Custom Styling for Light Theme */
+/* Recharts Custom Styling for Dark Theme */
 .recharts-tooltip-wrapper {
   z-index: 100;
 }
 .recharts-default-tooltip {
-  background-color: #F7F3EA !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  background-color: var(--bg-panel-raised) !important;
+  border: 1px solid var(--border-hairline) !important;
   border-radius: 8px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-  color: #141414 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  color: var(--text-primary) !important;
 }
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: rgba(0, 0, 0, 0.05) !important;
+  stroke: rgba(255, 255, 255, 0.05) !important;
 }

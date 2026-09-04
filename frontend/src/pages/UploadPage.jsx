@@ -3,39 +3,32 @@ import { api } from '../services/api';
 import UploadSchemaCard from '../components/upload/UploadSchemaCard';
 import AttackClassificationCard from '../components/upload/AttackClassificationCard';
 import LayerScoresGrid from '../components/upload/LayerScoresGrid';
-import Tactile3DHero from '../components/Tactile3DHero';
+import { FolderUp, CloudUpload, FileText, Target, Zap, Activity, ShieldAlert, ClipboardList, Download, Check } from 'lucide-react';
 
 const ATTACK_COLORS = {
   label_flip: '#f59e0b',
-  backdoor: '#ef4444',
+  backdoor: 'var(--red-primary)',
   clean_label: '#a855f7',
   gradient_poisoning: '#06b6d4',
-  boiling_frog: '#22c55e',
+  boiling_frog: 'var(--status-safe)',
 };
 
 const VERDICT_CONFIG = {
-  CONFIRMED_POISONED: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '☠️', label: 'CONFIRMED POISONED' },
-  SUSPICIOUS: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⚠️', label: 'SUSPICIOUS' },
-  LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)', icon: '🔵', label: 'LOW RISK' },
-  CLEAN: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)', icon: '✅', label: 'CLEAN' },
+  CONFIRMED_POISONED: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-12 h-12 text-[var(--status-critical)]" />, label: 'CONFIRMED POISONED' },
+  SUSPICIOUS: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <Activity className="w-12 h-12 text-[var(--status-warn)]" />, label: 'SUSPICIOUS' },
+  LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-12 h-12 text-blue-500" />, label: 'LOW RISK' },
+  CLEAN: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-12 h-12 text-[var(--status-safe)]" />, label: 'CLEAN' },
 };
 
-function StatCard({ label, value, sub, color = '#E8622C', icon }) {
+function StatCard({ label, value, sub, color = 'var(--red-primary)', icon }) {
   return (
-    <div
-      style={{
-        background: 'rgba(0,0,0,0.03)',
-        border: `1px solid ${color}40`,
-        borderRadius: 16,
-        padding: '24px',
-        flex: 1,
-        minWidth: 180,
-      }}
-    >
-      <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
-      <div style={{ fontSize: 28, fontWeight: 900, color, fontFamily: 'monospace' }}>{value}</div>
-      <div style={{ fontSize: 13, color: '#334155', marginTop: 4, fontWeight: 600 }}>{label}</div>
-      {sub && <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>}
+    <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6 flex-1 min-w-[180px] hover:bg-bgPanelRaised transition-colors">
+      <div className="mb-3 w-10 h-10 rounded-lg flex items-center justify-center bg-black/20 border border-borderHairline text-white">
+        {icon}
+      </div>
+      <div className="text-3xl font-mono font-extrabold" style={{ color }}>{value}</div>
+      <div className="text-[13px] text-textPrimary mt-1 font-bold tracking-wide uppercase">{label}</div>
+      {sub && <div className="text-[11px] text-textMuted mt-1">{sub}</div>}
     </div>
   );
 }
@@ -102,193 +95,160 @@ export default function UploadPage() {
 
   const verdict = result ? VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS : null;
   const attackColor = result
-    ? ATTACK_COLORS[result.attack_classification?.attack_type] || '#E8622C'
-    : '#E8622C';
+    ? ATTACK_COLORS[result.attack_classification?.attack_type] || 'var(--red-primary)'
+    : 'var(--red-primary)';
 
   return (
-    <div style={{ position: 'relative', width: '100%', minHeight: 'calc(100vh - 80px)', overflow: 'hidden', background: 'transparent' }}>
-      
-      {/* Main Content Area */}
-      <div style={{ position: 'relative', zIndex: 1, padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'col', gap: '32px' }}>
+    <div className="relative w-full min-h-[calc(100vh-80px)] bg-transparent overflow-hidden">
+      <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-12">
         
-        {/* Header */}
-        <div style={{ marginBottom: 16 }}>
-          <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0, letterSpacing: '-0.02em' }}>
-            📂 Upload Dataset for Analysis
-          </h1>
-          <p style={{ color: '#334155', marginTop: 12, fontSize: 18, maxWidth: '80%', lineHeight: 1.6 }}>
-            Upload any CSV file — the platform auto-detects schema, splits 70/30 for baseline, and runs all 5 detection layers.
-            Supports up to 200,000 rows · 200MB · supervised &amp; unsupervised modes.
-          </p>
-        </div>
-
-        {/* Upload Zone */}
-        <div
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onClick={() => fileRef.current?.click()}
-          style={{
-            border: `3px dashed ${dragging ? '#E8622C' : file ? '#22c55e' : 'rgba(0,0,0,0.15)'}`,
-            borderRadius: 24,
-            padding: '80px 48px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            background: dragging
-              ? 'rgba(232, 98, 44, 0.05)'
-              : file
-              ? 'rgba(34,197,94,0.05)'
-              : 'rgba(255,255,255,0.4)',
-            backdropFilter: 'blur(10px)',
-            transition: 'all 0.3s ease',
-            width: '100%',
-            marginBottom: 24,
-          }}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv"
-            style={{ display: 'none' }}
-            onChange={(e) => handleFile(e.target.files[0])}
-          />
-          <div style={{ fontSize: 72, marginBottom: 20 }}>
-            {file ? '📄' : dragging ? '📥' : '☁️'}
-          </div>
-          {file ? (
-            <>
-              <div style={{ color: '#22c55e', fontWeight: 800, fontSize: 24 }}>{file.name}</div>
-              <div style={{ color: '#475569', fontSize: 16, marginTop: 8 }}>
-                {(file.size / 1024 / 1024).toFixed(2)} MB · Click to change
+        {!result && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Left Column: Context / How it works */}
+            <div className="space-y-8">
+              <div>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
+                    <FolderUp className="w-5 h-5 text-redPrimary" />
+                  </div>
+                  <h1 className="text-[56px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
+                    Upload Dataset
+                  </h1>
+                </div>
+                <p className="text-textSecondary text-[18px] leading-relaxed max-w-md">
+                  Upload any CSV file — the platform auto-detects schema, splits 70/30 for baseline, and runs all 5 detection layers.
+                </p>
               </div>
-            </>
-          ) : (
-            <>
-              <div style={{ color: '#141414', fontWeight: 800, fontSize: 24 }}>
-                Drop your CSV here or click to browse
+
+              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 space-y-6">
+                <h3 className="font-display font-bold text-textPrimary text-xl">How it works</h3>
+                <ol className="space-y-6 relative before:absolute before:inset-y-0 before:left-4 before:w-[2px] before:bg-borderHairline">
+                  <li className="relative pl-12">
+                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary rounded-full ring-4 ring-bgPanel" />
+                    <h4 className="font-bold text-textPrimary mb-1">1. Secure Upload</h4>
+                    <p className="text-textMuted text-sm">Accepts .csv files up to 200MB (≤ 200,000 rows). Processed in memory without storage.</p>
+                  </li>
+                  <li className="relative pl-12">
+                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary/30 border border-redPrimary rounded-full ring-4 ring-bgPanel" />
+                    <h4 className="font-bold text-textPrimary mb-1">2. Auto-split & Baseline</h4>
+                    <p className="text-textMuted text-sm">Automatically detects schema and splits 70/30 to establish a nominal statistical baseline.</p>
+                  </li>
+                  <li className="relative pl-12">
+                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-borderHairline rounded-full ring-4 ring-bgPanel" />
+                    <h4 className="font-bold text-textPrimary mb-1">3. Run 5 Detection Layers</h4>
+                    <p className="text-textMuted text-sm">Executes Statistical, Spectral, Ensemble, Causal, and Federated validation layers.</p>
+                  </li>
+                </ol>
               </div>
-              <div style={{ color: '#475569', fontSize: 16, marginTop: 12 }}>
-                Accepts .csv files up to 200MB (≤ 200,000 rows)
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div
-            style={{
-              background: 'rgba(239,68,68,0.1)',
-              border: '2px solid rgba(239,68,68,0.3)',
-              borderRadius: 16,
-              padding: '16px 24px',
-              color: '#dc2626',
-              marginBottom: 24,
-              fontSize: 16,
-              fontWeight: 600
-            }}
-          >
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Analyze Button */}
-        {file && !result && (
-          <button
-            onClick={runAnalysis}
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '20px 0',
-              borderRadius: 16,
-              border: 'none',
-              background: loading ? '#ccc' : '#E8622C',
-              color: '#fff',
-              fontWeight: 800,
-              fontSize: 20,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.3s',
-              marginBottom: 24,
-              boxShadow: loading ? 'none' : '0 8px 24px rgba(232, 98, 44, 0.3)',
-            }}
-          >
-            {loading ? '🔬 Analyzing...' : '🚀 Run Poisoning Detection'}
-          </button>
-        )}
-
-        {/* Progress Bar */}
-        {loading && (
-          <div style={{ marginBottom: 32, padding: '24px', background: 'rgba(255,255,255,0.5)', borderRadius: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#334155', marginBottom: 12, fontWeight: 700 }}>
-              <span>Running 5-layer detection pipeline...</span>
-              <span>{Math.round(progress)}%</span>
             </div>
-            <div style={{ height: 12, background: 'rgba(0,0,0,0.06)', borderRadius: 6, overflow: 'hidden' }}>
+
+            {/* Right Column: Upload Zone */}
+            <div className="flex flex-col gap-6">
               <div
-                style={{
-                  height: '100%',
-                  width: `${progress}%`,
-                  background: '#E8622C',
-                  borderRadius: 6,
-                  transition: 'width 0.4s ease',
-                  boxShadow: '0 0 12px rgba(232, 98, 44, 0.6)',
-                }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
-              {['Schema Detection', 'L1 Statistical', 'L2 Spectral', 'L3 Ensemble', 'L4 Causal', 'L5 Federated'].map((s, i) => (
-                <span
-                  key={s}
-                  style={{
-                    fontSize: 13,
-                    padding: '6px 12px',
-                    borderRadius: 20,
-                    fontWeight: 600,
-                    background: progress > i * 14 ? 'rgba(232, 98, 44, 0.1)' : 'rgba(0,0,0,0.04)',
-                    color: progress > i * 14 ? '#E8622C' : '#64748b',
-                    border: `1px solid ${progress > i * 14 ? 'rgba(232, 98, 44, 0.3)' : 'rgba(0,0,0,0.06)'}`,
-                    transition: 'all 0.5s',
-                  }}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onClick={() => fileRef.current?.click()}
+                className={`border-[3px] border-dashed rounded-[28px] p-16 text-center cursor-pointer backdrop-blur-xl transition-all duration-300 w-full flex flex-col items-center justify-center min-h-[400px]
+                  ${dragging ? 'border-redPrimary bg-redPrimary/5 shadow-red-glow' : file ? 'border-statusSafe bg-statusSafe/5' : 'border-borderHairline bg-bgVoid/40 hover:bg-bgPanel'}`}
+              >
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => handleFile(e.target.files[0])}
+                />
+                <div className="mb-6">
+                  {file ? <FileText className="w-16 h-16 text-statusSafe" /> : dragging ? <FolderUp className="w-16 h-16 text-redPrimary animate-bounce" /> : <CloudUpload className="w-16 h-16 text-textMuted" />}
+                </div>
+                {file ? (
+                  <>
+                    <div className="text-statusSafe font-bold text-2xl tracking-wide">{file.name}</div>
+                    <div className="text-textMuted text-sm font-mono mt-3">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB · Click to change
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-textPrimary font-bold text-2xl tracking-wide">
+                      Drop your CSV here or click to browse
+                    </div>
+                    <div className="text-textMuted font-mono text-sm mt-3">
+                      Accepts .csv files up to 200MB (≤ 200,000 rows)
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {error && (
+                <div className="bg-statusCritical/10 border border-statusCritical/30 rounded-xl p-4 text-statusCritical font-bold text-sm">
+                  ⚠️ {error}
+                </div>
+              )}
+
+              {file && !result && (
+                <button
+                  onClick={runAnalysis}
+                  disabled={loading}
+                  className="w-full py-5 rounded-2xl bg-redPrimary text-white font-bold text-xl hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-redPrimary/50"
                 >
-                  {progress > i * 14 ? '✓ ' : ''}
-                  {s}
-                </span>
-              ))}
+                  {loading ? '🔬 Analyzing...' : '🚀 Run Poisoning Detection'}
+                </button>
+              )}
+
+              {loading && (
+                <div className="p-6 bg-bgPanel border border-borderHairline rounded-[20px]">
+                  <div className="flex justify-between text-sm text-textPrimary font-bold mb-3">
+                    <span>Running 5-layer detection pipeline...</span>
+                    <span className="font-mono">{Math.round(progress)}%</span>
+                  </div>
+                  <div className="h-3 bg-bgVoid rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-redPrimary transition-all duration-300 ease-out shadow-red-glow"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <div className="flex gap-2 mt-4 flex-wrap">
+                    {['Schema Detection', 'L1 Statistical', 'L2 Spectral', 'L3 Ensemble', 'L4 Causal', 'L5 Federated'].map((s, i) => (
+                      <span
+                        key={s}
+                        className={`text-[11px] font-mono px-3 py-1.5 rounded-full border transition-all duration-500
+                          ${progress > i * 14 ? 'bg-redPrimary/10 border-redPrimary/30 text-redPrimary' : 'bg-bgVoid/50 border-borderHairline text-textMuted'}`}
+                      >
+                        {progress > i * 14 ? '✓ ' : ''}{s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Results */}
         {result && (
-          <div style={{ animation: 'fadeIn 0.5s ease', background: 'rgba(255,255,255,0.7)', borderRadius: 24, padding: 32, backdropFilter: 'blur(10px)', boxShadow: '0 10px 40px rgba(0,0,0,0.05)' }}>
+          <div className="animate-fadeInUp bg-bgVoid/80 backdrop-blur-2xl rounded-[32px] p-8 md:p-12 border border-borderHairline shadow-2xl">
             {/* Verdict Banner */}
             <div
-              style={{
-                background: verdict.bg,
-                border: `2px solid ${verdict.color}44`,
-                borderRadius: 20,
-                padding: '24px 32px',
-                marginBottom: 32,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 24,
-              }}
+              className="rounded-[24px] p-6 md:p-8 mb-10 flex items-center gap-8 border"
+              style={{ background: verdict.bg, borderColor: `${verdict.color}40` }}
             >
-              <div style={{ fontSize: 56 }}>{verdict.icon}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: verdict.color, letterSpacing: 1 }}>
+              <div>{verdict.icon}</div>
+              <div className="flex-1">
+                <div className="text-3xl md:text-4xl font-display font-bold tracking-wide" style={{ color: verdict.color }}>
                   {verdict.label}
                 </div>
-                <div style={{ color: '#475569', fontSize: 16, marginTop: 6, fontWeight: 500 }}>
-                  Suspicion Score:{' '}
-                  <strong style={{ color: verdict.color, fontSize: 18 }}>
-                    {Math.round((result.overall_suspicion_score || 0) * 100)}%
-                  </strong>
-                  &nbsp;·&nbsp; Poisoning Level:{' '}
-                  <strong style={{ color: verdict.color, fontSize: 18 }}>{result.poisoning_level || 'N/A'}</strong>
-                  &nbsp;·&nbsp; Mode:{' '}
-                  <strong style={{ color: '#334155', fontSize: 18 }}>
-                    {result.detection_mode === 'supervised' ? '🏷️ Supervised' : '🔍 Unsupervised'}
+                <div className="text-textPrimary text-lg mt-3 font-medium flex items-center gap-3 flex-wrap">
+                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Suspicion Score</span>
+                  <strong style={{ color: verdict.color }} className="font-mono">{Math.round((result.overall_suspicion_score || 0) * 100)}%</strong>
+                  <span className="text-borderHairline">|</span>
+                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Poisoning Level</span>
+                  <strong style={{ color: verdict.color }}>{result.poisoning_level || 'N/A'}</strong>
+                  <span className="text-borderHairline">|</span>
+                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Mode</span>
+                  <strong className="text-textPrimary">
+                    {result.detection_mode === 'supervised' ? 'Supervised' : 'Unsupervised'}
                   </strong>
                 </div>
               </div>
@@ -298,102 +258,62 @@ export default function UploadPage() {
                   setFile(null);
                   setProgress(0);
                 }}
-                style={{
-                  padding: '12px 24px',
-                  borderRadius: 12,
-                  border: '2px solid rgba(0,0,0,0.1)',
-                  background: 'rgba(0,0,0,0.05)',
-                  color: '#141414',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  fontSize: 16,
-                  transition: 'background 0.2s'
-                }}
-                onMouseOver={(e) => e.target.style.background = 'rgba(0,0,0,0.1)'}
-                onMouseOut={(e) => e.target.style.background = 'rgba(0,0,0,0.05)'}
+                className="px-6 py-3 rounded-xl border border-borderHairline bg-bgPanel hover:bg-bgPanelRaised text-textPrimary font-bold transition-colors"
               >
                 ↩ New Upload
               </button>
             </div>
 
             {/* Schema & Classification Row */}
-            <div style={{ display: 'flex', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: '400px' }}>
-                <UploadSchemaCard datasetInfo={result.dataset_info} nSamples={result.n_samples} />
-              </div>
-              <div style={{ flex: 1, minWidth: '400px' }}>
-                <AttackClassificationCard
-                  classification={result.attack_classification}
-                  attackColor={attackColor}
-                />
-              </div>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
+              <UploadSchemaCard datasetInfo={result.dataset_info} nSamples={result.n_samples} />
+              <AttackClassificationCard classification={result.attack_classification} attackColor={attackColor} />
             </div>
 
             {/* Layer Scores */}
-            <div style={{ marginBottom: 32 }}>
+            <div className="mb-10">
               <LayerScoresGrid layerScores={result.layer_scores} />
             </div>
 
             {/* Stats Row */}
-            <div style={{ display: 'flex', gap: 24, marginBottom: 32, flexWrap: 'wrap' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <StatCard
-                icon="🎯"
+                icon={<Target className="w-6 h-6" />}
                 label="Sophistication Score"
                 value={`${result.sophistication?.sophistication_score || 0}/10`}
                 sub={result.sophistication?.level}
-                color="#F2E85C"
+                color="var(--status-warn)"
               />
               <StatCard
-                icon="💥"
+                icon={<Zap className="w-6 h-6" />}
                 label="Batches Affected"
                 value={result.blast_radius?.n_batches_affected || 0}
                 sub={`${result.blast_radius?.n_models_affected || 0} models`}
-                color="#ef4444"
+                color="var(--status-critical)"
               />
               <StatCard
-                icon="📉"
+                icon={<Activity className="w-6 h-6" />}
                 label="Prediction Impact"
                 value={`${result.blast_radius?.prediction_impact_pct || 0}%`}
                 sub="accuracy degradation"
-                color="#f59e0b"
+                color="var(--status-warn)"
               />
               <StatCard
-                icon="🛡️"
+                icon={<ShieldAlert className="w-6 h-6" />}
                 label="Defense Action"
                 value={result.defense_action?.action?.replace(/_/g, ' ') || 'monitor'}
                 sub={result.defense_action?.reason?.replace(/_/g, ' ')}
-                color="#22c55e"
+                color="var(--status-safe)"
               />
             </div>
 
             {/* Narrative */}
             {result.injection_pattern?.narrative && (
-              <div
-                style={{
-                  background: 'rgba(0,0,0,0.02)',
-                  border: '1px solid rgba(0,0,0,0.1)',
-                  borderRadius: 16,
-                  padding: 24,
-                  marginBottom: 32,
-                }}
-              >
-                <div style={{ fontWeight: 800, color: '#141414', marginBottom: 16, fontSize: 18 }}>
-                  📋 Attack Reconstruction Narrative
+              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 mb-10">
+                <div className="font-bold text-textPrimary mb-4 flex items-center gap-2 text-xl">
+                  <ClipboardList className="w-6 h-6 text-redPrimary" /> Attack Reconstruction Narrative
                 </div>
-                <pre
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: 14,
-                    color: '#334155',
-                    lineHeight: 1.8,
-                    whiteSpace: 'pre-wrap',
-                    margin: 0,
-                    background: 'rgba(255,255,255,0.8)',
-                    padding: 24,
-                    borderRadius: 12,
-                    border: '1px solid rgba(0,0,0,0.05)'
-                  }}
-                >
+                <pre className="font-mono text-sm text-textSecondary leading-relaxed whitespace-pre-wrap m-0 bg-bgVoid p-6 rounded-xl border border-borderHairline">
                   {result.injection_pattern.narrative}
                 </pre>
               </div>
@@ -410,31 +330,14 @@ export default function UploadPage() {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              style={{
-                width: '100%',
-                padding: '16px 0',
-                borderRadius: 16,
-                border: '2px solid rgba(232, 98, 44, 0.4)',
-                background: 'rgba(232, 98, 44, 0.1)',
-                color: '#E8622C',
-                fontWeight: 800,
-                fontSize: 18,
-                cursor: 'pointer',
-                transition: 'all 0.3s',
-              }}
-              onMouseOver={(e) => e.target.style.background = 'rgba(232, 98, 44, 0.2)'}
-              onMouseOut={(e) => e.target.style.background = 'rgba(232, 98, 44, 0.1)'}
+              className="w-full py-5 rounded-2xl border border-redPrimary/40 bg-redPrimary/10 text-redPrimary font-bold text-xl hover:bg-redPrimary/20 transition-colors flex justify-center items-center gap-3"
             >
-              ⬇️ Download Forensic Report (JSON)
+              <Download className="w-6 h-6" /> Download Forensic Report (JSON)
             </button>
           </div>
         )}
 
       </div>
-      
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
     </div>
   );
 }

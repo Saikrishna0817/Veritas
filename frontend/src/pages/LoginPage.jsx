@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { Lock } from 'lucide-react';
-import SoftProtection3D from '../components/SoftProtection3D';
+import { Lock, AlertTriangle } from 'lucide-react';
+import Tactile3DHero from '../components/Tactile3DHero';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -27,71 +27,248 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-bg p-6 relative overflow-hidden">
-      {/* 3D Background Visual Element */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-40">
-        <SoftProtection3D height="550px" className="w-full max-w-2xl" interactive={false} />
+    <main className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
+      style={{ backgroundColor: 'var(--bg-void)' }}>
+
+      {/* Full-screen 3D animated background */}
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ opacity: 0.35 }}>
+        <Tactile3DHero intensity={0.6} />
       </div>
 
+      {/* Gradient vignette overlay */}
+      <div className="fixed inset-0 z-[1] pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.7) 100%),
+            linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.5) 100%)
+          `
+        }}
+      />
+
+      {/* Login card */}
       <form
         onSubmit={submit}
-        className="w-full max-w-md space-y-5 rounded-3xl border border-white/[0.08] bg-surface/90 backdrop-blur-2xl p-8 lg:p-10 shadow-[0_20px_60px_rgba(0,0,0,0.5)] relative z-10 animate-fadeInUp"
+        className="w-full max-w-md space-y-6 rounded-[24px] relative z-10"
+        style={{
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(19,19,22,0.75)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          padding: '40px',
+          boxShadow: `
+            0 0 0 1px rgba(255,255,255,0.04),
+            0 20px 60px rgba(0,0,0,0.6),
+            0 0 120px rgba(228,36,43,0.06)
+          `,
+          animation: 'loginFadeIn 0.8s ease-out',
+        }}
       >
-        <div className="flex items-center gap-3.5 mb-2">
-          <div className="w-11 h-11 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center shadow-[0_0_20px_rgba(61,127,255,0.3)]">
-            <Lock className="w-5 h-5 text-accent" />
+        {/* Brand header */}
+        <div className="flex items-center gap-4 mb-8">
+          <div style={{
+            width: 48, height: 48,
+            borderRadius: 16,
+            background: 'rgba(228,36,43,0.1)',
+            border: '1px solid rgba(228,36,43,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Lock style={{ width: 24, height: 24, color: 'var(--red-primary)' }} />
           </div>
           <div>
-            <h1 className="font-semibold text-text1 text-base tracking-tight">SPECTRA / VERITAS</h1>
-            <p className="eyebrow-label text-[10px] text-accentCyan">Analyst Access Authentication</p>
+            <h1 style={{
+              fontFamily: "'Space Grotesk', sans-serif",
+              fontWeight: 900,
+              color: 'var(--text-primary)',
+              fontSize: 24,
+              letterSpacing: '-0.02em',
+              lineHeight: 1,
+            }}>
+              SPECTRA / VERITAS
+            </h1>
+            <p style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--red-primary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              marginTop: 8,
+            }}>
+              Analyst Access Authentication
+            </p>
           </div>
         </div>
 
-        <div className="space-y-4 pt-2">
+        {/* Form fields */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div>
-            <label className="eyebrow-label mb-1.5 block">Username</label>
+            <label style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              display: 'block',
+              marginBottom: 8,
+            }}>
+              Username
+            </label>
             <input
               id="login-username"
               aria-label="Username"
-              className="w-full p-3.5 bg-surface2/60 border border-white/[0.06] rounded-xl text-sm text-text1 placeholder-text3 focus:outline-none focus:border-accent focus:bg-surface2 focus:ring-1 focus:ring-accent/40 transition-all font-mono"
+              style={{
+                width: '100%',
+                padding: 16,
+                background: 'var(--bg-void)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 12,
+                fontSize: 14,
+                color: 'var(--text-primary)',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 500,
+                outline: 'none',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter username (admin)"
               autoComplete="username"
               required
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--red-primary)';
+                e.target.style.boxShadow = '0 0 0 3px rgba(228,36,43,0.15)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(255,255,255,0.08)';
+                e.target.style.boxShadow = 'none';
+              }}
             />
           </div>
 
           <div>
-            <label className="eyebrow-label mb-1.5 block">Password</label>
+            <label style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              display: 'block',
+              marginBottom: 8,
+            }}>
+              Password
+            </label>
             <input
               id="login-password"
               aria-label="Password"
-              className="w-full p-3.5 bg-surface2/60 border border-white/[0.06] rounded-xl text-sm text-text1 placeholder-text3 focus:outline-none focus:border-accent focus:bg-surface2 focus:ring-1 focus:ring-accent/40 transition-all font-mono"
+              style={{
+                width: '100%',
+                padding: 16,
+                background: 'var(--bg-void)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 12,
+                fontSize: 14,
+                color: 'var(--text-primary)',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontWeight: 500,
+                outline: 'none',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter password (admin)"
               type="password"
               autoComplete="current-password"
               required
+              onFocus={(e) => {
+                e.target.style.borderColor = 'var(--red-primary)';
+                e.target.style.boxShadow = '0 0 0 3px rgba(228,36,43,0.15)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(255,255,255,0.08)';
+                e.target.style.boxShadow = 'none';
+              }}
             />
           </div>
         </div>
 
+        {/* Error */}
         {error && (
-          <p className="text-danger text-xs font-mono bg-danger/10 border border-danger/30 rounded-xl p-3">
-            ⚠️ {error}
-          </p>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            background: 'rgba(242,184,75,0.08)',
+            border: '1px solid rgba(242,184,75,0.25)',
+            borderRadius: 12, padding: 16,
+          }}>
+            <AlertTriangle style={{ width: 16, height: 16, color: 'var(--status-warn)', flexShrink: 0 }} />
+            <p style={{ color: 'var(--status-warn)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
+              {error}
+            </p>
+          </div>
         )}
 
+        {/* Submit button */}
         <button
-          className="btn-soft-primary w-full p-3.5 text-sm font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed mt-2"
           type="submit"
           disabled={loading}
+          style={{
+            width: '100%',
+            padding: 16,
+            marginTop: 8,
+            fontSize: 13,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontWeight: 700,
+            color: '#ffffff',
+            background: loading ? 'rgba(228,36,43,0.6)' : 'var(--red-primary)',
+            border: '1px solid rgba(228,36,43,0.5)',
+            borderRadius: 12,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.7 : 1,
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            transition: 'all 0.2s',
+            boxShadow: '0 8px 32px rgba(228,36,43,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.target.style.background = 'var(--red-bright)';
+              e.target.style.boxShadow = '0 12px 40px rgba(228,36,43,0.4)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.target.style.background = 'var(--red-primary)';
+              e.target.style.boxShadow = '0 8px 32px rgba(228,36,43,0.25)';
+            }
+          }}
         >
           {loading ? 'Authenticating Analyst...' : 'Sign in to Platform'}
         </button>
+
+        {/* Bottom decorative line */}
+        <div style={{
+          height: 2,
+          borderRadius: 1,
+          background: 'linear-gradient(90deg, transparent, var(--red-primary), transparent)',
+          opacity: 0.3,
+          marginTop: 8,
+        }} />
       </form>
+
+      <style>{`
+        @keyframes loginFadeIn {
+          0% { opacity: 0; transform: translateY(30px) scale(0.97); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        input::placeholder {
+          color: var(--text-muted) !important;
+        }
+      `}</style>
     </main>
   );
 }

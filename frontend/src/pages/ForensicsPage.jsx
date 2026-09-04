@@ -1,13 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
-import { Search, Upload, Target } from 'lucide-react';
+import { Search, Upload, Target, ShieldAlert, Activity, Check, HelpCircle, Folder, AlertTriangle, Fingerprint, Bug, BrainCircuit } from 'lucide-react';
 
 function NarrativeBox({ narrative }) {
     if (!narrative) return null;
     return (
-        <div className="bg-bg2 border border-border rounded-lg p-6 font-mono text-xs">
-            <div className="text-accent uppercase tracking-widest mb-3 text-xs">Heuristic Investigation Summary</div>
-            <pre className="text-text2 whitespace-pre-wrap leading-relaxed">{narrative}</pre>
+        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 font-mono text-sm relative overflow-hidden group">
+            <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary shadow-red-glow"></div>
+            <div className="text-redPrimary uppercase tracking-widest mb-4 text-xs font-bold flex items-center gap-2">
+                <Search className="w-4 h-4" /> Heuristic Investigation Summary
+            </div>
+            <pre className="text-textSecondary whitespace-pre-wrap leading-relaxed bg-bgVoid p-4 rounded-lg border border-borderHairline">{narrative}</pre>
         </div>
     );
 }
@@ -15,47 +18,49 @@ function NarrativeBox({ narrative }) {
 function AttackClassCard({ classification }) {
     if (!classification) return null;
     const severityColor = {
-        critical: 'danger', high: 'orange', medium: 'yellow', low: 'accent3'
-    }[classification.severity] || 'text2';
+        critical: 'text-statusCritical', high: 'text-statusWarn', medium: 'text-yellow-500', low: 'text-statusSafe'
+    }[classification.severity] || 'text-textMuted';
 
     return (
-        <div className="bg-surface border border-border rounded-lg p-6">
-            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">Heuristic Attack Classification</div>
-            <div className="space-y-3">
-                <div className="flex justify-between">
-                    <span className="font-mono text-xs text-text3">Attack Type</span>
-                    <span className="font-mono text-sm font-bold text-danger capitalize">
+        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
+            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
+                <Bug className="w-4 h-4" /> Classification
+            </div>
+            <div className="space-y-4">
+                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
+                    <span className="font-mono text-xs text-textMuted">Attack Type</span>
+                    <span className="font-mono text-sm font-bold text-statusCritical capitalize">
                         {classification.attack_type?.replace(/_/g, ' ')}
                     </span>
                 </div>
-                <div className="flex justify-between">
-                    <span className="font-mono text-xs text-text3">Subtype</span>
-                    <span className="font-mono text-xs text-text2 capitalize">
+                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
+                    <span className="font-mono text-xs text-textMuted">Subtype</span>
+                    <span className="font-mono text-xs text-textSecondary capitalize">
                         {classification.attack_subtype?.replace(/_/g, ' ')}
                     </span>
                 </div>
-                <div className="flex justify-between">
-                    <span className="font-mono text-xs text-text3">Confidence</span>
-                    <span className="font-mono text-xs font-bold text-accent">
+                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
+                    <span className="font-mono text-xs text-textMuted">Confidence</span>
+                    <span className="font-mono text-xs font-bold text-redPrimary">
                         {(classification.confidence * 100).toFixed(1)}%
                     </span>
                 </div>
-                <div className="flex justify-between">
-                    <span className="font-mono text-xs text-text3">Severity</span>
-                    <span className={`font-mono text-xs font-bold text-${severityColor} uppercase`}>
+                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
+                    <span className="font-mono text-xs text-textMuted">Severity</span>
+                    <span className={`font-mono text-xs font-bold ${severityColor} uppercase`}>
                         {classification.severity}
                     </span>
                 </div>
-                <div className="pt-2 border-t border-border">
-                    <div className="font-mono text-xs text-text3 mb-2">Probability Distribution</div>
+                <div className="pt-2">
+                    <div className="font-mono text-xs text-textMuted mb-3">Probability Distribution</div>
                     {Object.entries(classification.probabilities || {}).map(([type, prob]) => (
-                        <div key={type} className="mb-1.5">
-                            <div className="flex justify-between font-mono text-xs mb-0.5">
-                                <span className="text-text3 capitalize">{type.replace(/_/g, ' ')}</span>
-                                <span className="text-text2">{(prob * 100).toFixed(1)}%</span>
+                        <div key={type} className="mb-2.5">
+                            <div className="flex justify-between font-mono text-[11px] mb-1">
+                                <span className="text-textSecondary capitalize">{type.replace(/_/g, ' ')}</span>
+                                <span className="text-textPrimary">{(prob * 100).toFixed(1)}%</span>
                             </div>
-                            <div className="h-1 bg-border rounded-full overflow-hidden">
-                                <div className="h-full bg-accent/60 rounded-full"
+                            <div className="h-1.5 bg-bgVoid rounded-full overflow-hidden">
+                                <div className="h-full bg-redPrimary shadow-red-glow rounded-full transition-all"
                                     style={{ width: `${prob * 100}%` }} />
                             </div>
                         </div>
@@ -69,25 +74,25 @@ function AttackClassCard({ classification }) {
 function SophisticationCard({ sophistication }) {
     if (!sophistication) return null;
     const score = sophistication.sophistication_score || 0;
-    const color = score >= 8 ? 'danger' : score >= 4 ? 'orange' : 'yellow';
+    const colorClass = score >= 8 ? 'text-statusCritical' : score >= 4 ? 'text-statusWarn' : 'text-statusSafe';
 
     return (
-        <div className="bg-surface border border-border rounded-lg p-6">
-            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                Heuristic Sophistication Signal
+        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
+            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
+                <BrainCircuit className="w-4 h-4" /> Sophistication
             </div>
-            <div className="flex items-center gap-4 mb-4">
-                <div className={`text-5xl font-bold text-${color}`}>{score}</div>
+            <div className="flex items-center gap-5 mb-6 bg-bgVoid p-4 rounded-lg border border-borderHairline">
+                <div className={`text-6xl font-mono font-bold ${colorClass}`}>{score}</div>
                 <div>
-                    <div className="font-mono text-xs text-text3">/ 10</div>
-                    <div className={`font-mono text-xs text-${color} mt-1`}>{sophistication.level}</div>
+                    <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest">/ 10 Score</div>
+                    <div className={`font-mono text-sm font-bold ${colorClass} mt-1 uppercase`}>{sophistication.level}</div>
                 </div>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {Object.entries(sophistication.factors || {}).map(([key, val]) => (
-                    <div key={key} className="flex justify-between font-mono text-xs">
-                        <span className="text-text3 capitalize">{key.replace(/_/g, ' ')}</span>
-                        <span className="text-text2">{(val * 100).toFixed(0)}%</span>
+                    <div key={key} className="flex justify-between font-mono text-xs pb-2 border-b border-borderHairline last:border-0">
+                        <span className="text-textMuted capitalize">{key.replace(/_/g, ' ')}</span>
+                        <span className="text-textSecondary font-bold">{(val * 100).toFixed(0)}%</span>
                     </div>
                 ))}
             </div>
@@ -98,11 +103,11 @@ function SophisticationCard({ sophistication }) {
 function PatternCard({ pattern }) {
     if (!pattern) return null;
     return (
-        <div className="bg-surface border border-border rounded-lg p-6">
-            <div className="font-mono text-xs text-accent uppercase tracking-widest mb-4">
-                Injection Pattern
+        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
+            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
+                <Fingerprint className="w-4 h-4" /> Injection Pattern
             </div>
-            <div className="space-y-2 font-mono text-xs">
+            <div className="space-y-0 font-mono text-xs">
                 {[
                     { label: 'Poisoned Samples', value: pattern.n_poisoned_samples },
                     { label: 'Affected Batches', value: pattern.n_batches },
@@ -112,9 +117,9 @@ function PatternCard({ pattern }) {
                     { label: 'First Injection', value: pattern.first_injection?.slice(0, 19) },
                     { label: 'Last Injection', value: pattern.last_injection?.slice(0, 19) },
                 ].map(({ label, value }) => value != null && (
-                    <div key={label} className="flex justify-between py-1.5 border-b border-border/40">
-                        <span className="text-text3">{label}</span>
-                        <span className="text-text2 font-medium">{value}</span>
+                    <div key={label} className="flex justify-between py-3 border-b border-borderHairline last:border-0 items-center">
+                        <span className="text-textMuted">{label}</span>
+                        <span className="text-textPrimary font-bold bg-bgVoid px-2 py-1 rounded">{value}</span>
                     </div>
                 ))}
             </div>
@@ -124,18 +129,18 @@ function PatternCard({ pattern }) {
 
 function VerdictBadge({ verdict, score }) {
     const cfg = {
-        CONFIRMED_POISONED: { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', icon: '☠️' },
-        SUSPICIOUS: { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: '⚠️' },
-        LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: '🔵' },
-        CLEAN: { color: '#22c55e', bg: 'rgba(34,197,94,0.1)', icon: '✅' },
-    }[verdict] || { color: '#475569', bg: 'rgba(100,116,139,0.1)', icon: '❓' };
+        CONFIRMED_POISONED: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-6 h-6 text-[var(--status-critical)]" /> },
+        SUSPICIOUS: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <Activity className="w-6 h-6 text-[var(--status-warn)]" /> },
+        LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-6 h-6 text-blue-500" /> },
+        CLEAN: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-6 h-6 text-[var(--status-safe)]" /> },
+    }[verdict] || { color: 'var(--text-muted)', bg: 'var(--bg-panel)', icon: <HelpCircle className="w-6 h-6 text-textMuted" /> };
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', borderRadius: 10, background: cfg.bg, border: `1px solid ${cfg.color}44` }}>
-            <span style={{ fontSize: 20 }}>{cfg.icon}</span>
+        <div className="flex items-center gap-4 px-5 py-3 rounded-xl border" style={{ background: cfg.bg, borderColor: `${cfg.color}40` }}>
+            {cfg.icon}
             <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: cfg.color, fontFamily: 'monospace' }}>{verdict}</div>
-                {score != null && <div style={{ fontSize: 11, color: '#475569' }}>Suspicion: {(score * 100).toFixed(1)}%</div>}
+                <div className="text-sm font-bold font-mono tracking-wide" style={{ color: cfg.color }}>{verdict}</div>
+                {score != null && <div className="text-[10px] font-mono text-textMuted uppercase tracking-widest mt-1">Suspicion: {(score * 100).toFixed(1)}%</div>}
             </div>
         </div>
     );
@@ -144,12 +149,20 @@ function VerdictBadge({ verdict, score }) {
 function DatasetInfoBanner({ info, dataSource }) {
     if (!info) return null;
     return (
-        <div style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, padding: '10px 16px', fontSize: 12, color: '#334155', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <span>📂 <strong style={{ color: '#141414' }}>{info.filename}</strong></span>
-            <span>Rows: <strong style={{ color: '#141414' }}>{info.n_rows?.toLocaleString()}</strong></span>
-            <span>Features: <strong style={{ color: '#141414' }}>{info.n_features}</strong></span>
-            <span>Mode: <strong style={{ color: '#6366f1' }}>{info.detection_mode}</strong></span>
-            {dataSource && <span>Source: <strong style={{ color: '#06b6d4' }}>{dataSource}</strong></span>}
+        <div className="bg-bgPanel border border-borderHairline rounded-xl px-5 py-4 text-xs font-mono text-textSecondary flex gap-6 flex-wrap items-center">
+            <span className="flex items-center gap-2"><Folder className="w-4 h-4 text-redPrimary" /> <strong className="text-textPrimary">{info.filename}</strong></span>
+            <span className="text-borderHairline">|</span>
+            <span>Rows: <strong className="text-textPrimary">{info.n_rows?.toLocaleString()}</strong></span>
+            <span className="text-borderHairline">|</span>
+            <span>Features: <strong className="text-textPrimary">{info.n_features}</strong></span>
+            <span className="text-borderHairline">|</span>
+            <span>Mode: <strong className="text-redPrimary">{info.detection_mode}</strong></span>
+            {dataSource && (
+                <>
+                    <span className="text-borderHairline">|</span>
+                    <span>Source: <strong className="text-redPrimary">{dataSource}</strong></span>
+                </>
+            )}
         </div>
     );
 }
@@ -186,60 +199,55 @@ export default function ForensicsPage() {
     ];
 
     return (
-        <div className="p-8 space-y-8 animate-in">
-            <div className="flex items-start justify-between">
+        <div className="relative z-10 px-6 md:px-12 py-12 max-w-6xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <div className="font-mono text-xs text-accent3 tracking-widest uppercase mb-2 flex items-center gap-2">
-                        <Search className="w-3 h-3" /> Forensic Analysis
+                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
+                        <Search className="w-4 h-4" /> Forensic Analysis
                     </div>
-                    <h1 className="text-4xl font-bold tracking-tight">
-                        Poisoning <span className="text-accent3">Investigation</span>
+                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
+                        Poisoning <span className="text-redPrimary">Investigation</span>
                     </h1>
-                    <p className="font-mono text-sm text-text2 mt-2">
-                        Why it was flagged · heuristic pattern analysis · no deployment-harm estimate
+                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
+                        Heuristic pattern analysis // Threat signals
                     </p>
                 </div>
                 <button onClick={() => load(activeTab)} disabled={loading}
-                    className="px-4 py-2 border border-accent3/30 bg-accent3/10 text-accent3 font-mono text-xs rounded-lg hover:bg-accent3/20 transition-all">
-                    {loading ? 'Loading...' : 'Refresh'}
+                    className="px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest disabled:opacity-50">
+                    {loading ? 'Analyzing...' : 'Refresh Scan'}
                 </button>
             </div>
 
             {/* Source Tabs */}
-            <div style={{ display: 'flex', gap: 8 }}>
-                {/* eslint-disable-next-line no-unused-vars */}
+            <div className="flex gap-3 overflow-x-auto pb-2 border-b border-borderHairline/50">
                 {TABS.map(({ id, label, icon: TabIcon }) => (
                     <button key={id} onClick={() => setActiveTab(id)}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '7px 14px', borderRadius: 20, fontSize: 12, fontFamily: 'monospace',
-                            cursor: 'pointer', transition: 'all 0.2s',
-                            background: activeTab === id ? 'rgba(0,229,255,0.1)' : 'rgba(255,255,255,0.03)',
-                            border: activeTab === id ? '1px solid rgba(0,229,255,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                            color: activeTab === id ? '#00e5ff' : '#64748b',
-                            fontWeight: activeTab === id ? 700 : 400,
-                        }}>
-                        <TabIcon style={{ width: 12, height: 12 }} /> {label}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl font-mono text-xs uppercase tracking-widest font-bold transition-all
+                        ${activeTab === id 
+                            ? 'bg-redPrimary/10 text-redPrimary border-b-2 border-redPrimary' 
+                            : 'bg-transparent text-textMuted hover:text-textPrimary hover:bg-bgPanel'}`}>
+                        <TabIcon className="w-4 h-4" /> {label}
                     </button>
                 ))}
             </div>
 
             {error && (
-                <div className="bg-yellow/10 border border-yellow/30 rounded-lg p-4 font-mono text-sm text-yellow">
-                    ⚠ {error}
+                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-xl p-5 font-mono text-sm text-statusWarn flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5" /> {error}
                 </div>
             )}
 
             {!forensics && !error && !loading && (
-                <div className="text-center py-20 text-text3 font-mono text-sm">
+                <div className="flex flex-col items-center justify-center py-32 text-textMuted font-mono text-sm border-2 border-dashed border-borderHairline rounded-2xl">
+                    <Search className="w-12 h-12 mb-4 opacity-20" />
                     No forensic data yet. Run the demo or upload a CSV first.
                 </div>
             )}
 
             {forensics && (
-                <>
+                <div className="space-y-6">
                     {/* Verdict + dataset info */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div className="flex gap-4 items-center flex-wrap">
                         <VerdictBadge verdict={forensics.verdict} score={forensics.overall_suspicion_score} />
                         <DatasetInfoBanner info={forensics.dataset_info} dataSource={forensics.source} />
                     </div>
@@ -256,18 +264,20 @@ export default function ForensicsPage() {
 
                     {/* Proxy comparison */}
                     {forensics.counterfactual && (
-                        <div className="bg-surface border border-border rounded-lg p-6">
-                            <div className="font-mono text-xs text-purple uppercase tracking-widest mb-4">
-                                Proxy Comparison and Limits
+                        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6">
+                            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-4 font-bold flex items-center gap-2">
+                                <Activity className="w-4 h-4" /> Proxy Comparison and Limits
                             </div>
-                            <div className="bg-bg3 border border-purple/20 rounded-lg p-4 font-mono text-sm">
-                                <div className="text-purple font-bold">Proxy accuracy effect: {((forensics.counterfactual.proxy_accuracy_effect || 0) * 100).toFixed(1)}%</div>
-                                <div className="text-text3 mt-2">{forensics.counterfactual.limitation}</div>
+                            <div className="bg-bgVoid border border-borderHairline rounded-lg p-5 font-mono text-sm">
+                                <div className="text-textPrimary font-bold">Proxy accuracy effect: <span className="text-redPrimary">{((forensics.counterfactual.proxy_accuracy_effect || 0) * 100).toFixed(1)}%</span></div>
+                                <div className="text-textMuted mt-3 text-xs leading-relaxed border-t border-borderHairline pt-3">{forensics.counterfactual.limitation}</div>
                             </div>
                         </div>
                     )}
-                </>
+                </div>
             )}
+            
+            <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
         </div>
     );
 }

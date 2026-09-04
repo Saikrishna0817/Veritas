@@ -46,17 +46,17 @@ function TopNav() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-cream/90 backdrop-blur-md border-b border-black/5 px-6 py-4 flex items-center justify-between">
+    <nav className="sticky top-0 z-50 w-full bg-bgVoid/80 backdrop-blur-md border-b border-borderHairline px-6 py-4 flex items-center justify-between">
       {/* Logo */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-frameBlack flex items-center justify-center">
-          <Lock className="w-5 h-5 text-cream" />
+        <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/20 flex items-center justify-center">
+          <Lock className="w-5 h-5 text-redPrimary" />
         </div>
-        <div className="font-bold text-lg tracking-tight text-textDark">SPECTRA</div>
+        <div className="font-display font-bold text-lg tracking-tight text-textPrimary">SPECTRA</div>
       </div>
 
       {/* Pill Links */}
-      <div className="hidden md:flex items-center gap-1 bg-black/5 p-1 rounded-full">
+      <div className="hidden md:flex items-center gap-1 bg-bgPanel p-1 rounded-full border border-borderHairline">
         {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.path}
@@ -64,7 +64,7 @@ function TopNav() {
             end={item.path === '/'}
             className={({ isActive }) =>
               `relative px-4 py-2 rounded-full text-sm font-medium transition-colors z-10 ${
-                isActive ? 'text-textDark' : 'text-textMuted hover:text-textDark'
+                isActive ? 'text-redBright tracking-wide' : 'text-textMuted hover:text-textPrimary'
               }`
             }
           >
@@ -73,7 +73,7 @@ function TopNav() {
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute inset-0 bg-white rounded-full shadow-sm z-[-1]"
+                    className="absolute inset-0 bg-redDim/30 border border-redPrimary/20 rounded-full shadow-red-glow z-[-1]"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -86,12 +86,12 @@ function TopNav() {
 
       {/* Right Actions */}
       <div className="flex items-center gap-4">
-        <button className="hidden sm:flex items-center gap-2 text-sm font-medium text-textMuted hover:text-textDark transition-colors">
+        <button className="hidden sm:flex items-center gap-2 text-sm font-medium text-textMuted hover:text-textPrimary transition-colors">
           <Globe className="w-4 h-4" /> EN
         </button>
         <button
           onClick={handleLogout}
-          className="group flex items-center gap-2 bg-frameBlack text-cream px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-black transition-colors"
+          className="group flex items-center gap-2 bg-redPrimary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-redBright hover:shadow-red-glow transition-all"
         >
           Let's Connect
           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -109,11 +109,7 @@ function AppShell() {
   const { events, connected, clearEvents } = useWebSocket();
 
   return (
-    <div className="flex flex-col min-h-screen bg-cream text-textDark relative overflow-hidden">
-      {/* Global Persistent 3D Background */}
-      <div className="fixed inset-0 z-0 opacity-[0.15] pointer-events-none">
-        <Tactile3DHero intensity={0.5} />
-      </div>
+    <div className="flex flex-col min-h-screen bg-bgSurface text-textPrimary relative">
 
       <TopNav />
       <main className="flex-1 w-full relative z-10">
