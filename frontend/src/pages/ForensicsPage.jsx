@@ -167,6 +167,12 @@ function DatasetInfoBanner({ info, dataSource }) {
     );
 }
 
+const TABS = [
+    { id: 'auto', label: 'Latest (Auto)', icon: Target },
+    { id: 'demo', label: 'Demo Analysis', icon: Target },
+    { id: 'upload', label: 'My Upload', icon: Upload },
+];
+
 export default function ForensicsPage() {
     const [activeTab, setActiveTab] = useState('auto');   // 'auto' | 'demo' | 'upload'
     const [forensics, setForensics] = useState(null);
@@ -192,12 +198,6 @@ export default function ForensicsPage() {
 
     useEffect(() => { load(activeTab); }, [activeTab, load]);
 
-    const TABS = [
-        { id: 'auto', label: 'Latest (Auto)', icon: Target },
-        { id: 'demo', label: 'Demo Analysis', icon: Target },
-        { id: 'upload', label: 'My Upload', icon: Upload },
-    ];
-
     return (
         <div className="relative z-10 px-6 md:px-12 py-12 max-w-6xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -220,15 +220,18 @@ export default function ForensicsPage() {
 
             {/* Source Tabs */}
             <div className="flex gap-3 overflow-x-auto pb-2 border-b border-borderHairline/50">
-                {TABS.map(({ id, label, icon: TabIcon }) => (
-                    <button key={id} onClick={() => setActiveTab(id)}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl font-mono text-xs uppercase tracking-widest font-bold transition-all
-                        ${activeTab === id 
-                            ? 'bg-redPrimary/10 text-redPrimary border-b-2 border-redPrimary' 
-                            : 'bg-transparent text-textMuted hover:text-textPrimary hover:bg-bgPanel'}`}>
-                        <TabIcon className="w-4 h-4" /> {label}
-                    </button>
-                ))}
+                {TABS.map((tab) => {
+                    const TabIcon = tab.icon;
+                    return (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl font-mono text-xs uppercase tracking-widest font-bold transition-all
+                            ${activeTab === tab.id 
+                                ? 'bg-redPrimary/10 text-redPrimary border-b-2 border-redPrimary' 
+                                : 'bg-transparent text-textMuted hover:text-textPrimary hover:bg-bgPanel'}`}>
+                            <TabIcon className="w-4 h-4" /> {tab.label}
+                        </button>
+                    );
+                })}
             </div>
 
             {error && (

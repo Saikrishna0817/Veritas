@@ -10,9 +10,12 @@ router = APIRouter()
 login_rate_limiter = SlidingWindowRateLimiter(limit=5, window_seconds=60)
 
 
+from typing import Optional
+
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=256)
+    required_role: Optional[str] = Field(default=None, pattern="^(user|analyst|admin)$")
 
 
 @router.post("/auth/token")
@@ -23,7 +26,21 @@ async def token(credentials: LoginRequest, request: Request):
     user = authenticate_user(credentials.username, credentials.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
+
+    # Flow-specific role enforcement
+    if credentials.required_role == "admin" and user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied: Account does not have administrator privileges.",
+        )
+    if credentials.required_role in ("user", "analyst") and user.get("role") == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrator account detected. Please use the Administrator Login portal at /admin/login.",
+        )
+
     return {"access_token": create_access_token(user), "token_type": "bearer", "user": user}
+
 
 
 @router.get("/auth/me")

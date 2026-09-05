@@ -17,22 +17,31 @@ export function AuthProvider({ children }) {
     }).finally(() => setLoading(false));
   }, []);
 
-  const login = async (username, password) => {
-    const result = await api.login(username, password);
+  const login = async (username, password, requiredRole = null) => {
+    const result = await api.login(username, password, requiredRole);
     // ADR docs/decisions.md records why this internal deployment uses
     // localStorage today and when it must move to cookie-based sessions.
     localStorage.setItem('veritas_access_token', result.access_token);
     setUser(result.user);
+    return result.user;
   };
+
 
   const logout = () => {
     localStorage.removeItem('veritas_access_token');
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading]);
+  const isAdmin = user?.role === 'admin';
+  const isUser = Boolean(user && user.role !== 'admin');
+
+  const value = useMemo(
+    () => ({ user, loading, login, logout, isAdmin, isUser }),
+    [user, loading, isAdmin, isUser]
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
 
 export function useAuthContext() {
   return useContext(AuthContext);

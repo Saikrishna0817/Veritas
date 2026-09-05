@@ -42,16 +42,40 @@ async function downloadFile(path, filename) {
     URL.revokeObjectURL(url);
 }
 
+export function createWebSocket(onMessage) {
+    const token = localStorage.getItem('veritas_access_token');
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const url = `${protocol}//${host}/ws/v1/detection-stream${token ? `?access_token=${encodeURIComponent(token)}` : ''}`;
+    const ws = new WebSocket(url);
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (onMessage) onMessage(data);
+        } catch {
+            // ignore
+        }
+    };
+    return ws;
+}
+
 export const api = {
+
     BASE_URL,
-    login: (username, password) => apiFetch('/auth/token', {
+    login: (username, password, requiredRole = null) => apiFetch('/auth/token', {
         method: 'POST',
         skipAuth: true,
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, required_role: requiredRole }),
     }),
+
     me: () => apiFetch('/auth/me'),
 
-    // Demo
+    // User management (Admin only)
+    getUsers: () => apiFetch('/users'),
+    createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
+    deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
+
+    // Demo & Real Datasets
     runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
     getDemoDataset: () => apiFetch('/datasets/demo'),
     getDemoSamples: (limit = 50, offset = 0, status = null) => {
@@ -59,6 +83,9 @@ export const api = {
         if (status) params.append('filter_status', status);
         return apiFetch(`/datasets/demo/samples?${params}`);
     },
+    getRealDatasets: () => apiFetch('/datasets/real'),
+    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
+    downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
 
     // Detection
     analyzeDataset: (sampleIds = []) =>
@@ -84,8 +111,6 @@ export const api = {
             body: JSON.stringify({ case_id: caseId, decision, reviewer }),
         }),
 
-
-
     // Federated
     getFederatedClients: () => apiFetch('/federated/clients'),
 
@@ -102,21 +127,31 @@ export const api = {
 
     // Model Scan
     scanModel: (formData) => apiFormData('/analyze/model', formData),
+    uploadModel: (file) => {
+        const formData = new FormData();
+        formData.append('model_file', file);
+        return apiFormData('/analyze/model', formData);
+    },
     getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 
-    // Real Dataset Library
-    getRealDatasets: () => apiFetch('/datasets/real'),
-    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
-    downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
+    // Downloads
+    downloadReportPDF: () => downloadFile('/reports/export/pdf', 'SPECTRA_Evidence_Report.pdf'),
+    downloadSTIXBundle: () => downloadFile('/reports/export/stix', 'SPECTRA_STIX2.1_Bundle.json'),
+    downloadForensicsJSON: () => downloadFile('/reports/export/json', 'SPECTRA_Forensics_Data.json'),
 
-    // History / Persistence
-    getHistory: (source = null, limit = 20) => {
-        const params = new URLSearchParams({ limit });
-        if (source) params.append('source', source);
-        return apiFetch(`/history?${params}`);
-    },
+    // Analysis History & Audit
+    getHistory: (source = null, limit = 20) =>
+        apiFetch(`/history?limit=${limit}${source ? `&source=${source}` : ''}`),
+    getAnalysisHistory: (limit = 20) => apiFetch(`/history?limit=${limit}`),
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
+    deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
+    getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
+
+    // Red Team
+    runRedTeamSimulation: (attackType = 'label_flip') =>
+        apiFetch('/redteam/simulate', { method: 'POST', body: JSON.stringify({ attack_type: attackType }) }),
+    getRedTeamHistory: () => apiFetch('/redteam/history'),
 
     // Blue Team SOC
     getBlueTeamStatus: () => apiFetch('/blueteam/status'),
@@ -127,34 +162,3 @@ export const api = {
 };
 
 
-// WebSocket
-export function createWebSocket(onMessage) {
-    const configuredUrl = import.meta.env?.VITE_WS_URL;
-    const defaultUrl = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/v1/detection-stream`;
-    const baseWsUrl = configuredUrl || defaultUrl;
-    const token = localStorage.getItem('veritas_access_token');
-    const wsUrl = token ? `${baseWsUrl}?access_token=${encodeURIComponent(token)}` : baseWsUrl;
-    const ws = new WebSocket(wsUrl);
-    ws.onopen = () => {
-        console.log('WebSocket connected');
-        // Keep-alive ping
-        const ping = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'ping' }));
-            } else {
-                clearInterval(ping);
-            }
-        }, 30000);
-    };
-    ws.onmessage = (e) => {
-        try {
-            const msg = JSON.parse(e.data);
-            onMessage(msg);
-        } catch {
-            return;
-        }
-    };
-    ws.onerror = (e) => console.error('WebSocket error', e);
-    ws.onclose = () => console.log('WebSocket disconnected');
-    return ws;
-}

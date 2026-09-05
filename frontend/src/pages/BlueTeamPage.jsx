@@ -31,8 +31,8 @@ const SEVERITY_CONFIG = {
 
 function StatCard({ icon: Icon, label, value, sub, color = 'var(--red-primary)' }) {
     return (
-        <div className="bg-bgPanel border rounded-xl p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn" style={{ animationDelay: `${Math.random() * 0.4}s` }}>
-            <div className="mb-3"><Icon className="w-6 h-6" style={{ color }} /></div>
+        <div className="bg-bgPanel border rounded-xl p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn">
+            <div className="mb-3">{Icon && <Icon className="w-6 h-6" style={{ color }} />}</div>
             <div className="text-[40px] font-mono font-black leading-none tracking-tighter" style={{ color }}>{value}</div>
             <div className="text-xs text-textSecondary mt-3 font-bold uppercase tracking-widest">{label}</div>
             {sub && <div className="text-[10px] text-textMuted mt-1 font-mono uppercase">{sub}</div>}

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+import { Line, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart
 } from 'recharts';
-import { ChevronRight, Loader, BrainCircuit, FileText, ShieldAlert } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { ChevronRight, Loader, BrainCircuit, FileText, ShieldAlert, User } from 'lucide-react';
 import Tactile3DHero from '../components/Tactile3DHero';
 
 // ── Sub-components for Metrics ────────────────────────────────────────────────
@@ -92,12 +94,19 @@ function ExpandableFeatures() {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 
 export default function Dashboard({ wsEvents = [] }) {
-  const [demoResult, setDemoResult] = useState(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [trustScore, setTrustScore] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [analystMode, setAnalystMode] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     api.getTrustScore().then(setTrustScore).catch(() => {});
@@ -115,7 +124,6 @@ export default function Dashboard({ wsEvents = [] }) {
     setError(null);
     try {
       const result = await api.runDemo();
-      setDemoResult(result);
       const ts = await api.getTrustScore();
       setTrustScore(ts);
       setTimeline(result.timeline || []);
@@ -129,13 +137,17 @@ export default function Dashboard({ wsEvents = [] }) {
   return (
     <div className="w-full">
       {/* ── 1. Hero Section (Dark Theme) ────────────────────────────────────── */}
-      <section className="bg-transparent pt-20 pb-12 px-6 md:px-12 rounded-t-[28px]" style={{ overflow: 'visible' }}>
+      <section className="bg-transparent pt-16 pb-12 px-6 md:px-12 rounded-t-[28px]" style={{ overflow: 'visible' }}>
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 items-center" style={{ overflow: 'visible', position: 'relative' }}>
-          <div className="space-y-8 relative z-10 py-12">
+          <div className="space-y-6 relative z-10 py-12">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs font-bold tracking-wider uppercase">
+              <User className="w-3.5 h-3.5" /> USER DASHBOARD
+            </div>
             <h1 className="text-[80px] md:text-[96px] font-display font-bold tracking-tighter text-textPrimary leading-[1.05]">
               Uncompromising<br/>
               <span className="text-redPrimary border-b-[4px] border-redPrimary">AI Security.</span>
             </h1>
+
             <p className="text-[18px] md:text-[19px] text-textSecondary max-w-lg leading-relaxed">
               SPECTRA/VERITAS provides enterprise-grade data poisoning detection, proxy impact analysis, and continuous model security.
             </p>

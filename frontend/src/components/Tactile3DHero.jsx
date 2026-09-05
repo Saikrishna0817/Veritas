@@ -38,7 +38,6 @@ function OrbitalRibbon({ radius, width, tiltX, tiltZ, speed, color, metalness = 
   // Create a custom ribbon geometry: a torus with an elliptical cross-section (wide + thin)
   const geometry = useMemo(() => {
     const segments = 200;
-    const crossSegments = 12;
     const shape = new THREE.Shape();
 
     // Flat ribbon cross-section: wide but thin
@@ -127,9 +126,12 @@ function ParticleField({ count = 200 }) {
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 30;
-      arr[i * 3 + 1] = (Math.random() - 0.5) * 30;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 30;
+      const xSeed = Math.sin(i * 12.9898 + 1.0) * 43758.5453;
+      const ySeed = Math.sin(i * 78.233 + 2.0) * 43758.5453;
+      const zSeed = Math.sin(i * 45.164 + 3.0) * 43758.5453;
+      arr[i * 3] = ((xSeed - Math.floor(xSeed)) - 0.5) * 30;
+      arr[i * 3 + 1] = ((ySeed - Math.floor(ySeed)) - 0.5) * 30;
+      arr[i * 3 + 2] = ((zSeed - Math.floor(zSeed)) - 0.5) * 30;
     }
     return arr;
   }, [count]);

@@ -327,28 +327,48 @@ def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]
 
 
 def _ensure_bootstrap_admin(conn: sqlite3.Connection) -> None:
-    """Seed the configured administrator into SQLite when no users exist."""
-    if not settings.admin_username or not settings.admin_password:
-        return
-    count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if count:
-        return
+    """Seed default administrator and regular user into SQLite if missing."""
     from app.core.security import hash_password
 
-    conn.execute(
-        """
-        INSERT INTO users (id, username, password_hash, role, created_at)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            settings.admin_username,
-            settings.admin_username,
-            hash_password(settings.admin_password),
-            "admin",
-            datetime.now(timezone.utc).isoformat() + "Z",
-        ),
-    )
+    now_iso = datetime.now(timezone.utc).isoformat() + "Z"
+    
+    # Check if admin user exists
+    if settings.admin_username and settings.admin_password:
+        admin_row = conn.execute("SELECT id FROM users WHERE username = ?", (settings.admin_username,)).fetchone()
+        if not admin_row:
+            conn.execute(
+                """
+                INSERT INTO users (id, username, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    settings.admin_username,
+                    settings.admin_username,
+                    hash_password(settings.admin_password),
+                    "admin",
+                    now_iso,
+                ),
+            )
+
+    # Check if default regular user exists
+    user_row = conn.execute("SELECT id FROM users WHERE username = 'user'").fetchone()
+    if not user_row:
+        conn.execute(
+            """
+            INSERT INTO users (id, username, password_hash, role, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "user-regular-001",
+                "user",
+                hash_password("user123"),
+                "user",
+                now_iso,
+            ),
+        )
+
     conn.commit()
+
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
@@ -378,6 +398,23 @@ def list_users(limit: int = 50) -> List[Dict]:
         (max(1, min(limit, 200)),),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+def delete_user(user_id: str) -> bool:
+    conn = _get_conn()
+    cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+    return cursor.rowcount > 0
+
+
+def delete_result(result_id: str) -> bool:
+    conn = _get_conn()
+    cur1 = conn.execute("DELETE FROM analysis_results WHERE id = ?", (result_id,))
+    cur2 = conn.execute("DELETE FROM model_scans WHERE id = ?", (result_id,))
+    conn.commit()
+    return (cur1.rowcount + cur2.rowcount) > 0
+
+
 
 
 # ── Defense & HITL Persistence ────────────────────────────────────────────────

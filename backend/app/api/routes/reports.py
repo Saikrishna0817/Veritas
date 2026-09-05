@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.api import dependencies as deps
-from app.core.security import require_user
+from app.core.security import require_admin, require_user
 
 router = APIRouter()
 
@@ -100,8 +100,10 @@ async def get_my_audit_events(
     limit: int = Query(50, ge=1, le=200),
     user: dict = Depends(require_user),
 ):
-    """Return the authenticated analyst's own recent audit activity."""
-    return {"events": deps.db.get_audit_events(actor_id=user["id"], limit=limit)}
+    """Return recent audit activity (all system activity for admins, user's own activity for regular users)."""
+    actor_id = None if user.get("role") == "admin" else user["id"]
+    return {"events": deps.db.get_audit_events(actor_id=actor_id, limit=limit)}
+
 
 
 @router.get("/history/{result_id}")
@@ -112,6 +114,23 @@ async def get_historical_result(result_id: str):
     if not result:
         raise HTTPException(status_code=404, detail="Result not found in database.")
     return result
+
+
+@router.delete("/history/{result_id}")
+async def delete_historical_result(result_id: str, admin: dict = Depends(require_admin)):
+    """Delete a historical dataset or model scan analysis record (Admin only)."""
+    success = deps.db.delete_result(result_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Result record not found.")
+    deps.db.log_audit_event(
+        admin["id"],
+        "analysis.deleted",
+        "result",
+        result_id,
+        {"deleted_by": admin["name"]}
+    )
+    return {"message": "Historical result record purged successfully."}
+
 
 
 # ── FORENSICS ─────────────────────────────────────────────────────────────────
@@ -156,7 +175,7 @@ async def get_blast_radius(source: str = Query("auto", description="auto|demo|up
 
 
 @router.post("/defense/quarantine")
-async def trigger_quarantine(user: dict = Depends(require_user)):  # M2: auth required
+async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only quarantine trigger
     r = _get_best_result("auto")
     data = deps.get_demo_data()
     action = deps.defense._quarantine(data["samples"][:50], r["overall_suspicion_score"])
