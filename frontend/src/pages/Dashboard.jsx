@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
 import { Line, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ComposedChart
@@ -140,7 +140,7 @@ export default function Dashboard({ wsEvents = [] }) {
       <section className="bg-transparent pt-16 pb-12 px-6 md:px-12 rounded-t-[28px]" style={{ overflow: 'visible' }}>
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 items-center" style={{ overflow: 'visible', position: 'relative' }}>
           <div className="space-y-6 relative z-10 py-12">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-mono text-xs font-bold tracking-wider uppercase">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-redPrimary/10 border border-redPrimary/30 text-redBright font-mono text-xs font-bold tracking-wider uppercase">
               <User className="w-3.5 h-3.5" /> USER DASHBOARD
             </div>
             <h1 className="text-[80px] md:text-[96px] font-display font-bold tracking-tighter text-textPrimary leading-[1.05]">

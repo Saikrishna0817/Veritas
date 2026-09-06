@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { User, AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { User, AlertTriangle, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
 import Tactile3DHero from '../components/Tactile3DHero';
 
 export default function LoginPage() {
@@ -56,13 +56,13 @@ export default function LoginPage() {
         <Tactile3DHero intensity={0.6} />
       </div>
 
-      {/* Cyan vignette overlay */}
+      {/* Atmospheric vignette overlay */}
       <div
         className="fixed inset-0 z-[1] pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.75) 100%),
-            linear-gradient(180deg, rgba(6,182,212,0.06) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.5) 100%)
+            radial-gradient(ellipse at center, transparent 30%, rgba(0,0,0,0.8) 100%),
+            linear-gradient(180deg, rgba(228,36,43,0.04) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.6) 100%)
           `
         }}
       />
@@ -72,15 +72,15 @@ export default function LoginPage() {
         onSubmit={submit}
         className="w-full max-w-md space-y-6 rounded-[24px] relative z-10"
         style={{
-          border: '1px solid rgba(56,189,248,0.25)',
-          background: 'rgba(15,20,28,0.8)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(19,19,22,0.85)',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px)',
           padding: '40px',
           boxShadow: `
-            0 0 0 1px rgba(56,189,248,0.1),
-            0 20px 60px rgba(0,0,0,0.7),
-            0 0 120px rgba(56,189,248,0.08)
+            0 0 0 1px rgba(255,255,255,0.04),
+            0 20px 60px rgba(0,0,0,0.8),
+            0 0 100px rgba(228,36,43,0.06)
           `,
           animation: 'userLoginFadeIn 0.8s ease-out',
         }}
@@ -89,25 +89,25 @@ export default function LoginPage() {
         <div className="flex items-center gap-4 mb-6">
           <div
             style={{
-              width: 50,
-              height: 50,
+              width: 48,
+              height: 48,
               borderRadius: 16,
-              background: 'rgba(56,189,248,0.12)',
-              border: '1px solid rgba(56,189,248,0.3)',
+              background: 'rgba(228,36,43,0.12)',
+              border: '1px solid rgba(228,36,43,0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(56,189,248,0.15)',
+              boxShadow: '0 0 24px rgba(228,36,43,0.15)',
             }}
           >
-            <User style={{ width: 26, height: 26, color: '#38bdf8' }} />
+            <Lock style={{ width: 24, height: 24, color: 'var(--red-primary)' }} />
           </div>
           <div>
             <h1
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
                 fontWeight: 900,
-                color: '#ffffff',
+                color: 'var(--text-primary)',
                 fontSize: 24,
                 letterSpacing: '-0.02em',
                 lineHeight: 1,
@@ -120,7 +120,7 @@ export default function LoginPage() {
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 10,
                 fontWeight: 700,
-                color: '#38bdf8',
+                color: 'var(--red-primary)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.15em',
                 marginTop: 6,
@@ -144,9 +144,9 @@ export default function LoginPage() {
               gap: 8,
               padding: '10px 14px',
               borderRadius: 10,
-              border: username === 'user' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
-              background: username === 'user' ? 'rgba(56,189,248,0.18)' : 'rgba(255,255,255,0.03)',
-              color: username === 'user' ? '#38bdf8' : 'var(--text-muted)',
+              border: username === 'user' ? '1px solid rgba(228,36,43,0.4)' : '1px solid rgba(255,255,255,0.08)',
+              background: username === 'user' ? 'rgba(228,36,43,0.12)' : 'rgba(255,255,255,0.03)',
+              color: username === 'user' ? 'var(--red-bright)' : 'var(--text-muted)',
               fontSize: 11,
               fontFamily: "'JetBrains Mono', monospace",
               fontWeight: 700,
@@ -183,7 +183,7 @@ export default function LoginPage() {
                 width: '100%',
                 padding: 16,
                 background: 'var(--bg-void)',
-                border: '1px solid rgba(56,189,248,0.2)',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 12,
                 fontSize: 14,
                 color: 'var(--text-primary)',
@@ -198,11 +198,11 @@ export default function LoginPage() {
               autoComplete="username"
               required
               onFocus={(e) => {
-                e.target.style.borderColor = '#38bdf8';
-                e.target.style.boxShadow = '0 0 0 3px rgba(56,189,248,0.15)';
+                e.target.style.borderColor = 'var(--red-primary)';
+                e.target.style.boxShadow = '0 0 0 3px rgba(228,36,43,0.15)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(56,189,248,0.2)';
+                e.target.style.borderColor = 'rgba(255,255,255,0.08)';
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -230,7 +230,7 @@ export default function LoginPage() {
                 width: '100%',
                 padding: 16,
                 background: 'var(--bg-void)',
-                border: '1px solid rgba(56,189,248,0.2)',
+                border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 12,
                 fontSize: 14,
                 color: 'var(--text-primary)',
@@ -246,11 +246,11 @@ export default function LoginPage() {
               autoComplete="current-password"
               required
               onFocus={(e) => {
-                e.target.style.borderColor = '#38bdf8';
-                e.target.style.boxShadow = '0 0 0 3px rgba(56,189,248,0.15)';
+                e.target.style.borderColor = 'var(--red-primary)';
+                e.target.style.boxShadow = '0 0 0 3px rgba(228,36,43,0.15)';
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(56,189,248,0.2)';
+                e.target.style.borderColor = 'rgba(255,255,255,0.08)';
                 e.target.style.boxShadow = 'none';
               }}
             />
@@ -289,22 +289,34 @@ export default function LoginPage() {
             fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 700,
             color: '#ffffff',
-            background: loading ? 'rgba(56,189,248,0.5)' : '#0284c7',
-            border: '1px solid rgba(56,189,248,0.5)',
+            background: loading ? 'rgba(228,36,43,0.6)' : 'var(--red-primary)',
+            border: '1px solid rgba(228,36,43,0.5)',
             borderRadius: 12,
             cursor: loading ? 'not-allowed' : 'pointer',
             opacity: loading ? 0.7 : 1,
             textTransform: 'uppercase',
             letterSpacing: '0.15em',
             transition: 'all 0.2s',
-            boxShadow: '0 8px 32px rgba(2,132,199,0.3)',
+            boxShadow: '0 8px 32px rgba(228,36,43,0.3)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 8,
           }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.target.style.background = 'var(--red-bright)';
+              e.target.style.boxShadow = '0 12px 40px rgba(228,36,43,0.45)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!loading) {
+              e.target.style.background = 'var(--red-primary)';
+              e.target.style.boxShadow = '0 8px 32px rgba(228,36,43,0.3)';
+            }
+          }}
         >
-          {loading ? 'Authenticating User...' : 'Sign in as Regular User'}
+          {loading ? 'Authenticating User...' : 'Sign In as Regular User'}
         </button>
 
         {/* Switch to Admin Login Link */}
@@ -321,7 +333,7 @@ export default function LoginPage() {
               textDecoration: 'none',
               transition: 'color 0.2s',
             }}
-            onMouseEnter={(e) => (e.target.style.color = '#38bdf8')}
+            onMouseEnter={(e) => (e.target.style.color = 'var(--red-bright)')}
             onMouseLeave={(e) => (e.target.style.color = 'var(--text-muted)')}
           >
             <ShieldCheck style={{ width: 14, height: 14, color: 'var(--red-primary)' }} />
@@ -335,8 +347,8 @@ export default function LoginPage() {
           style={{
             height: 2,
             borderRadius: 1,
-            background: 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
-            opacity: 0.4,
+            background: 'linear-gradient(90deg, transparent, var(--red-primary), transparent)',
+            opacity: 0.3,
             marginTop: 12,
           }}
         />

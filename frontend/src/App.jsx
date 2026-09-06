@@ -6,6 +6,7 @@ import {
   Navigate,
   useNavigate,
 } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { LogOut, Lock, Globe, ChevronRight } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
@@ -55,13 +56,21 @@ function TopNav() {
 
   return (
     <nav className="sticky top-0 z-50 w-full bg-bgVoid/80 backdrop-blur-md border-b border-borderHairline px-6 py-4 flex items-center justify-between">
-      {/* Logo */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/20 flex items-center justify-center">
-          <Lock className="w-5 h-5 text-redPrimary" />
+      {/* Logo button (Navigates to Homepage) */}
+      <button
+        type="button"
+        onClick={() => navigate('/')}
+        className="flex items-center gap-3 group text-left cursor-pointer bg-transparent border-0 p-0 focus:outline-none"
+        title="Return to Homepage"
+        aria-label="SPECTRA Homepage"
+      >
+        <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/20 flex items-center justify-center group-hover:bg-redPrimary/20 group-hover:border-redPrimary/40 transition-all">
+          <Lock className="w-5 h-5 text-redPrimary group-hover:scale-105 transition-transform" />
         </div>
-        <div className="font-display font-bold text-lg tracking-tight text-textPrimary">SPECTRA</div>
-      </div>
+        <div className="font-display font-bold text-lg tracking-tight text-textPrimary group-hover:text-redBright transition-colors">
+          SPECTRA
+        </div>
+      </button>
 
       {/* Pill Links */}
       <div className="hidden md:flex items-center gap-1 bg-bgPanel p-1 rounded-full border border-borderHairline">
@@ -104,25 +113,24 @@ function TopNav() {
             <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-bgPanel border ${
               user.role === 'admin'
                 ? 'border-redPrimary/40 shadow-red-glow'
-                : 'border-cyan-500/40'
+                : 'border-borderHairline'
             }`}>
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase ${
                 user.role === 'admin'
                   ? 'bg-redPrimary/20 border border-redPrimary/40 text-redBright'
-                  : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400'
+                  : 'bg-white/5 border border-white/10 text-textPrimary'
               }`}>
                 {user.name?.charAt(0) || '?'}
               </div>
               <div className="flex flex-col leading-none">
                 <span className="text-xs font-semibold text-textPrimary">{user.name}</span>
                 <span className={`text-[9px] font-mono font-extrabold uppercase tracking-wider ${
-                  user.role === 'admin' ? 'text-redBright' : 'text-cyan-400'
+                  user.role === 'admin' ? 'text-redBright' : 'text-textMuted'
                 }`}>
                   {user.role === 'admin' ? 'ADMINISTRATOR' : 'REGULAR USER'}
                 </span>
               </div>
             </div>
-
 
             {/* Log Out button */}
             <button
@@ -148,6 +156,7 @@ function TopNav() {
 }
 
 import AdminLoginPage from './pages/AdminLoginPage';
+import Footer from './components/Footer';
 
 // ── Protected app shell ────────────────────────────────────────────────────────
 
@@ -173,6 +182,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <Footer />
     </div>
   );
 }
