@@ -37,14 +37,14 @@ const features = [
   },
   {
     id: 'f2',
-    title: 'Court-Admissible Forensic Reports',
-    desc: 'Generate evidence packages mapped to NIST AI RMF and EU AI Act compliance, ready for audit or litigation.',
+    title: 'Analyst Evidence Summaries',
+    desc: 'Export a JSON summary of layer scores, verdict, and limitations. Experimental analyst support — not a certification or legal evidence package.',
     icon: <FileText className="w-8 h-8 text-white" />,
   },
   {
     id: 'f3',
-    title: '24/7 Blue Team Operations',
-    desc: 'A live SOC dashboard with human-in-the-loop review, red-team resilience testing, and real-time threat-level status.',
+    title: 'Blue Team Review Workflow',
+    desc: 'Review the latest analysis, queue human-in-the-loop decisions, and optionally run an explicit synthetic demo. Not a live 24/7 SOC feed.',
     icon: <ShieldAlert className="w-8 h-8 text-white" />,
   },
 ];
@@ -223,7 +223,7 @@ export default function Dashboard({ wsEvents = [] }) {
       {/* ── 4. Dashboard Metrics (Dark Theme) ─────────────────────────────────── */}
       <section className="bg-bgSurface py-16 px-6 md:px-12 rounded-b-[28px] border-t border-borderHairline">
          <div className="max-w-7xl mx-auto space-y-8">
-            <h3 className="text-[56px] font-display font-bold text-textPrimary tracking-tight">Live Threat Intelligence</h3>
+            <h3 className="text-[56px] font-display font-bold text-textPrimary tracking-tight">Latest analysis</h3>
             
             {error && (
               <div className="p-4 bg-redDim border border-redPrimary text-textPrimary text-[18px] font-mono rounded-xl shadow-red-glow">
@@ -231,9 +231,15 @@ export default function Dashboard({ wsEvents = [] }) {
               </div>
             )}
 
-            {trustScore && (
+            {trustScore && trustScore.data_source === 'none' && (
+              <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-8 space-y-3">
+                <div className="font-mono text-xs text-textMuted uppercase tracking-widest">No analysis yet</div>
+                <p className="text-textSecondary">Upload a CSV or analyse a real dataset. Scores stay blank until then.</p>
+              </div>
+            )}
+            {trustScore && trustScore.has_analysis && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <MetricCard label="Data Quality" value={trustScore.dataset_trust.data_quality} color="var(--status-safe)" />
+                <MetricCard label="Data Quality" value={trustScore.dataset_trust.data_quality} color="var(--status-safe)" sublabel={trustScore.data_source} />
                 <MetricCard label="Poison Risk" value={trustScore.dataset_trust.poison_risk} unit="%" color="var(--red-primary)" />
                 <MetricCard label="Behavioral Trust" value={trustScore.dataset_trust.behavioral_trust} color="var(--status-warn)" />
                 <div className="bg-bgPanel p-5 relative overflow-hidden rounded-[20px] border border-borderHairline group hover:bg-bgPanelRaised transition-colors">

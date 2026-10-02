@@ -121,6 +121,51 @@ class _LRUCache:
 demo_result_cache: _LRUCache = _LRUCache(maxsize=20)
 upload_result_cache: _LRUCache = _LRUCache(maxsize=50)
 
+def resolve_latest_result(prefer: str = "auto") -> dict | None:
+    """Best available analysis without generating synthetic data.
+
+    prefer:
+      auto         → real first; demo only as last resort
+      real         → upload / real_dataset only (no demo)
+      upload       → upload only
+      real_dataset → real_dataset only
+      demo         → demo only
+    """
+    prefer = (prefer or "auto").lower()
+
+    if prefer == "demo":
+        cached = demo_result_cache.get("latest")
+        if cached:
+            return cached
+        return db.get_latest(source="demo")
+
+    if prefer == "upload":
+        cached = upload_result_cache.get("latest")
+        if cached:
+            return cached
+        return db.get_latest(source="upload")
+
+    if prefer == "real_dataset":
+        return db.get_latest(source="real_dataset")
+
+    upload_cached = upload_result_cache.get("latest")
+    if upload_cached:
+        return upload_cached
+
+    real = db.get_latest_real()
+    if real:
+        return real
+
+    if prefer == "real":
+        return None
+
+    demo_cached = demo_result_cache.get("latest")
+    if demo_cached:
+        return demo_cached
+
+    return db.get_latest()
+
+
 # ── Rate limiters ─────────────────────────────────────────────────────────────
 # CPU-heavy analysis endpoints — shared limiter: 10 requests / 60 s per user+IP.
 # Used by upload, model scan, real-dataset analysis, demo run, and red-team.

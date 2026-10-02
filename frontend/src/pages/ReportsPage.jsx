@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { FileText, Download, CheckCircle, Loader, Upload, Target, Activity } from 'lucide-react';
 
 const SOURCE_CONFIG = {
-    auto: { label: 'Latest (Auto)', icon: Activity, desc: 'Uses your most recent upload; falls back to demo if none.' },
+    auto: { label: 'Latest real analysis', icon: Activity, desc: 'Uses the newest CSV upload or real-dataset run. Does not fall back to synthetic demo.' },
     upload: { label: 'My Uploaded Dataset', icon: Upload, desc: 'Generate report from the CSV you uploaded.' },
     demo: { label: 'Demo Analysis', icon: Target, desc: 'Generate report from the built-in demo run.' },
 };
@@ -58,7 +58,7 @@ export default function ReportsPage() {
                         Forensic <span className="text-redPrimary">Reports</span>
                     </h1>
                     <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
-                        Court-admissible evidence // NIST AI RMF // EU AI Act compliance
+                        Experimental analyst summary // not certification or legal evidence
                     </p>
                 </div>
                 <div className="flex gap-3">

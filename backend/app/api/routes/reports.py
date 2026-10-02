@@ -32,41 +32,30 @@ class HITLDecisionRequest(BaseModel):
 # ── Helper: resolve the best available result ─────────────────────────────────
 
 def _get_best_result(prefer: str = "auto") -> dict:
+    """Resolve analysis without inventing synthetic data.
+
+    prefer: auto | real | upload | real_dataset | demo
+    Raises HTTPException 404 with a clear empty-state message if nothing exists.
     """
-    Return the most recent analysis result.
-    prefer: 'demo'   → only demo cache
-            'upload' → only upload cache
-            'auto'   → whichever is freshest (upload wins tie)
-    Raises HTTPException 404 if nothing available.
-    """
-    demo = deps.demo_result_cache.get("latest")
-    upload = deps.upload_result_cache.get("latest")
+    result = deps.resolve_latest_result(prefer=prefer)
+    if result is not None:
+        return result
 
-    if prefer == "demo":
-        if demo:
-            return demo
-        raise HTTPException(status_code=404, detail="Run /demo/run first.")
-
-    if prefer == "upload":
-        if upload:
-            return upload
-        raise HTTPException(status_code=404, detail="Upload a CSV via /analyze/upload first.")
-
-    # auto: prefer upload if it's available (it's the user's own data)
-    if upload:
-        return upload
-    if demo:
-        return demo
-
-    # DB fallback
-    db_result = deps.db.get_latest()
-    if db_result:
-        return db_result
-
-    raise HTTPException(
-        status_code=404,
-        detail="No analysis results found. Run /demo/run or upload a CSV first.",
-    )
+    messages = {
+        "demo": "No demo analysis found. POST /api/v1/demo/run to generate a synthetic scenario.",
+        "upload": "No upload analysis found. POST /api/v1/analyze/upload with a CSV first.",
+        "real_dataset": "No real-dataset analysis found. POST /api/v1/datasets/real/{name}/analyze first.",
+        "auto": (
+            "No analysis results found. Upload a CSV via /analyze/upload "
+            "or analyse a real dataset via /datasets/real/{name}/analyze. "
+            "Synthetic demo data is available only via explicit POST /demo/run."
+        ),
+        "real": (
+            "No real analysis found. Upload a CSV or analyse a real dataset. "
+            "Demo is available only via the Demo source or POST /demo/run."
+        ),
+    }
+    raise HTTPException(status_code=404, detail=messages.get(prefer, messages["auto"]))
 
 
 # ── HISTORY (persisted results) ───────────────────────────────────────────────
@@ -205,14 +194,15 @@ async def submit_review_decision(
 
 
 @router.post("/reports/generate")
-async def generate_report(source: str = Query("auto", description="auto|demo|upload")):
+async def generate_report(source: str = Query("auto", description="auto|demo|upload|real_dataset")):
     """
     Generate a forensic evidence report.
     source=auto  → use the most recent result (upload wins over demo)
     source=demo  → use the latest demo run result
     source=upload → use the latest uploaded CSV result
     """
-    r = _get_best_result(source)
+    prefer = "real" if source == "auto" else source
+    r = _get_best_result(prefer)
 
     report = {
         "report_id": str(uuid.uuid4()),
@@ -266,7 +256,7 @@ async def get_blueteam_status():
     threat_level = "NOMINAL"
     verdict = "CLEAN"
     suspicion = 0.0
-    result = deps.demo_result_cache.get("latest") or deps.upload_result_cache.get("latest")
+    result = deps.resolve_latest_result(prefer="auto")
     if result:
         verdict = result.get("verdict", "CLEAN")
         suspicion = result.get("overall_suspicion_score", 0)

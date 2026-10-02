@@ -217,6 +217,19 @@ def get_latest(source: str = None) -> Optional[Dict]:
     return json.loads(row["full_json"]) if row else None
 
 
+def get_latest_real() -> Optional[Dict]:
+    """Most recent non-demo analysis (upload or real_dataset)."""
+    conn = _get_conn()
+    row = conn.execute(
+        """
+        SELECT full_json FROM analysis_results
+        WHERE source IN ('upload', 'real_dataset')
+        ORDER BY created_at DESC LIMIT 1
+        """
+    ).fetchone()
+    return json.loads(row["full_json"]) if row else None
+
+
 def get_history(source: str = None, limit: int = 20) -> List[Dict]:
     """Fetch recent results as lightweight summary rows."""
     conn = _get_conn()

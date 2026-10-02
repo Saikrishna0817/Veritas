@@ -148,9 +148,18 @@ async def analyze_dataset(
 
 @router.get("/detect/results/latest")
 async def get_latest_results():
-    if "latest" not in deps.demo_result_cache:
-        raise HTTPException(status_code=404, detail="No results yet. Run /demo/run first.")
-    return deps.demo_result_cache["latest"]
+    """Prefer real analysis; demo only as last resort."""
+    r = deps.resolve_latest_result(prefer="auto")
+    if not r:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "No analysis results found. Upload a CSV via /analyze/upload "
+                "or analyse a real dataset via /datasets/real/{name}/analyze. "
+                "Synthetic demo is available only via explicit POST /demo/run."
+            ),
+        )
+    return r
 
 
 # ── Real Dataset Library ───────────────────────────────────────────────────────

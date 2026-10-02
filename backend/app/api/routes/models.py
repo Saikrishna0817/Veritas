@@ -106,26 +106,50 @@ async def get_model_scan_result(scan_id: str):
 
 @router.get("/federated/clients")
 async def get_federated_clients():
-    """Get federated client trust scores."""
+    """Synthetic federated-learning illustration only — not live FL traffic."""
     from app.detection.layer5_federated import FederatedTrustAnalyzer, generate_demo_clients
 
     clients = generate_demo_clients()
     analyzer = FederatedTrustAnalyzer()
-    return analyzer.analyze_clients(clients)
+    payload = analyzer.analyze_clients(clients)
+    payload["synthetic"] = True
+    payload["source"] = "demo"
+    payload["notice"] = (
+        "These clients are generated locally for Layer-5 illustration. "
+        "They are not live federated-learning traffic."
+    )
+    return payload
 
 
 @router.get("/trust/score")
 async def get_trust_score():
-    """Get current dataset and model trust scores — uses latest upload or demo result."""
-    r = deps.upload_result_cache.get("latest") or deps.demo_result_cache.get("latest")
-    if r:
-        suspicion = r.get("overall_suspicion_score", 0.0)
-        causal = ((r.get("layer_results") or {}).get("layer4_causal") or {}).get("causal_effect", 0.0)
-        data_source = r.get("source", "demo")
-    else:
-        suspicion = 0.0
-        causal = 0.0
-        data_source = "none"
+    """Trust scores from latest real analysis, or honest empty state (no fake Grade A)."""
+    r = deps.resolve_latest_result(prefer="auto")
+    if not r:
+        now = datetime.now(timezone.utc).isoformat()
+        return {
+            "has_analysis": False,
+            "data_source": "none",
+            "dataset_trust": {
+                "data_quality": None,
+                "poison_risk": None,
+                "behavioral_trust": None,
+                "overall": None,
+            },
+            "model_safety": {
+                "backdoor_risk": None,
+                "adversarial_robustness": None,
+                "prediction_stability": None,
+                "grade": None,
+            },
+            "updated_at": now,
+            "debug": {"causal_effect": 0.0},
+            "notice": "No analysis yet. Upload a CSV or analyse a real dataset.",
+        }
+
+    suspicion = r.get("overall_suspicion_score", 0.0) or 0.0
+    causal = ((r.get("layer_results") or {}).get("layer4_causal") or {}).get("causal_effect", 0.0)
+    data_source = r.get("source", "unknown")
 
     poison_risk = round(suspicion * 100, 1)
     data_quality = round(max(0, 100 - poison_risk * 1.2), 1)
@@ -144,6 +168,7 @@ async def get_trust_score():
     )
 
     return {
+        "has_analysis": True,
         "dataset_trust": {
             "data_quality": data_quality,
             "poison_risk": poison_risk,
@@ -156,7 +181,7 @@ async def get_trust_score():
             "prediction_stability": prediction_stability,
             "grade": grade,
         },
-        "updated_at": datetime.now(timezone.utc).isoformat(),  # L1: utcnow() deprecated
+        "updated_at": datetime.now(timezone.utc).isoformat(),
         "data_source": data_source,
         "debug": {"causal_effect": causal},
     }

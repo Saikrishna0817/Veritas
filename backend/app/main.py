@@ -19,12 +19,16 @@ manager = ConnectionManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialise logging, demo data, and shared state on startup."""
+    """Initialise logging and shared state. Real-data primary — no silent demo preload."""
     configure_logging()
-    logger.info("AI Trust Forensics Platform v2.2 starting")
-    from app.demo.data_generator import get_demo_data
-    data = get_demo_data()
-    logger.info("Demo dataset ready: %s samples", data["total_samples"])
+    logger.info("AI Trust Forensics Platform v2.2 starting (real-data primary mode)")
+    from app.models import database as db
+    try:
+        stats = db.get_stats()
+        logger.info("SQLite ready — total_analyses=%s by_source=%s",
+                    stats.get("total_analyses", 0), stats.get("by_source", {}))
+    except Exception as exc:
+        logger.warning("SQLite stats unavailable at startup: %s", exc)
     yield
     logger.info("AI Trust Forensics Platform shutting down")
 

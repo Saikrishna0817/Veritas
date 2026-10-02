@@ -66,7 +66,7 @@ export default function FederatedPage() {
                         Federated <span className="text-purple">Trust</span>
                     </h1>
                     <p className="font-mono text-sm text-text2 mt-2">
-                        Sybil-resistant trust scoring · Behavioral fingerprinting · Auto-quarantine
+                        Synthetic Layer-5 illustration only — not live federated-learning traffic
                     </p>
                 </div>
                 <button onClick={load} disabled={loading}

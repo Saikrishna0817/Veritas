@@ -27,8 +27,10 @@ import { useAuth } from './hooks/useAuth';
 const BASE_NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
   { path: '/upload', label: 'Upload' },
+  { path: '/real-datasets', label: 'Datasets' },
   { path: '/model-scan', label: 'Scanner' },
   { path: '/forensics', label: 'Forensics' },
+  { path: '/history', label: 'History' },
   { path: '/blue-team', label: 'SOC' },
   { path: '/reports', label: 'Reports' },
 ];
