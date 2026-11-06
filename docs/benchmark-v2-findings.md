@@ -41,8 +41,8 @@ not yet distinguishable from cleanlab's.
 - The two-sample test (`c2st`) is strong on rows but weak on batch-level TPR; its batch statistic
   (AUC vs. clean batches) needs a permutation p-value instead.
 - Dev and test datasets were chosen by size/diversity, not stratified; 12 datasets give wide CIs.
-- Poisoning is synthetic. The planned real-noise sets (CIFAR-10N etc.) are not in yet.
-- Veritas should be rerun on all 5 seeds once it is fast enough, or on a Phase 2 replacement.
+- (Resolved in the Phase 2 update below) real-noise track added; the old pipeline stays on 1 seed because of its runtime.
+- Injected poisoning is still synthetic; only label noise has a real-data check.
 
 ---
 
