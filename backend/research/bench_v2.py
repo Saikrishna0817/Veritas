@@ -142,6 +142,16 @@ def _row_metrics(scores: np.ndarray, mask: np.ndarray) -> dict:
             "precision_at_k": float(mask[top].mean())}
 
 
+def detector_inputs(X_ref, y_ref, X_inc, y_inc, n_classes: int, cal_fraction: float) -> dict:
+    """What every detector sees: fit/calibration slices of the reference set plus the incoming batch."""
+    n_cal = int(len(X_ref) * cal_fraction)
+    scaler = StandardScaler().fit(X_ref[n_cal:])
+    return {"X_fit": scaler.transform(X_ref[n_cal:]), "y_fit": y_ref[n_cal:],
+            "X_cal": scaler.transform(X_ref[:n_cal]), "y_cal": y_ref[:n_cal],
+            "X_inc": scaler.transform(X_inc), "y_inc": y_inc, "n_classes": n_classes,
+            "X_ref_raw": X_ref, "y_ref": y_ref, "X_inc_raw": X_inc}
+
+
 def run_batch(spec: dict) -> dict:
     m = spec["manifest"]
     X, y, name = load_dataset(spec["data_id"], m["max_rows"], m["random_seed"] + spec["seed"])
@@ -166,19 +176,14 @@ def run_batch(spec: dict) -> dict:
         n_poison = max(1, round(spec["rate"] * len(inc)))
         mask[ATTACKS[spec["attack"]](X_inc, y_inc, rng, n_poison, ctx)] = True
 
-    n_cal = int(len(ref) * m["calibration_fraction_of_reference"])
-    scaler = StandardScaler().fit(X_ref[n_cal:])
-    d = {"X_fit": scaler.transform(X_ref[n_cal:]), "y_fit": y_ref[n_cal:],
-         "X_cal": scaler.transform(X_ref[:n_cal]), "y_cal": y_ref[:n_cal],
-         "X_inc": scaler.transform(X_inc), "y_inc": y_inc, "n_classes": ctx["n_classes"],
-         "X_ref_raw": X_ref, "y_ref": y_ref, "X_inc_raw": X_inc}
+    d = detector_inputs(X_ref, y_ref, X_inc, y_inc, ctx["n_classes"], m["calibration_fraction_of_reference"])
 
     out = {k: spec[k] for k in ("split", "data_id", "seed", "attack", "rate", "rep")}
     out.update({"dataset": name, "data_hash": data_hash(X, y), "n_incoming": len(inc),
                 "n_poisoned": int(mask.sum()), "detectors": {}})
     limits = m.get("detector_seed_limits", {})
     for det_name, detect in DETECTORS.items():
-        if spec["seed"] >= limits.get(det_name, m["seeds"]):
+        if spec["seed"] >= limits.get(det_name, m["seeds"]) or det_name not in (spec.get("only") or DETECTORS):
             continue  # too slow to run on every seed; see detector_seed_limits in the manifest
         started = time.perf_counter()
         rows, batch = detect(d)
@@ -240,7 +245,7 @@ def _mean_metric(det: str, attack: str, rate: float, metric: str):
 def aggregate(records: list[dict], m: dict) -> dict:
     ci = m["metrics"]["ci"]
     fpr = m["metrics"]["batch"]["tpr_at_clean_fpr"]
-    dets = list(DETECTORS)
+    dets = [d for d in DETECTORS if any(d in r["detectors"] for r in records)]
     summary = {}
     for split in m["datasets"]:
         recs = [r for r in records if r["split"] == split]
@@ -295,13 +300,17 @@ def main() -> None:
     parser.add_argument("--profile", default="full")
     parser.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     parser.add_argument("--label", default=None)
+    parser.add_argument("--only", nargs="+", choices=list(DETECTORS), help="score just these detectors")
+    parser.add_argument("--splits", nargs="+", default=None, help="restrict to these dataset splits (dev/test)")
     args = parser.parse_args()
 
     m = load_manifest(args.profile)
     for datasets in m["datasets"].values():  # download once, before workers race for the cache
         for ds in datasets:
             fetch_openml(data_id=ds["data_id"], data_home=str(CACHE), as_frame=True, parser="auto")
-    specs = batch_specs(m)
+    if args.splits:
+        m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
+    specs = [{**spec, "only": args.only} for spec in batch_specs(m)]
     started = time.perf_counter()
     records = []
     with ProcessPoolExecutor(args.workers) as pool:

@@ -2,3 +2,5 @@
 # Benchmark-only baselines; not needed by the app.
 cleanlab==2.9.0
 pyod==3.6.7
+# Only needed to build the real-noise (CIFAR-10N) embeddings: python -m research.noise_data
+# pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
