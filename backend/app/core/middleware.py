@@ -10,6 +10,7 @@ Provides:
 
 from __future__ import annotations
 
+import re
 import uuid
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -28,10 +29,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     """
 
     HEADER = "X-Request-ID"
+    # Only accept short, log-safe IDs from upstream; anything else is replaced.
+    _VALID_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Honour an incoming ID if provided (e.g. from an upstream proxy)
-        request_id = request.headers.get(self.HEADER) or str(uuid.uuid4())
+        incoming = request.headers.get(self.HEADER, "")
+        request_id = incoming if self._VALID_ID.match(incoming) else str(uuid.uuid4())
         token = request_id_var.set(request_id)
         request.state.request_id = request_id
         try:
@@ -70,6 +74,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "object-src 'none';"
     )
 
+    # Swagger UI / ReDoc load their assets from jsDelivr and use inline scripts.
+    _DOCS_CSP = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "img-src 'self' data: https://fastapi.tiangolo.com; "
+        "worker-src blob:; frame-ancestors 'none'; object-src 'none';"
+    )
+    _DOCS_PATHS = ("/docs", "/redoc")
+
     _HEADERS: dict[str, str] = {
         "Content-Security-Policy": _CSP,
         "X-Content-Type-Options": "nosniff",
@@ -82,4 +96,6 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response: Response = await call_next(request)
         for header, value in self._HEADERS.items():
             response.headers[header] = value
+        if request.url.path in self._DOCS_PATHS:
+            response.headers["Content-Security-Policy"] = self._DOCS_CSP
         return response

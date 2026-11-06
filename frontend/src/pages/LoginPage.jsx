@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { User, AlertTriangle, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
-import Tactile3DHero from '../components/Tactile3DHero';
+import { AlertTriangle, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
+// three.js is ~1 MB; load the decorative hero after the page is interactive.
+const Tactile3DHero = lazy(() => import('../components/Tactile3DHero'));
 
 export default function LoginPage() {
   const { user, login } = useAuth();
@@ -40,12 +41,6 @@ export default function LoginPage() {
     }
   }
 
-  const fillUserCredentials = () => {
-    setUsername('user');
-    setPassword('user123');
-    setError('');
-  };
-
   return (
     <main
       className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
@@ -53,7 +48,7 @@ export default function LoginPage() {
     >
       {/* Full-screen 3D animated background */}
       <div className="fixed inset-0 z-0 pointer-events-none" style={{ opacity: 0.35 }}>
-        <Tactile3DHero intensity={0.6} />
+        <Suspense fallback={null}><Tactile3DHero intensity={0.6} /></Suspense>
       </div>
 
       {/* Atmospheric vignette overlay */}
@@ -129,34 +124,6 @@ export default function LoginPage() {
               Regular User Sign-In
             </p>
           </div>
-        </div>
-
-        {/* Quick fill button */}
-        <div>
-          <button
-            type="button"
-            onClick={fillUserCredentials}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: username === 'user' ? '1px solid rgba(228,36,43,0.4)' : '1px solid rgba(255,255,255,0.08)',
-              background: username === 'user' ? 'rgba(228,36,43,0.12)' : 'rgba(255,255,255,0.03)',
-              color: username === 'user' ? 'var(--red-bright)' : 'var(--text-muted)',
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <User style={{ width: 14, height: 14 }} />
-            Fill Regular User Credentials (user / user123)
-          </button>
         </div>
 
         {/* Form fields */}

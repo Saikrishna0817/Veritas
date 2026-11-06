@@ -26,7 +26,6 @@ router = APIRouter()
 class HITLDecisionRequest(BaseModel):
     case_id: str
     decision: Literal["approve_quarantine", "mark_safe"]
-    reviewer: str = "analyst"
 
 
 # ── Helper: resolve the best available result ─────────────────────────────────
@@ -165,9 +164,28 @@ async def get_blast_radius(source: str = Query("auto", description="auto|demo|up
 
 @router.post("/defense/quarantine")
 async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only quarantine trigger
+    """Quarantine rows the latest dataset analysis flagged (capped at 5% of the batch)."""
     r = _get_best_result("auto")
-    data = deps.get_demo_data()
-    action = deps.defense._quarantine(data["samples"][:50], r["overall_suspicion_score"])
+    info = r.get("dataset_info") or {}
+    layer3 = (r.get("layer_results") or {}).get("layer3_ensemble") or {}
+    split = info.get("reference_split")
+    flagged = layer3.get("flagged_indices_incoming")
+    if split is None or flagged is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Manual quarantine needs a CSV or real-dataset analysis; the latest result has no row-level flags.",
+        )
+    flagged_set = set(flagged)
+    scope = info.get("dataset_id", "")
+    rows = [
+        {"id": f"row_{split + i}", "poison_status": "suspected" if i in flagged_set else "unknown"}
+        for i in range(r.get("n_samples", 0))
+    ]
+    action = deps.defense._quarantine(rows, r["overall_suspicion_score"], scope=scope)
+    deps.db.log_audit_event(
+        user["id"], "defense.quarantine", "dataset", scope,
+        {"samples_affected": action["samples_affected"], "action_id": action["action_id"]},
+    )
     return action
 
 
@@ -186,8 +204,21 @@ async def submit_review_decision(
     body: HITLDecisionRequest,  # M7: Pydantic instead of raw request.json()
     user: dict = Depends(require_user),  # M2: auth required
 ):
-    result = deps.hitl.decide(body.case_id, body.decision, body.reviewer)
-    return result
+    # The reviewer is the authenticated user, never a client-supplied name.
+    record = deps.hitl.decide(body.case_id, body.decision, reviewer=user["name"])
+    if record is None:
+        raise HTTPException(status_code=404, detail="Case not found or already resolved.")
+    case = record.pop("case")
+    if body.decision == "approve_quarantine":
+        record["defense_action"] = deps.defense.quarantine_ids(
+            case.get("sample_ids", []),
+            case.get("scope", ""),
+            reason=f"HITL case {body.case_id} approved by {user['name']}",
+        )
+    deps.db.log_audit_event(
+        user["id"], "hitl.decided", "hitl_case", body.case_id, {"decision": body.decision}
+    )
+    return record
 
 
 # ── REPORTS ───────────────────────────────────────────────────────────────────

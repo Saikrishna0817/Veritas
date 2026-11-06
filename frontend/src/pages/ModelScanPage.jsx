@@ -160,7 +160,7 @@ export default function ModelScanPage() {
     const runScan = async () => {
         if (!modelFile) return;
         setLoading(true); setError(null); setProgress(0);
-        const interval = setInterval(() => setProgress(p => p < 85 ? p + Math.random() * 10 : p), 400);
+        const interval = setInterval(() => setProgress(p => p < 85 ? p + (85 - p) * 0.08 : p), 400);
         try {
             const formData = new FormData();
             formData.append('model_file', modelFile);

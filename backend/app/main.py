@@ -5,9 +5,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router, ws_router
-from app.api.routes.websocket import ConnectionManager
-from app.core.config import settings
+from app.core.config import settings, validate_security_settings
+
+# Fail fast on missing/default secrets *before* importing routers: importing them
+# initialises the database and seeds the admin account.
+validate_security_settings()
+
+from app.api.router import api_router, ws_router  # noqa: E402
+from app.api.routes.websocket import ConnectionManager  # noqa: E402
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestIDMiddleware, SecurityHeadersMiddleware
 

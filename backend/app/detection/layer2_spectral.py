@@ -1,39 +1,14 @@
-"""
-Layer 2 — Spectral Activation Analysis  (RECTIFIED v3)
-========================================================
+"""Layer 2 — Spectral activation analysis.
 
-NEW IN v3 — BLEND TRIGGER IMPROVEMENTS:
+Looks for a backdoor "minority subspace" in the singular-value spectrum (spectral gap)
+and a tight minority cluster (KMeans in PCA space). All four signals firing sets
+``backdoor_detected``; three of four sets ``partial_backdoor`` with a suspicion score in
+[0.15, 0.50].
 
-  BUG 4 ── Activation simulation doesn't amplify blend trigger structure
-    OLD: tanh(X @ random_projection) — the random projection treats all
-         input directions equally. A blend trigger that shifts samples along
-         a specific direction in feature space gets diluted into all 32
-         activation dimensions equally, weakening the spectral signal.
-    FIX: Before projection, compute the top PCA direction of X and amplify
-         it slightly in the activation. This preserves the backdoor's dominant
-         direction through the simulated "network layer", making it visible
-         in the singular value spectrum. We use a soft amplification (factor 2×)
-         to avoid over-engineering a signal that isn't real.
-
-  BUG 5 ── Spectral gap threshold is too conservative for low-poison-rate attacks
-    OLD: SPECTRAL_GAP_BASE = 4.0. At 0.8% poison rate (8 of 1000 samples),
-         the minority cluster signal barely moves the top singular value.
-         The relative gap stays below 4.0 even with real poisoning.
-    FIX: Lower BASE threshold to 2.5 and tighten the gap_stat requirement.
-         The AND-gate (all 4 signals) still protects against false positives.
-         Lower threshold catches real low-density attacks.
-
-  BUG 6 ── Cluster analysis uses Euclidean distance in PCA space — poor for
-            blend triggers which align samples along a single direction
-    OLD: KMeans in PCA space — if poisoned samples are spread in 5D PCA
-         space but concentrated in 1D (the trigger direction), KMeans may
-         not find them as a tight cluster because tightness is computed as
-         mean Euclidean distance in 5D.
-    FIX: Before KMeans, project onto the top 2 PCA components only. In 2D,
-         a 1D cluster is always tight. Also: fit PCA on incoming X (not
-         on simulated activations) as an additional signal path.
-
-All previously documented rectifications (RECT 1–4 from v2) are preserved.
+Caveat: the data is tabular, so there are no real network activations. They are
+simulated as tanh(X @ random projection) with the top PCA direction mildly amplified so a
+blend trigger survives the projection. Treat this layer as a spectral outlier test on the
+features, not as an inspection of a trained model. Design history is in git.
 """
 
 import numpy as np

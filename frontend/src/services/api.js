@@ -7,33 +7,39 @@ function authHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function apiFetch(path, { skipAuth = false, ...options } = {}) {
+// An expired or revoked token makes every call fail with 401. Drop it and send the
+// user to the right sign-in page instead of leaving each page to show a raw error.
+function handleUnauthorized() {
+    localStorage.removeItem('veritas_access_token');
+    const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
+    if (window.location.pathname !== loginPath) window.location.assign(loginPath);
+}
+
+async function failIfNotOk(res, fallback, skipAuth = false) {
+    if (res.ok) return;
+    if (res.status === 401 && !skipAuth) handleUnauthorized();
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || fallback);
+}
+
+async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
     const res = await fetch(`${BASE_URL}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...(skipAuth ? {} : authHeaders()), ...options.headers },
         ...options,
+        headers: { 'Content-Type': 'application/json', ...(skipAuth ? {} : authHeaders()), ...headers },
     });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || 'API error');
-    }
+    await failIfNotOk(res, 'API error', skipAuth);
     return res.json();
 }
 
 async function apiFormData(path, formData) {
     const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers: authHeaders(), body: formData });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || 'Upload failed');
-    }
+    await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
     const res = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || 'Download failed');
-    }
+    await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
     link.href = url;
@@ -45,9 +51,9 @@ async function downloadFile(path, filename) {
 export function createWebSocket(onMessage) {
     const token = localStorage.getItem('veritas_access_token');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const url = `${protocol}//${host}/ws/v1/detection-stream${token ? `?access_token=${encodeURIComponent(token)}` : ''}`;
-    const ws = new WebSocket(url);
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/v1/detection-stream`);
+    // The token goes in the first frame, not the URL, so it stays out of access logs.
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }));
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
@@ -134,11 +140,6 @@ export const api = {
     },
     getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
-
-    // Downloads
-    downloadReportPDF: () => downloadFile('/reports/export/pdf', 'SPECTRA_Evidence_Report.pdf'),
-    downloadSTIXBundle: () => downloadFile('/reports/export/stix', 'SPECTRA_STIX2.1_Bundle.json'),
-    downloadForensicsJSON: () => downloadFile('/reports/export/json', 'SPECTRA_Forensics_Data.json'),
 
     // Analysis History & Audit
     getHistory: (source = null, limit = 20) =>

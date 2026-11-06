@@ -40,22 +40,31 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], s
 
     attack_class = deps.classifier.classify(detection_result["layer_results"], incoming_samples)
 
-    # Tag samples exceeding ensemble threshold as suspected
-    ensemble_scores = detection_result["layer_results"]["layer3_ensemble"].get("ensemble_scores", [])
-    if ensemble_scores:
-        for i, s in enumerate(incoming_samples):
-            if i < len(ensemble_scores) and ensemble_scores[i] > 0.6:
-                s["poison_status"] = "suspected"
+    # Tag the rows Layer 3 flagged as suspected
+    flagged = set(detection_result["layer_results"]["layer3_ensemble"].get("flagged_indices_incoming", []))
+    for i, s in enumerate(incoming_samples):
+        if i in flagged:
+            s["poison_status"] = "suspected"
 
     pattern = deps.reconstructor.reconstruct(incoming_samples, attack_class, detection_result["layer_results"])
     sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
     blast = deps.blast_mapper.map(incoming_samples, detection_result["layer_results"])
     counterfactual = deps.counterfactual.simulate(detection_result["layer_results"], blast)
+    scope = ingested["dataset_id"]
     defense_action = deps.defense.decide_action(
         incoming_samples,
         detection_result["overall_suspicion_score"],
         detection_result["verdict"],
+        scope=scope,
     )
+    hitl_case = None
+    if detection_result.get("requires_human_review"):
+        hitl_case = deps.hitl.enqueue(
+            incoming_samples,
+            {**detection_result["layer_results"], "attack_classification": attack_class},
+            detection_result["overall_suspicion_score"],
+            scope=scope,
+        )
 
     full_result: dict[str, Any] = {
         **detection_result,
@@ -79,6 +88,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], s
         "blast_radius": blast,
         "counterfactual": counterfactual,
         "defense_action": defense_action,
+        "hitl_case": hitl_case,
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
     return full_result, ingested["dataset_id"]
@@ -122,7 +132,8 @@ def _orchestrate_model(
     sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
     blast = deps.blast_mapper.map(incoming, detection_result["layer_results"])
     defense_action = deps.defense.decide_action(
-        incoming, detection_result["overall_suspicion_score"], detection_result["verdict"]
+        incoming, detection_result["overall_suspicion_score"], detection_result["verdict"],
+        scope=ingested["scan_id"],
     )
 
     return {

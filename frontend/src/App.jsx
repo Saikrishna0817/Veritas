@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -8,21 +9,28 @@ import {
 } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogOut, Lock, Globe, ChevronRight } from 'lucide-react';
-import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import ForensicsPage from './pages/ForensicsPage';
-import FederatedPage from './pages/FederatedPage';
-import ReportsPage from './pages/ReportsPage';
-import UploadPage from './pages/UploadPage';
-import ModelScanPage from './pages/ModelScanPage';
-import RealDatasetsPage from './pages/RealDatasetsPage';
-import HistoryPage from './pages/HistoryPage';
-import BlueTeamPage from './pages/BlueTeamPage';
-import LoginPage from './pages/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './hooks/useAuth';
+
+// Pages load on demand so the login screen doesn't ship three.js, recharts, etc.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const ForensicsPage = lazy(() => import('./pages/ForensicsPage'));
+const FederatedPage = lazy(() => import('./pages/FederatedPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+const UploadPage = lazy(() => import('./pages/UploadPage'));
+const ModelScanPage = lazy(() => import('./pages/ModelScanPage'));
+const RealDatasetsPage = lazy(() => import('./pages/RealDatasetsPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const BlueTeamPage = lazy(() => import('./pages/BlueTeamPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+
+const PageFallback = () => (
+  <div className="p-8 text-textMuted font-mono text-sm">Loading…</div>
+);
 
 const BASE_NAV_ITEMS = [
   { path: '/', label: 'Dashboard' },
@@ -157,7 +165,6 @@ function TopNav() {
   );
 }
 
-import AdminLoginPage from './pages/AdminLoginPage';
 import Footer from './components/Footer';
 
 // ── Protected app shell ────────────────────────────────────────────────────────
@@ -170,6 +177,7 @@ function AppShell() {
 
       <TopNav />
       <main className="flex-1 w-full relative z-10">
+        <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/" element={<PageErrorBoundary name="Trust Dashboard"><Dashboard wsEvents={events} /></PageErrorBoundary>} />
           <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}><PageErrorBoundary name="Admin Console"><AdminDashboard /></PageErrorBoundary></ProtectedRoute>} />
@@ -183,6 +191,7 @@ function AppShell() {
           <Route path="/history" element={<PageErrorBoundary name="Analysis History"><HistoryPage /></PageErrorBoundary>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main>
       <Footer />
     </div>
@@ -194,6 +203,7 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
@@ -206,6 +216,7 @@ export default function App() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

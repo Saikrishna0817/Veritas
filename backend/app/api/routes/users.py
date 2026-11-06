@@ -1,7 +1,7 @@
 """User management endpoints for Administrators."""
 
 from typing import Any, Dict, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.core.security import require_admin, hash_password
@@ -12,8 +12,16 @@ router = APIRouter()
 
 class CreateUserRequest(BaseModel):
     username: str = Field(min_length=3, max_length=64)
-    password: str = Field(min_length=4, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
     role: str = Field(default="user", pattern="^(user|analyst|admin)$")
+
+    @field_validator("password")
+    @classmethod
+    def _fits_bcrypt(cls, value: str) -> str:
+        # bcrypt silently ignores bytes past 72; reject instead of truncating.
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("password must be at most 72 bytes")
+        return value
 
 
 

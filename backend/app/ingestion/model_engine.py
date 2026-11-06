@@ -49,6 +49,26 @@ SAFE_GLOBALS = {
     ("numpy.core.multiarray", "scalar"), ("numpy._core.multiarray", "scalar"),
     ("numpy._core.numeric", "_frombuffer"), ("numpy.core.numeric", "_frombuffer"),
     ("scipy.sparse._csr", "csr_matrix"), ("scipy.sparse._csc", "csc_matrix"),
+    # Estimator internals required by the supported models (each is exercised by
+    # tests/test_model_security.py::test_every_supported_model_type_loads_and_extracts).
+    ("sklearn.tree._tree", "Tree"),
+    ("sklearn.dummy", "DummyClassifier"), ("sklearn.dummy", "DummyRegressor"),
+    ("sklearn.tree._classes", "ExtraTreeClassifier"), ("sklearn.tree._classes", "ExtraTreeRegressor"),
+    ("sklearn.preprocessing._label", "LabelBinarizer"),
+    ("sklearn._loss.loss", "HalfBinomialLoss"), ("sklearn._loss.loss", "HalfSquaredError"),
+    ("sklearn._loss.link", "IdentityLink"), ("sklearn._loss.link", "LogitLink"),
+    ("sklearn._loss.link", "Interval"),
+    ("_loss", "CyHalfBinomialLoss"), ("_loss", "CyHalfSquaredError"),
+    ("sklearn.linear_model._sgd_fast", "Hinge"),
+    ("sklearn.metrics._dist_metrics", "newObj"),
+    ("sklearn.metrics._dist_metrics", "EuclideanDistance64"), ("sklearn.metrics._dist_metrics", "EuclideanDistance32"),
+    ("sklearn.neural_network._stochastic_optimizers", "AdamOptimizer"),
+    ("sklearn.neural_network._stochastic_optimizers", "SGDOptimizer"),
+    ("sklearn.neighbors._kd_tree", "KDTree"), ("sklearn.neighbors._kd_tree", "newObj"),
+    ("sklearn.neighbors._ball_tree", "BallTree"), ("sklearn.neighbors._ball_tree", "newObj"),
+    ("numpy.random._pickle", "__randomstate_ctor"), ("numpy.random._pickle", "__bit_generator_ctor"),
+    ("numpy.random._mt19937", "MT19937"),
+    ("numpy.random.bit_generator", "__pyx_unpickle_SeedSequence"), ("numpy.random.bit_generator", "SeedSequence"),
 }
 
 
@@ -147,7 +167,7 @@ class ModelScanEngine:
 
         # Cap rows for performance (take a representative sample)
         if len(matrix) > 5000:
-            idx = np.random.choice(len(matrix), 5000, replace=False)
+            idx = np.random.RandomState(0).choice(len(matrix), 5000, replace=False)  # seeded: same model, same result
             matrix = matrix[idx]
 
         # Replace NaN/Inf

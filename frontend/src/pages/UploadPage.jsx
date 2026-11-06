@@ -77,7 +77,7 @@ export default function UploadPage() {
     setProgress(0);
 
     const interval = setInterval(() => {
-      setProgress((p) => (p < 85 ? p + Math.random() * 12 : p));
+      setProgress((p) => (p < 85 ? p + (85 - p) * 0.08 : p));
     }, 300);
 
     try {

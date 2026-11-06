@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import Marquee from 'react-fast-marquee';
@@ -8,7 +8,8 @@ import { Line, Bar, XAxis, YAxis, CartesianGrid,
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChevronRight, Loader, BrainCircuit, FileText, ShieldAlert, User } from 'lucide-react';
-import Tactile3DHero from '../components/Tactile3DHero';
+// three.js is ~1 MB; load the decorative hero after the page is interactive.
+const Tactile3DHero = lazy(() => import('../components/Tactile3DHero'));
 
 // ── Sub-components for Metrics ────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ export default function Dashboard({ wsEvents = [] }) {
             pointerEvents: 'none',
             zIndex: 0
           }}>
-             <Tactile3DHero intensity={analystMode ? 2.0 : 0.5} />
+             <Suspense fallback={null}><Tactile3DHero intensity={analystMode ? 2.0 : 0.5} /></Suspense>
           </div>
         </div>
       </section>

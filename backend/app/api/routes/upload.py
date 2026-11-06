@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
-from app.api.analysis_helpers import run_csv_analysis
+from app.api.analysis_helpers import _orchestrate_csv, run_csv_analysis
 from app.core.security import is_safe_filename, require_user
+from app.jobs.queue import job_store
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ async def analyze_uploaded_csv(
     background_tasks: BackgroundTasks,
     request: Request,
     file: UploadFile = File(...),
+    background: bool = Query(False, description="Return 202 + job_id immediately; poll GET /jobs/{job_id}"),
     user: dict = Depends(require_user),
 ):
     """Upload a CSV file and run the full 5-layer poisoning detection pipeline.
@@ -66,6 +68,23 @@ async def analyze_uploaded_csv(
 
     content = await read_upload_limited(file, MAX_CSV_SIZE)
     filename = file.filename
+
+    if background:
+        def _job() -> dict:
+            result, dataset_id = _orchestrate_csv(content, filename)
+            result["source"] = "upload"
+            result = deps.to_serializable(result)
+            deps.upload_result_cache[dataset_id] = result
+            deps.upload_result_cache["latest"] = result
+            deps.db.save_result(result, "upload", filename)
+            deps.db.log_audit_event(
+                user["id"], "analysis.uploaded", "dataset", dataset_id,
+                {"filename": filename, "n_samples": result.get("n_samples"), "verdict": result.get("verdict")},
+            )
+            return result
+
+        job_id = job_store.submit("csv_upload", _job, owner_id=user["id"])
+        return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
         full_result, dataset_id = await run_csv_analysis(content, filename, source="upload")

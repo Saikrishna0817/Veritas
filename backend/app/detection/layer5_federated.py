@@ -1,49 +1,11 @@
-"""
-Layer 5 — Federated Behavioral Trust  (RECTIFIED v2)
-======================================================
+"""Layer 5 — Federated behavioral trust.
 
-RECTIFICATIONS:
-
-  RECT 1 ── EMA α=0.70 is too aggressive for new clients
-    OLD: A brand-new client with INITIAL_TRUST=0.5 that submits one high-quality
-         gradient immediately gets trust = 0.7 × 1.0 + 0.3 × 0.5 = 0.85.
-         Three rounds later of perfect gradients → trust ≈ 0.99.
-         Conversely, three bad rounds → trust ≈ 0.03 (quarantined).
-         This is hypersensitive — a single bad round from a mostly-honest
-         client (e.g. data quality issue) moves trust from 0.85 to 0.28
-         (just below quarantine threshold).
-    FIX: Use a WARM-UP period for new clients. For the first
-         MIN_ROUNDS_BEFORE_QUARANTINE rounds, use a slower α=0.30.
-         After warm-up, use α=0.70 for quick response. This prevents
-         premature quarantine without sacrificing responsiveness.
-
-  RECT 2 ── fingerprint (running mean gradient) accumulation has an off-by-one
-    OLD: n = self.round_counts[client_id]  (AFTER incrementing)
-         self.fingerprints[client_id] = fp × (n-1)/n + grad / n
-         On round 2 (n=2): fp = fp × 0.5 + grad × 0.5  ✓
-         On round 3 (n=3): fp = fp × 0.667 + grad × 0.333  ✓
-         Actually this is correct — the Welford/running-mean formula is right.
-         But the fingerprint is never USED anywhere in the pipeline.
-    FIX: Use fingerprint in a gradient fingerprint divergence check.
-         Flag clients whose current gradient deviates strongly from their own
-         historical fingerprint (sudden behavioral change = potential compromise).
-
-  RECT 3 ── simulate_round uses fixed seed 42 every call → always same result
-    OLD: rng = np.random.RandomState(42) inside simulate_round().
-         Every call produces identical synthetic gradients regardless of round.
-         Trust scores therefore don't evolve in simulation mode.
-    FIX: Seed with a round counter so simulated rounds progress over time.
-
-  RECT 4 ── quarantined clients remain quarantined even if trust recovers
-    OLD: Once added to self.quarantined set, a client is never removed.
-         A legitimate client falsely quarantined (3 bad rounds early on)
-         can never recover even after 100 good rounds.
-    FIX: Re-evaluate quarantine status each round. If trust recovers above
-         QUARANTINE_THRESHOLD × 1.5 (rehabilitation threshold), remove
-         from quarantined set and log the rehabilitation.
-
-  Previously fixed bugs (EMA direction, normalisation, fraction-based
-  suspicion score) are preserved.
+Scores each client's gradient by cosine similarity to the global gradient and keeps an
+EMA trust score per client. New clients use a slower EMA during a warm-up period so a
+single bad round does not quarantine them, and each client's current gradient is also
+compared with its own running-mean "fingerprint" to catch sudden behaviour changes.
+Only used in federated mode; otherwise the pipeline substitutes a zero result.
+Design history is in git.
 """
 
 import numpy as np

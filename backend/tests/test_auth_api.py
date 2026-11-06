@@ -16,6 +16,17 @@ from app.core.security import (
 
 client = TestClient(app)
 
+TEST_USER_PASSWORD = "regular-user-pass"
+
+
+@pytest.fixture(scope="module", autouse=True)
+def regular_user():
+    from app.core.security import hash_password
+    from app.models import database as db
+
+    if not db.get_user_by_username("user"):
+        db.create_user("user", hash_password(TEST_USER_PASSWORD), role="user")
+
 
 def test_missing_bearer_token_is_rejected():
     with pytest.raises(HTTPException) as error:
@@ -107,7 +118,7 @@ def test_portal_required_role_enforcement():
     init_db()
 
     # Regular user attempting admin portal login
-    res_user_in_admin_portal = client.post("/api/v1/auth/token", json={"username": "user", "password": "user123", "required_role": "admin"})
+    res_user_in_admin_portal = client.post("/api/v1/auth/token", json={"username": "user", "password": TEST_USER_PASSWORD, "required_role": "admin"})
     assert res_user_in_admin_portal.status_code == 403
     assert "Access denied" in res_user_in_admin_portal.json()["detail"]
 
@@ -117,7 +128,7 @@ def test_portal_required_role_enforcement():
     assert "Administrator account detected" in res_admin_in_user_portal.json()["detail"]
 
     # Valid user portal login
-    res_valid_user = client.post("/api/v1/auth/token", json={"username": "user", "password": "user123", "required_role": "user"})
+    res_valid_user = client.post("/api/v1/auth/token", json={"username": "user", "password": TEST_USER_PASSWORD, "required_role": "user"})
     assert res_valid_user.status_code == 200
 
     # Valid admin portal login

@@ -55,17 +55,6 @@ from sklearn.model_selection import cross_val_score, StratifiedKFold, train_test
 from sklearn.cluster import KMeans
 
 
-# ── Constants ──────────────────────────────────────────────────────────────────
-N_BOOTSTRAP          = 100
-CI_LEVEL             = 0.95
-P_VALUE_THRESHOLD    = 0.05
-MIN_CAUSAL_EFFECT    = 0.01
-PLACEBO_RATIO_MAX    = 0.20
-MIN_FLAGGED_SAMPLES  = 5
-MIN_TOTAL_SAMPLES    = 40
-CV_FOLDS             = 3
-GEOMETRIC_DECAY_RATE = 0.30
-
 # ── Fingerprint thresholds ─────────────────────────────────────────────────────
 FP_LABEL_RATIO_MIN_DELTA  = 0.15   # flagged label ratio differs ≥ 15pp from clean
 FP_FEATURE_Z_ALARM        = 2.0    # per-feature z-score for gradient attack
@@ -237,6 +226,7 @@ MIN_FLAGGED_SAMPLES  = 5
 MIN_TOTAL_SAMPLES    = 40
 CV_FOLDS             = 3
 GEOMETRIC_DECAY_RATE = 0.30
+MAX_ROWS             = 4000   # cost of the causal proof is ~O(rows); larger inputs are subsampled
 
 
 class CausalProofEngine:
@@ -254,6 +244,19 @@ class CausalProofEngine:
         self._fp_detector     = PoisoningFingerprintDetector()
 
     def run(self, X: np.ndarray, y: np.ndarray, flagged_indices: list) -> dict:
+        """Run the proof, on a uniform random subsample if the input exceeds MAX_ROWS."""
+        n = len(X)
+        if n <= MAX_ROWS:
+            return self._run(X, y, flagged_indices)
+        keep = np.sort(np.random.RandomState(self.random_state).choice(n, MAX_ROWS, replace=False))
+        position = {int(orig): new for new, orig in enumerate(keep)}
+        flagged = [position[int(i)] for i in flagged_indices if int(i) in position]
+        result = self._run(np.asarray(X)[keep], np.asarray(y)[keep], flagged)
+        result["subsampled_from"] = n
+        result["n_rows_used"] = MAX_ROWS
+        return result
+
+    def _run(self, X: np.ndarray, y: np.ndarray, flagged_indices: list) -> dict:
         X       = np.array(X, dtype=float)
         y       = np.array(y)
         flagged = list(flagged_indices)
@@ -375,7 +378,7 @@ class CausalProofEngine:
             "gradient_boosting"   : self._cv_accuracy(X, y, "gbm"),
         }
 
-    def _cv_accuracy(self, X: np.ndarray, y: np.ndarray, model_type: str = "lr") -> float:
+    def _cv_accuracy(self, X: np.ndarray, y: np.ndarray, model_type: str = "lr", groups=None) -> float:
         if len(np.unique(y)) < 2:
             return 1.0
         try:
@@ -401,10 +404,40 @@ class CausalProofEngine:
                                                             random_state=self.random_state, stratify=y)
                 clf.fit(X_tr, y_tr)
                 return float((clf.predict(X_te) == y_te).mean())
+            if groups is not None:
+                return self._grouped_cv_accuracy(clf, X, y, groups)
             cv = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_state)
             return float(cross_val_score(clf, X, y, cv=cv, scoring="accuracy").mean())
         except Exception:
             return self._cv_accuracy(X, y, "lr") if model_type != "lr" else 0.5
+
+    def _grouped_cv_accuracy(self, clf, X, y, groups) -> float:
+        """K-fold accuracy where rows sharing a group id always land in the same fold.
+
+        Bootstrap resamples contain duplicate rows; a plain K-fold would put copies of
+        one row in both train and test and inflate accuracy. Folds are assigned to the
+        unique rows (stratified) and every copy inherits its row's fold.
+        (sklearn's StratifiedGroupKFold does the same but measured ~10x slower here.)
+        """
+        uniq, first, inverse = np.unique(groups, return_index=True, return_inverse=True)
+        y_u = y[first]
+        n_folds = min(CV_FOLDS, int(np.bincount(y_u.astype(int)).min()))
+        if n_folds < 2:
+            return float(np.mean(y == np.bincount(y.astype(int)).argmax()))  # degenerate: majority baseline
+        fold_u = np.empty(len(uniq), dtype=int)
+        cv = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_state)
+        for k, (_, test_u) in enumerate(cv.split(uniq, y_u)):
+            fold_u[test_u] = k
+        fold = fold_u[inverse]
+        accs = []
+        for k in range(n_folds):
+            test = fold == k
+            train = ~test
+            if not test.any() or len(np.unique(y[train])) < 2:
+                continue
+            clf.fit(X[train], y[train])
+            accs.append(float((clf.predict(X[test]) == y[test]).mean()))
+        return float(np.mean(accs)) if accs else 0.5
 
     def _bootstrap(self, X, y, flagged):
         rng         = np.random.RandomState(self.random_state)
@@ -417,10 +450,10 @@ class CausalProofEngine:
             ball = np.concatenate([bc, bf])
             Xb, yb = X[ball], y[ball]
             if len(np.unique(yb)) < 2: continue
-            acc_with  = self._cv_accuracy(Xb, yb, "lr")
+            acc_with  = self._cv_accuracy(Xb, yb, "lr", groups=ball)
             Xc, yc    = X[bc], y[bc]
             if len(Xc) < 10 or len(np.unique(yc)) < 2: continue
-            acc_wo    = self._cv_accuracy(Xc, yc, "lr")
+            acc_wo    = self._cv_accuracy(Xc, yc, "lr", groups=bc)
             effects.append(acc_wo - acc_with)
         return np.array(effects) if effects else np.array([0.0])
 

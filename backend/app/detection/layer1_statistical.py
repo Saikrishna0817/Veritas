@@ -1,41 +1,14 @@
-"""
-Layer 1 — Statistical Shift Detection  (RECTIFIED v5 — FINAL)
-==============================================================
+"""Layer 1 — Statistical shift detection.
 
-NEW IN v5 — BLEND TRIGGER DETECTION (validated against simulated attacks):
-
-  BUG 4 ── Blend trigger attacks are invisible to per-feature analysis
-    PROBLEM: A "blend trigger" backdoor modifies multiple features by a
-             fixed vector (e.g. feature_i += trigger_i for all poisoned
-             samples). Each individual feature's KL, Wasserstein, or spike
-             score is tiny. Mean-level tests can't see it at 8% poison rate
-             because the mean shift is diluted 12× by clean samples.
-             
-    FIX: _blend_trigger_score() — a directional tail enrichment test:
-    
-         Step 1: Find the direction of maximum mean shift between incoming
-                 and baseline (the trigger direction, estimated from data).
-                 
-         Step 2: Project all samples onto this direction (standardised).
-         
-         Step 3: Measure ENRICHMENT RATIO — what fraction of incoming
-                 samples land in the 2-sigma tail of the reference projection?
-                 For clean data → ~0.9–1.2x. For blend trigger → 2–8x.
-                 
-         Step 4: Measure SKEWNESS SHIFT — the incoming projection's skewness
-                 should increase because poisoned samples pull the tail.
-                 For clean data → near 0. For blend trigger → 0.5+.
-                 
-         Both signals fire on poisoned data, neither fires on clean data.
-         Validated: 0 false positives on clean, correct alarm at 7–8% poison.
-
-  BUG 5 ── Suspicion score weights: blend contrib added
-    FIX: blend_contrib = float(blend_alarm) * 0.35. Rebalanced other weights.
-
-  BUG 6 ── KL/Wasserstein averaged across features, diluting signal
-    FIX: Top-K (3 features) alarming in addition to mean.
-    
-All previously documented rectifications (v4 BUG 1–3, RECT 1–5) preserved.
+Compares the incoming batch with a clean baseline:
+  * per-feature distribution shift (KL divergence, Wasserstein distance), combined so
+    one strongly shifted feature is not diluted by many unshifted ones;
+  * multivariate outliers (Mahalanobis distance with a robust MinCovDet covariance);
+  * blend triggers: a fixed vector added across many features is invisible per feature,
+    so the batch is projected onto its direction of maximum mean shift and tested for
+    tail enrichment and a skewness shift.
+Returns ``suspicion_score`` in [0, 1] plus the per-test alarms (``alarm_kl``,
+``alarm_mahal``, ``alarm_blend_trigger``). Design history is in git.
 """
 
 import numpy as np

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from hmac import compare_digest
 from typing import Any
 
 from fastapi import Depends, HTTPException, status
@@ -41,20 +40,21 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return False
 
 
+# Verified against when the username is unknown so response time doesn't reveal
+# which usernames exist.
+_DUMMY_HASH = bcrypt.hashpw(b"veritas-dummy", bcrypt.gensalt()).decode("utf-8")
+
+
 def authenticate_user(username: str, password: str) -> dict[str, str] | None:
-    """Authenticate against SQLite users, falling back to env bootstrap credentials."""
+    """Authenticate against the SQLite users table (the env admin is seeded there at startup)."""
     if not _auth_configured():
         return None
 
     from app.models import database as db
 
     stored = db.get_user_by_username(username)
-    if stored and verify_password(password, stored["password_hash"]):
+    if verify_password(password, stored["password_hash"] if stored else _DUMMY_HASH) and stored:
         return {"id": stored["id"], "name": stored["username"], "role": stored["role"]}
-
-    if compare_digest(username, settings.admin_username) and compare_digest(password, settings.admin_password):
-        return {"id": username, "name": username, "role": "admin"}
-
     return None
 
 
@@ -75,6 +75,11 @@ def decode_access_token(token: str) -> dict[str, Any]:
     if not all(claims.get(key) for key in ("sub", "name", "role")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token claims")
     return {"id": claims["sub"], "name": claims["name"], "role": claims["role"]}
+
+
+def token_expiry(token: str) -> float:
+    """Unix expiry time of an already-verified token."""
+    return float(jwt.get_unverified_claims(token)["exp"])
 
 
 def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict[str, Any]:

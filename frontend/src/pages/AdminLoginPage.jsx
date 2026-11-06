@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ShieldAlert, AlertTriangle, ShieldCheck, ArrowLeft } from 'lucide-react';
-import Tactile3DHero from '../components/Tactile3DHero';
+// three.js is ~1 MB; load the decorative hero after the page is interactive.
+const Tactile3DHero = lazy(() => import('../components/Tactile3DHero'));
 
 export default function AdminLoginPage() {
   const { user, login } = useAuth();
@@ -40,12 +41,6 @@ export default function AdminLoginPage() {
     }
   }
 
-  const fillAdminCredentials = () => {
-    setUsername('admin');
-    setPassword('admin');
-    setError('');
-  };
-
   return (
     <main
       className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
@@ -53,7 +48,7 @@ export default function AdminLoginPage() {
     >
       {/* Full-screen 3D animated background */}
       <div className="fixed inset-0 z-0 pointer-events-none" style={{ opacity: 0.3 }}>
-        <Tactile3DHero intensity={0.8} />
+        <Suspense fallback={null}><Tactile3DHero intensity={0.8} /></Suspense>
       </div>
 
       {/* Crimson security vignette overlay */}
@@ -147,34 +142,6 @@ export default function AdminLoginPage() {
           <span style={{ fontSize: 11, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-secondary)' }}>
             Authorized administrator credentials required. All authentication attempts are logged.
           </span>
-        </div>
-
-        {/* Quick Fill Button */}
-        <div>
-          <button
-            type="button"
-            onClick={fillAdminCredentials}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: username === 'admin' ? '1px solid var(--red-primary)' : '1px solid rgba(255,255,255,0.08)',
-              background: username === 'admin' ? 'rgba(228,36,43,0.2)' : 'rgba(255,255,255,0.03)',
-              color: username === 'admin' ? 'var(--red-bright)' : 'var(--text-muted)',
-              fontSize: 11,
-              fontFamily: "'JetBrains Mono', monospace",
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <ShieldAlert style={{ width: 14, height: 14 }} />
-            Fill Administrator Credentials (admin / admin)
-          </button>
         </div>
 
         {/* Form fields */}

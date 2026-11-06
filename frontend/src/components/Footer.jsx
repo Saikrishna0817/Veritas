@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Lock, Shield, Activity, ExternalLink, Cpu, CheckCircle2 } from 'lucide-react';
+import { Lock, ExternalLink, Cpu, CheckCircle2 } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -20,23 +20,19 @@ export default function Footer() {
             </Link>
 
             <p className="text-sm text-textMuted leading-relaxed max-w-sm">
-              Enterprise AI Security & Data Poisoning Defense Platform. Delivering continuous algorithmic integrity, adversarial data detection, and proxy impact forensics across deep learning pipelines.
+              Analyst-support platform for investigating risk signals consistent with data poisoning: statistical, spectral, ensemble and proxy-model checks on tabular datasets and scikit-learn models.
             </p>
 
-            {/* Live Telemetry Status Pill */}
-            <div className="inline-flex items-center gap-3 px-3.5 py-2 rounded-xl bg-bgPanel border border-borderHairline">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            {/* Honest status: the detector is experimental (see docs/model-card.md) */}
+            <div className="max-w-sm px-3.5 py-2 rounded-xl bg-bgPanel border border-borderHairline">
+              <span className="font-mono text-[10px] font-bold text-white uppercase tracking-wider">
+                Experimental analyst-support tool
               </span>
-              <div className="flex flex-col">
-                <span className="font-mono text-[10px] font-bold text-white uppercase tracking-wider">
-                  All Systems Operational
-                </span>
-                <span className="font-mono text-[9px] text-textMuted">
-                  Cluster us-east-spectra • Latency 16ms
-                </span>
-              </div>
+              <p className="font-mono text-[10px] text-textMuted mt-1 leading-relaxed">
+                On the project's own benchmark (v1) the combined detector did not flag any seeded
+                attack at its default threshold. Treat scores and verdicts as signals to
+                investigate, not findings. See docs/model-card.md.
+              </p>
             </div>
           </div>
 
@@ -87,32 +83,16 @@ export default function Footer() {
           {/* Column 2: Governance & Frameworks */}
           <div className="space-y-4">
             <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-textPrimary">
-              AI Governance
+              Referenced frameworks
             </h4>
             <ul className="space-y-2.5 text-sm font-medium">
               <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
                 <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
-                <span>NIST AI RMF 1.0 (MAP 1.5)</span>
+                <span>NIST AI RMF 1.0 (MAP 1.5, MEASURE 2.5, GOVERN 1.1)</span>
               </li>
               <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
                 <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
                 <span>EU AI Act (Articles 9 & 17)</span>
-              </li>
-              <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
-                <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
-                <span>MITRE ATLAS (AML.T0018)</span>
-              </li>
-              <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
-                <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
-                <span>ISO/IEC 42001 Certified</span>
-              </li>
-              <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
-                <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
-                <span>OWASP Top 10 for LLMs</span>
-              </li>
-              <li className="flex items-center gap-2 text-textMuted hover:text-white transition-colors cursor-default">
-                <CheckCircle2 className="w-3.5 h-3.5 text-redPrimary shrink-0" />
-                <span>STIX 2.1 Threat Export</span>
               </li>
             </ul>
           </div>
@@ -166,15 +146,12 @@ export default function Footer() {
           <div className="flex items-center gap-6 flex-wrap">
             <span className="flex items-center gap-2">
               <Cpu className="w-3.5 h-3.5 text-redPrimary" />
-              <span>CORE ENGINE: <strong className="text-textPrimary">v2.2-enterprise</strong></span>
+              <span>VERSION: <strong className="text-textPrimary">v2.2</strong></span>
             </span>
             <span>ALGORITHM: <strong className="text-textPrimary">L1-L5 Spectral + Counterfactual</strong></span>
-            <span>INGESTION: <strong className="text-textPrimary">Kafka / REST / CSV</strong></span>
-            <span>CIPHER: <strong className="text-textPrimary">AES-256-GCM / TLS 1.3</strong></span>
+            <span>INGESTION: <strong className="text-textPrimary">REST / CSV / sklearn .pkl</strong></span>
           </div>
-          <div className="text-textMuted">
-            PLATFORM ID: <span className="text-textPrimary">SPECTRA-SEC-9982</span>
-          </div>
+          <div className="text-textMuted">Mapping to frameworks is informational, not a compliance certification.</div>
         </div>
       </div>
 

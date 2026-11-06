@@ -2,8 +2,11 @@ services:
   backend:
     build:
       context: ./backend
-    ports:
-      - "8001:8001"
+    restart: unless-stopped
+    # Not published: only the frontend (nginx) container may reach the API, so
+    # forwarded client-IP headers can be trusted.
+    expose:
+      - "8001"
     environment:
       - PYTHONUNBUFFERED=1
       - FORENSICS_SQLITE_PATH=/data/forensics_results.db
@@ -22,6 +25,7 @@ services:
   frontend:
     build:
       context: ./frontend
+    restart: unless-stopped
     ports:
       - "5173:5173"
     depends_on:

@@ -1,44 +1,10 @@
-"""
-Detection Pipeline — Orchestrator  (RECTIFIED v3)
-===================================================
+"""Detection pipeline: orchestrates the five layers plus SHAP drift.
 
-NEW IN v3 — BLEND TRIGGER SCORE PROPAGATION:
-
-  RECT 7 ── L1 blend_trigger alarm not surfaced in combined score
-    OLD: The orchestrator reads r1["suspicion_score"] which in v4 did not
-         include blend_contrib. Now that L1 v5 adds blend_contrib to its
-         suspicion_score, this flows through correctly — BUT the alarm flag
-         "alarm_blend_trigger" is not reflected in n_layers_alarmed counting
-         or in the Attack Classification confidence routing.
-    FIX: Add alarm_blend_trigger to the layer alarm tally. Also update
-         _normalise_result to expose blend_score in the layer1 summary.
-
-  RECT 8 ── L2 partial_backdoor (3/4 signals) gives 0 suspicion in v2
-    OLD: L2 v2 only contributes suspicion when all 4 signals fire.
-         3/4 signals → fires=3 → suspicion = 3 * 0.10 = 0.30, but the
-         _normalise_result caps contributions at LAYER_WEIGHTS["l2"] = 0.20.
-         In practice, 3/4 signals on a real backdoor gave L2 ≈ 0.03 overall.
-    FIX: L2 v3 now returns partial_backdoor suspicion in [0.15, 0.50] range.
-         The orchestrator uses the raw L2 suspicion_score which now reflects this.
-         No orchestrator code change needed — L2 v3 handles it internally.
-
-  RECT 9 ── LAYER_WEIGHTS["l1_statistical"] = 0.30 but blend trigger adds 0.35
-             to L1's internal score. When L1 suspicion_score = 0.35 (blend only),
-             the contribution to overall = 0.30 × 0.35 = 0.105 — below SUSPICIOUS.
-    FIX: Increase l1_statistical weight to 0.35 and reduce l3_ensemble to 0.20
-         so total remains 1.0. L1 is the most versatile detector; giving it
-         more weight improves sensitivity for both spike and blend attacks.
-
-  RECT 10 ── Verdict logic: if overall >= CONFIRMED but proof_valid is False,
-             we emit SUSPICIOUS. But a blend backdoor rarely gets causal proof
-             because L4 runs on flagged_indices from L3 (which may be 0).
-             This creates a dead-end where a clear blend attack stays SUSPICIOUS.
-    FIX: If alarm_blend_trigger=True AND alarm_l2_spectral=True, allow
-         CONFIRMED_POISONED even without L4 causal proof (spectral + correlation
-         evidence is sufficient for high-confidence blend backdoor calls).
-         Otherwise preserve existing causal gate.
-
-All previously documented rectifications (RECT 1–6 from v2) are preserved.
+Layer suspicion scores are combined with ``LAYER_WEIGHTS``. Layer 3 is fitted on the
+reference rows and scores only the incoming batch; a low-confidence Layer 3 score is
+suppressed (see the calibration notes below). ``CONFIRMED_POISONED`` requires a valid
+Layer-4 causal proof, unless a blend-trigger alarm and a spectral alarm co-fire.
+Design history is in git; measured performance is in ``backend/research/results``.
 """
 
 import numpy as np
@@ -336,7 +302,7 @@ class DetectionPipeline:
 
         return self._normalise_result(result, samples, X_inc)
 
-    def run(self, samples: list, run_causal: bool = True) -> dict:
+    def run(self, samples: list) -> dict:
         X = np.array([s["feature_vector"] for s in samples], dtype=float)
         y = np.array([s.get("label", 0) for s in samples], dtype=int)
 
@@ -396,14 +362,6 @@ class DetectionPipeline:
         overall = result.get("overall_suspicion", 0.0)
         verdict = result.get("verdict", "CLEAN")
 
-        flagged_idx  = set(layer_results["layer3_ensemble"].get("flagged_indices", []))
-        n_ref_stored = len(samples) - len(X_inc)
-        ensemble_scores = [
-            1.0 if (i + n_ref_stored) in flagged_idx else 0.1
-            for i in range(len(X_inc))
-        ]
-        layer_results["layer3_ensemble"]["ensemble_scores"] = ensemble_scores
-
         return {
             "overall_suspicion_score" : overall,
             "verdict"                 : verdict,
@@ -417,5 +375,4 @@ class DetectionPipeline:
             "blend_spectral_confirmed": result.get("blend_spectral_confirmed", False),
             "thresholds"              : result.get("thresholds", {}),
             "overall_suspicion"       : overall,
-            "details"                 : details,
         }

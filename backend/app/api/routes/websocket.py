@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, token_expiry
 
 router = APIRouter()
+
+AUTH_TIMEOUT_SECS = 5
 
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
+    def connect(self, websocket: WebSocket):
+        """Register an already-accepted, authenticated socket."""
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
@@ -27,7 +31,7 @@ class ConnectionManager:
     async def broadcast(self, event: str, data: dict):
         message = json.dumps({"event": event, "data": data})
         dead = []
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
                 await connection.send_text(message)
             except Exception:
@@ -39,6 +43,23 @@ class ConnectionManager:
         await websocket.send_json({"event": event, "data": data})
 
 
+async def _authenticate(websocket: WebSocket) -> str | None:
+    """Expect ``{"type": "auth", "token": ...}`` as the first frame; return the token.
+
+    The token travels in a message, not the URL, so it never lands in proxy or
+    access logs.
+    """
+    try:
+        first = await asyncio.wait_for(websocket.receive_json(), AUTH_TIMEOUT_SECS)
+        if first.get("type") != "auth":
+            return None
+        token = first["token"]
+        decode_access_token(token)
+        return token
+    except Exception:
+        return None
+
+
 @router.websocket("/ws/v1/detection-stream")
 async def detection_stream(websocket: WebSocket):
     """
@@ -46,23 +67,30 @@ async def detection_stream(websocket: WebSocket):
 
     The ConnectionManager instance is stored on app.state.ws_manager by main.py.
     """
-    token = websocket.query_params.get("access_token")
-    if not token:
+    await websocket.accept()
+    token = await _authenticate(websocket)
+    if token is None:
         await websocket.close(code=1008, reason="Authentication required")
         return
-    try:
-        decode_access_token(token)
-    except Exception:
-        await websocket.close(code=1008, reason="Invalid access token")
-        return
 
+    expires_at = token_expiry(token)
     manager: ConnectionManager = websocket.app.state.ws_manager
-    await manager.connect(websocket)
+    manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_text()
-            msg = json.loads(data)
-            if msg.get("type") == "ping":
+            remaining = expires_at - time.time()
+            if remaining <= 0:
+                await websocket.close(code=1008, reason="Token expired")
+                break
+            try:
+                msg = json.loads(await asyncio.wait_for(websocket.receive_text(), remaining))
+            except asyncio.TimeoutError:
+                continue  # loop re-checks expiry and closes
+            except ValueError:
+                continue  # ignore malformed frames instead of dropping the socket
+            if isinstance(msg, dict) and msg.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
+        pass
+    finally:
         manager.disconnect(websocket)

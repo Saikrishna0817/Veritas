@@ -162,7 +162,7 @@ def save_result(result: Dict[str, Any], source: str, filename: str = None) -> st
             result.get("n_samples"),
             result.get("elapsed_ms"),
             json.dumps(result),
-            datetime.now(timezone.utc).isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -190,7 +190,7 @@ def save_model_scan(scan: Dict[str, Any]) -> str:
             scan.get("attack_classification", {}).get("attack_type"),
             scan.get("n_samples"),
             json.dumps(scan),
-            datetime.now(timezone.utc).isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -313,7 +313,7 @@ def log_audit_event(
             resource_type,
             resource_id,
             json.dumps(details or {}),
-            datetime.now(timezone.utc).isoformat() + "Z",
+            datetime.now(timezone.utc).isoformat(),
         ),
     )
     conn.commit()
@@ -340,48 +340,28 @@ def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]
 
 
 def _ensure_bootstrap_admin(conn: sqlite3.Connection) -> None:
-    """Seed default administrator and regular user into SQLite if missing."""
-    from app.core.security import hash_password
+    """Seed the env-configured administrator if missing; purge the legacy default user."""
+    from app.core.security import hash_password, verify_password
 
-    now_iso = datetime.now(timezone.utc).isoformat() + "Z"
-    
-    # Check if admin user exists
+    # Older versions seeded user/user123. Remove it if it still has that password.
+    legacy = conn.execute("SELECT password_hash FROM users WHERE id = 'user-regular-001'").fetchone()
+    if legacy and verify_password("user123", legacy["password_hash"]):
+        conn.execute("DELETE FROM users WHERE id = 'user-regular-001'")
+
     if settings.admin_username and settings.admin_password:
-        admin_row = conn.execute("SELECT id FROM users WHERE username = ?", (settings.admin_username,)).fetchone()
-        if not admin_row:
+        row = conn.execute("SELECT id FROM users WHERE username = ?", (settings.admin_username,)).fetchone()
+        if not row:
             conn.execute(
-                """
-                INSERT INTO users (id, username, password_hash, role, created_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
+                "INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)",
                 (
                     settings.admin_username,
                     settings.admin_username,
                     hash_password(settings.admin_password),
                     "admin",
-                    now_iso,
+                    datetime.now(timezone.utc).isoformat(),
                 ),
             )
-
-    # Check if default regular user exists
-    user_row = conn.execute("SELECT id FROM users WHERE username = 'user'").fetchone()
-    if not user_row:
-        conn.execute(
-            """
-            INSERT INTO users (id, username, password_hash, role, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (
-                "user-regular-001",
-                "user",
-                hash_password("user123"),
-                "user",
-                now_iso,
-            ),
-        )
-
     conn.commit()
-
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
@@ -398,7 +378,7 @@ def create_user(username: str, password_hash: str, role: str = "analyst") -> str
         INSERT INTO users (id, username, password_hash, role, created_at)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (user_id, username, password_hash, role, datetime.now(timezone.utc).isoformat() + "Z"),
+        (user_id, username, password_hash, role, datetime.now(timezone.utc).isoformat()),
     )
     conn.commit()
     return user_id
@@ -447,7 +427,7 @@ def save_defense_action(action: Dict[str, Any]) -> None:
             action.get("suspicion_score", 0.0),
             action.get("reason", ""),
             json.dumps(action),
-            action.get("timestamp", datetime.now(timezone.utc).isoformat() + "Z"),
+            action.get("timestamp", datetime.now(timezone.utc).isoformat()),
         ),
     )
     conn.commit()
@@ -476,7 +456,7 @@ def save_hitl_case(case: Dict[str, Any]) -> None:
             case.get("n_samples", 0),
             case.get("status", "pending"),
             json.dumps(case),
-            case.get("created_at", datetime.now(timezone.utc).isoformat() + "Z"),
+            case.get("created_at", datetime.now(timezone.utc).isoformat()),
             case.get("deadline", ""),
         ),
     )
@@ -504,7 +484,7 @@ def save_hitl_decision(decision: Dict[str, Any]) -> None:
             decision["case_id"],
             decision["decision"],
             decision.get("reviewer", "analyst"),
-            decision.get("decided_at", datetime.now(timezone.utc).isoformat() + "Z"),
+            decision.get("decided_at", datetime.now(timezone.utc).isoformat()),
         ),
     )
     # Also update case status in hitl_cases table
@@ -540,7 +520,7 @@ def save_redteam_simulation(sim: Dict[str, Any]) -> None:
             sim.get("suspicion_score", 0.0),
             sim.get("resilience_score", 0.0),
             json.dumps(sim),
-            sim.get("timestamp", datetime.now(timezone.utc).isoformat() + "Z"),
+            sim.get("timestamp", datetime.now(timezone.utc).isoformat()),
         ),
     )
     conn.commit()

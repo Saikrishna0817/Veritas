@@ -59,6 +59,7 @@ from sklearn.preprocessing import RobustScaler
 
 
 # ── Model Inversion hyperparameters ───────────────────────────────────────────
+MAX_FIT_ROWS               = 3000   # reference rows used to fit the detectors
 MODEL_INVERSION_ALARM_THRESH = 0.45   # suspicion score at which alarm fires
 MI_NEAR_DUP_EPS              = 0.05   # L2 distance threshold for near-duplicates
 MI_NEAR_DUP_ALARM_FRAC       = 0.15   # ≥15% near-dup rate triggers this signal
@@ -246,6 +247,10 @@ class EnsembleAnomalyDetector:
     def fit(self, X_reference: np.ndarray) -> None:
         if X_reference.shape[0] < MIN_SAMPLES:
             return
+        if X_reference.shape[0] > MAX_FIT_ROWS:
+            # OneClassSVM/LOF fits are super-linear; a seeded subsample keeps fit time bounded.
+            keep = np.random.RandomState(self.random_state).choice(X_reference.shape[0], MAX_FIT_ROWS, replace=False)
+            X_reference = X_reference[np.sort(keep)]
         X = self._scaler.fit_transform(X_reference.astype(float))
         self._n_features_fitted = X.shape[1]
         self._fit_detectors(X)

@@ -61,22 +61,25 @@ async def run_demo(
 
     def _run():
         data = dg.refresh_demo_data(scenario="random")
-        samples = data["samples"]
-        clean = [s for s in samples if s["poison_status"] == "clean"][:200]
-        all_samples = samples[:300]
-        deps.pipeline.fit_baseline(clean[:150])
-        result = deps.pipeline.run(all_samples, run_causal=True)
+        all_samples = data["samples"][:300]
+        # pipeline.run() fits its own baseline on the first 70% of the batch.
+        result = deps.new_detection_pipeline().run(all_samples)
         attack_class = deps.classifier.classify(result["layer_results"], all_samples)
         pattern = deps.reconstructor.reconstruct(all_samples, attack_class, result["layer_results"])
         sophistication = deps.sophistication.score(attack_class, pattern, result)
         blast = deps.blast_mapper.map(all_samples, result["layer_results"])
         counterfactual = deps.counterfactual.simulate(result["layer_results"], blast)
         defense_action = deps.defense.decide_action(
-            all_samples, result["overall_suspicion_score"], result["verdict"]
+            all_samples, result["overall_suspicion_score"], result["verdict"], scope="demo"
         )
         hitl_case = None
         if result.get("requires_human_review"):
-            hitl_case = deps.hitl.enqueue(all_samples, result["layer_results"], result["overall_suspicion_score"])
+            hitl_case = deps.hitl.enqueue(
+                all_samples,
+                {**result["layer_results"], "attack_classification": attack_class},
+                result["overall_suspicion_score"],
+                scope="demo",
+            )
         full = {
             **result,
             "attack_classification": attack_class,
@@ -131,17 +134,31 @@ async def get_demo_samples(
 @router.post("/detect/analyze")
 async def analyze_dataset(
     body: AnalyzeRequest,  # M7: was request.json() raw body
+    request: Request,
     user: dict = Depends(require_user),
 ):
     """Run full 5-layer detection pipeline on demo dataset samples."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not deps.analysis_rate_limiter.allow(f"detect:{user['id']}:{client_ip}"):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many analysis requests. Try again in one minute.",
+        )
+
     data = deps.get_demo_data()
     samples = data["samples"]
     if body.sample_ids:
-        samples = [s for s in samples if s["id"] in body.sample_ids]
-    clean = [s for s in samples if s["poison_status"] == "clean"][:100]
-    deps.pipeline.fit_baseline(clean)
-    result = deps.pipeline.run(samples[:200], run_causal=True)
-    result = deps.to_serializable(result)
+        wanted = set(body.sample_ids)
+        samples = [s for s in samples if s["id"] in wanted]
+    batch = samples[:200]
+    if len(batch) < 20:
+        raise HTTPException(status_code=422, detail="At least 20 samples are required.")
+
+    def _run():
+        return deps.to_serializable(deps.new_detection_pipeline().run(batch))
+
+    loop = asyncio.get_running_loop()
+    result = await loop.run_in_executor(deps.get_thread_pool(), _run)
     deps.demo_result_cache["detection"] = result
     return JSONResponse(content=result)
 
@@ -224,7 +241,6 @@ async def analyze_real_dataset(
 
     # Make result available to forensics, reports, and trust-score endpoints
     deps.upload_result_cache["latest"] = full_result
-    deps.demo_result_cache["latest"] = full_result  # backward-compat
 
     background_tasks.add_task(deps.db.save_result, full_result, "real_dataset", data["filename"])
     ws_manager = request.app.state.ws_manager
@@ -248,10 +264,11 @@ async def run_red_team(
             detail="Too many red-team requests. Try again in one minute.",
         )
 
-    data = deps.get_demo_data()
-    deps.red_team.pipeline = deps.pipeline
-    result = deps.red_team.run_simulation(body.attack_type, data["samples"][:200])
-    return result
+    samples = deps.get_demo_data()["samples"][:200]
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        deps.get_thread_pool(), deps.red_team.run_simulation, body.attack_type, samples
+    )
 
 
 @router.get("/redteam/history")

@@ -1,66 +1,10 @@
-"""SHAP Explainability Drift Monitor  (RECTIFIED v2)
-=====================================================
+"""SHAP explanation-drift monitor.
 
-RECTIFICATIONS ON TOP OF v1 FIXES (BUG 6–8):
-
-  BUG 9 ── Model refitted per batch — the core correctness failure
-    OLD: _compute_shap_values() fits a new LogisticRegression on every batch.
-         The resulting SHAP values change because the MODEL WEIGHTS change,
-         not because the data distribution changed. On clean i.i.d. batches:
-           • Refitted-model clean drift  → mean 0.018, max 0.027
-           • Fixed-model clean drift     → mean 0.003, max 0.006
-         This 5–10× noise inflation means:
-           (a) Real attacks are masked by model-weight noise
-           (b) The "drift" metric is fundamentally measuring model instability,
-               not explanation drift
-         Root cause: SHAP is defined relative to ONE fixed model. You explain
-         the same model's behavior over different input batches — refitting the
-         model each time produces meaningless comparisons.
-    FIX: Accept an optional fitted sklearn estimator (`model`) in __init__.
-         If no model is provided, fit one on the first batch recorded and
-         reuse it permanently (store as self._model). All subsequent
-         _compute_shap_values() calls use self._model.coef_[0] — coefficients
-         never change, so drift is driven entirely by data changes.
-
-  BUG 10 ── suspicion_score ignores cumulative drift → slow-burn attacks invisible
-    OLD: suspicion_score = min(1.0, current_drift / drift_threshold)
-         A gradual attack that shifts SHAP values by 0.05 per batch (below
-         the 0.15 threshold each time) accumulates to 0.50 total drift after
-         10 batches yet suspicion_score = 0.33 forever and alarm never fires.
-    FIX: suspicion_score = max(
-             current_drift / drift_threshold,
-             cumulative_drift / (drift_threshold * CUMULATIVE_WINDOW)
-         )
-         where CUMULATIVE_WINDOW = 5 (5 batches at threshold = full alarm).
-         Cumulative drift is compared against a windowed threshold so scores
-         increase as slow-burn attacks compound. Alarm also fires when
-         cumulative_drift > drift_threshold * CUMULATIVE_WINDOW.
-
-  BUG 11 ── drift_per_feature uses only mean_shap, ignoring std_shap
-            (wasserstein_distance imported but never used — clear intent)
-    OLD: drift_per_feature[i] = |mean_shap_curr[i] - mean_shap_prev[i]|
-         An attack that changes the VARIANCE of SHAP values (i.e. making
-         explanations inconsistent rather than shifting them) is completely
-         invisible because std_shap is recorded in every snapshot but never
-         read. This matters: gradient poisoning and clean-label attacks often
-         cause SHAP variance inflation without large mean shifts.
-    FIX: Use the Wasserstein-1 approximation for 1D Gaussians:
-           W1(N(μ₁,σ₁), N(μ₂,σ₂)) ≈ |μ₁−μ₂| + |σ₁−σ₂|
-         drift_per_feature[i] = |Δmean[i]| + |Δstd[i]|
-         This now consumes the std_shap that was already being stored and
-         finally justifies the wasserstein_distance import intent.
-
-  BUG 12 ── Single-class batch fallback returns meaningless raw feature norms
-    OLD: except block returns np.abs(features) / row_norm.
-         When a batch is all-positive (label-flip attack!) or all-negative,
-         `LogisticRegression.fit()` raises and the fallback assigns
-         random-ish SHAP values proportional to raw feature magnitudes.
-         These have nothing to do with the model and pollute the drift signal.
-    FIX: If self._model is already fitted, use it for single-class batches
-         (features still vary even if labels don't). If not yet fitted,
-         return np.zeros so no snapshot is recorded for that batch.
-
-Previously documented fixes BUG 6–8 are preserved.
+Drift is measured against ONE fixed model (supplied, or fitted on the first batch and
+reused). Refitting per batch measured model instability instead of data drift (5-10x
+noisier on clean data). ``suspicion_score`` also accumulates drift across batches, so a
+slow-burn attack that stays under the per-batch threshold still alarms.
+Design history is in git.
 """
 
 import numpy as np

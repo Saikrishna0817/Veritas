@@ -3,6 +3,7 @@ CSV Ingestion Engine — Auto-detects schema, cleans data, prepares for detectio
 Handles up to 200,000 rows. No external baseline required.
 """
 import io
+import re
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, List, Optional, Tuple
@@ -11,7 +12,20 @@ import uuid
 
 
 MAX_ROWS = 200_000
-MAX_FILE_SIZE_MB = 100
+
+# Columns that hold the answer key (or a model's output), not training data. They are
+# never used as features or as the training label; the schema reports them instead.
+GROUND_TRUTH_NAMES = {
+    'poisoned', 'is_poisoned', 'is_poison', 'poison', 'poison_status',
+    'attack', 'is_attack', 'ground_truth', 'prediction', 'predicted',
+}
+# Name tokens that mark a row identifier / timestamp (matched as whole tokens).
+ID_TOKENS = {'id', 'uuid', 'guid', 'index', 'idx', 'timestamp', 'date', 'time', 'name'}
+
+
+def _name_tokens(col: str) -> set:
+    spaced = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', str(col))  # userId -> user_Id
+    return {t for t in re.split(r'[^a-z0-9]+', spaced.lower()) if t}
 
 
 class CSVIngestionEngine:
@@ -32,48 +46,50 @@ class CSVIngestionEngine:
 
     # ── Schema Detection ──────────────────────────────────────────────────────
 
-    def _detect_label_column(self, df: pd.DataFrame) -> Optional[str]:
+    def _detect_label_column(self, df: pd.DataFrame, exclude: set = frozenset()) -> Optional[str]:
         """
         Auto-detect the label/target column using heuristics:
-        1. Column named 'label', 'target', 'class', 'y', 'output', 'poisoned', etc.
+        1. Column named 'label', 'target', 'class', 'y', 'output', etc.
         2. Binary or low-cardinality integer column
         3. Last column if it's binary
         """
         # Priority 1: name-based detection
         label_names = {
             'label', 'labels', 'target', 'targets', 'class', 'classes',
-            'y', 'output', 'result', 'category', 'poisoned', 'is_poisoned',
-            'attack', 'anomaly', 'fraud', 'diagnosis', 'prediction', 'ground_truth'
+            'y', 'output', 'result', 'category', 'anomaly', 'fraud', 'diagnosis',
         }
-        for col in df.columns:
+        candidates = [c for c in df.columns if c not in exclude]
+        for col in candidates:
             if col.lower().strip() in label_names:
                 return col
 
         # Priority 2: binary integer column with low cardinality
-        for col in df.columns:
+        for col in candidates:
             if df[col].dtype in [np.int64, np.int32, np.float64]:
                 unique_vals = df[col].dropna().unique()
                 if len(unique_vals) == 2 and set(unique_vals).issubset({0, 1, 0.0, 1.0, -1, True, False}):
                     return col
 
         # Priority 3: last column if low cardinality
-        last_col = df.columns[-1]
-        if df[last_col].nunique() <= 10 and df[last_col].dtype in [np.int64, np.int32, object]:
+        last_col = candidates[-1] if candidates else None
+        if last_col is not None and df[last_col].nunique() <= 10 and df[last_col].dtype in [np.int64, np.int32, object]:
             return last_col
 
         return None
 
-    def _detect_feature_columns(self, df: pd.DataFrame, label_col: Optional[str]) -> List[str]:
+    def _detect_feature_columns(self, df: pd.DataFrame, label_col: Optional[str],
+                                exclude: set = frozenset()) -> List[str]:
         """Select numeric feature columns, excluding label and ID-like columns."""
-        exclude = set()
+        exclude = set(exclude)
         if label_col:
             exclude.add(label_col)
 
-        # Exclude ID-like columns
+        # Exclude ID-like columns: a whole name token says id/time/etc. AND the column is
+        # near-unique AND (integer-valued or monotonic). Continuous float measurements that
+        # happen to be named e.g. 'time' or 'valid_score' are real features and are kept.
         for col in df.columns:
-            col_lower = col.lower()
-            if any(x in col_lower for x in ['id', 'uuid', 'index', 'timestamp', 'date', 'time', 'name']):
-                if df[col].nunique() > len(df) * 0.9:  # near-unique = ID
+            if _name_tokens(col) & ID_TOKENS and df[col].nunique() > len(df) * 0.9:
+                if not pd.api.types.is_float_dtype(df[col]) or df[col].is_monotonic_increasing:
                     exclude.add(col)
 
         feature_cols = [
@@ -83,18 +99,10 @@ class CSVIngestionEngine:
         return feature_cols
 
     def _encode_label_column(self, series: pd.Series) -> np.ndarray:
-        """Encode label column to binary 0/1."""
-        if series.dtype in [np.int64, np.int32, np.float64]:
-            vals = series.values
-            unique = np.unique(vals[~np.isnan(vals)])
-            if len(unique) == 2:
-                return (vals == unique[1]).astype(int)
-            return (vals > vals.mean()).astype(int)
-        else:
-            # String labels
-            from sklearn.preprocessing import LabelEncoder
-            le = LabelEncoder()
-            return le.fit_transform(series.fillna('unknown').astype(str))
+        """Encode labels as integer classes 0..k-1 (missing values become their own class)."""
+        codes, uniques = pd.factorize(series, sort=True)
+        codes = np.where(codes < 0, len(uniques), codes)  # NaN -> extra class
+        return codes.astype(int)
 
     # ── Data Cleaning Pipeline ─────────────────────────────────────────────────
     #
@@ -105,9 +113,9 @@ class CSVIngestionEngine:
     #   1. Force numeric coercion (catch stray strings in numeric columns)
     #   2. Replace ±inf with NaN
     #   3. Drop rows that are >50% NaN (corrupted / mostly-empty)
-    #   4. Drop exact duplicate rows (skew statistical tests)
+    #   4. Report exact duplicate rows (kept: duplicates can be a poisoning signal)
     #   5. Drop zero-variance / constant columns (cause div-by-zero in layers)
-    #   6. Impute remaining NaN (median) + clip extreme outliers (5×IQR)
+    #   6. Impute remaining NaN (median); outliers are NOT clipped
     #
     # Every action is logged in the warnings list so the user knows what changed.
     # ──────────────────────────────────────────────────────────────────────────
@@ -177,16 +185,15 @@ class CSVIngestionEngine:
                 f"(>{int(threshold)} of {len(feature_cols)} features missing)."
             )
 
-        # ── Step 4: Drop exact duplicate rows ──────────────────────────────
-        # Duplicates skew statistical tests (L1) and anomaly detection (L3)
+        # ── Step 4: Report (do not drop) exact duplicate rows ───────────────
+        # Duplicated records are a classic poisoning pattern, and Layer 3 scores
+        # near-duplicate rate, so removing them here would hide the evidence.
         cols_to_check = feature_cols + ([label_col] if label_col else [])
-        n_before = len(df)
-        df = df.drop_duplicates(subset=cols_to_check, keep='first').reset_index(drop=True)
-        n_dupes = n_before - len(df)
+        n_dupes = int(df.duplicated(subset=cols_to_check).sum())
         if n_dupes > 0:
             warnings.append(
-                f"Removed {n_dupes} exact duplicate row(s) "
-                f"({round(n_dupes / n_before * 100, 1)}% of data)."
+                f"{n_dupes} exact duplicate row(s) "
+                f"({round(n_dupes / len(df) * 100, 1)}% of data) kept: duplicates can be a poisoning signal."
             )
 
         # ── Step 5: Drop zero-variance / constant columns ─────────────────
@@ -208,7 +215,7 @@ class CSVIngestionEngine:
             )
         feature_cols = surviving_cols
 
-        # ── Step 6: Impute remaining NaN + clip outliers ───────────────────
+        # ── Step 6: Impute remaining NaN (outliers are kept: they are signal) ──
         nan_imputed = 0
         for col in feature_cols:
             n_nan = df[col].isna().sum()
@@ -219,16 +226,6 @@ class CSVIngestionEngine:
                     median = 0.0
                 df[col] = df[col].fillna(median)
                 nan_imputed += n_nan
-
-            # Clip extreme outliers (beyond 5×IQR)
-            q1 = df[col].quantile(0.25)
-            q3 = df[col].quantile(0.75)
-            iqr = q3 - q1
-            if iqr > 0:
-                lower = q1 - 5 * iqr
-                upper = q3 + 5 * iqr
-                n_clipped = int(((df[col] < lower) | (df[col] > upper)).sum())
-                df[col] = df[col].clip(lower, upper)
 
         if nan_imputed > 0:
             warnings.append(
@@ -286,8 +283,14 @@ class CSVIngestionEngine:
             raise ValueError("Dataset too small (minimum 20 rows required).")
 
         # ── Schema Detection ───────────────────────────────────────────────
-        label_col = self._detect_label_column(df)
-        feature_cols = self._detect_feature_columns(df, label_col)
+        ground_truth_cols = [c for c in df.columns if str(c).lower().strip() in GROUND_TRUTH_NAMES]
+        if ground_truth_cols:
+            warnings.append(
+                f"Column(s) {', '.join(map(str, ground_truth_cols))} look like an answer key or model output; "
+                "excluded from features and labels."
+            )
+        label_col = self._detect_label_column(df, exclude=set(ground_truth_cols))
+        feature_cols = self._detect_feature_columns(df, label_col, exclude=set(ground_truth_cols))
 
         if len(feature_cols) == 0:
             raise ValueError("No numeric feature columns found in the CSV.")
@@ -335,18 +338,25 @@ class CSVIngestionEngine:
         # ── Feature Matrix ─────────────────────────────────────────────────
         features = df_clean[feature_cols].values.astype(np.float64)
 
-        # Normalize features to [0, 1] range per column
-        col_min = features.min(axis=0)
-        col_max = features.max(axis=0)
-        col_range = col_max - col_min
+        # ── Self-contained Split ───────────────────────────────────────────
+        # 70% reference (what "normal" looks like), 30% incoming (what we analyze).
+        # The split follows file order, so shuffled files should be ordered by
+        # ingestion time first. This is purely internal; no external baseline needed.
+        n = len(features)
+        split_idx = int(n * 0.70)
+        warnings.append(
+            f"Reference = first {split_idx} rows in file order; incoming = remaining {n - split_idx}. "
+            "Order the file by ingestion time for meaningful results."
+        )
+
+        # Scale to [0, 1] using the REFERENCE rows only, so incoming rows cannot shape
+        # the baseline. Incoming values are not clipped: a value outside the reference
+        # range (>1 or <0) is exactly the kind of shift the detector should see.
+        ref = features[:split_idx]
+        col_min = ref.min(axis=0)
+        col_range = ref.max(axis=0) - col_min
         col_range[col_range == 0] = 1  # avoid division by zero
         features_norm = (features - col_min) / col_range
-
-        # ── Self-contained Split ───────────────────────────────────────────
-        # 70% reference (what "normal" looks like), 30% incoming (what we analyze)
-        # This is purely internal — no external baseline needed
-        n = len(features_norm)
-        split_idx = int(n * 0.70)
 
         # ── Build Samples List ─────────────────────────────────────────────
         samples = []
@@ -372,6 +382,8 @@ class CSVIngestionEngine:
             "label_column": label_col,
             "n_rows": n,
             "n_features": len(feature_cols),
+            "ground_truth_columns": [str(c) for c in ground_truth_cols],
+            "split_method": "file_order",
             "dtypes": {col: str(df_clean[col].dtype) for col in feature_cols},
             "missing_pct": {
                 col: round(df_clean[col].isna().mean() * 100, 2)
