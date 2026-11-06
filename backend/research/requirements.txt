@@ -1,0 +1,4 @@
+-r ../requirements.txt
+# Benchmark-only baselines; not needed by the app.
+cleanlab==2.9.0
+pyod==3.6.7
