@@ -315,23 +315,9 @@ export default function UploadPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
               <StatCard
                 icon={<Target className="w-6 h-6" />}
-                label="Sophistication Score"
-                value={`${result.sophistication?.sophistication_score || 0}/10`}
-                sub={result.sophistication?.level}
-                color="var(--status-warn)"
-              />
-              <StatCard
-                icon={<Zap className="w-6 h-6" />}
-                label="Batches Affected"
-                value={result.blast_radius?.n_batches_affected || 0}
-                sub={`${result.blast_radius?.n_models_affected || 0} models`}
-                color="var(--status-critical)"
-              />
-              <StatCard
-                icon={<Activity className="w-6 h-6" />}
-                label="Prediction Impact"
-                value={`${result.blast_radius?.prediction_impact_pct || 0}%`}
-                sub="accuracy degradation"
+                label="Flagged Rows"
+                value={result.blast_radius?.n_poisoned_samples || 0}
+                sub={`of ${result.n_samples || 0} incoming`}
                 color="var(--status-warn)"
               />
               <StatCard
@@ -347,7 +333,7 @@ export default function UploadPage() {
             {result.injection_pattern?.narrative && (
               <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 mb-10">
                 <div className="font-bold text-textPrimary mb-4 flex items-center gap-2 text-xl">
-                  <ClipboardList className="w-6 h-6 text-redPrimary" /> Attack Reconstruction Narrative
+                  <ClipboardList className="w-6 h-6 text-redPrimary" /> What Was Flagged
                 </div>
                 <pre className="font-mono text-sm text-textSecondary leading-relaxed whitespace-pre-wrap m-0 bg-bgVoid p-6 rounded-xl border border-borderHairline">
                   {result.injection_pattern.narrative}

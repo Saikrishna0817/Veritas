@@ -155,14 +155,10 @@ export const api = {
     getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
 
     // Red Team
-    runRedTeamSimulation: (attackType = 'label_flip') =>
-        apiFetch('/redteam/simulate', { method: 'POST', body: JSON.stringify({ attack_type: attackType }) }),
-    getRedTeamHistory: () => apiFetch('/redteam/history'),
 
     // Blue Team SOC
     getBlueTeamStatus: () => apiFetch('/blueteam/status'),
     getBlueTeamIncidents: () => apiFetch('/blueteam/incidents'),
-    getBlueTeamResilience: () => apiFetch('/blueteam/resilience'),
     listPlaybooks: () => apiFetch('/blueteam/playbooks'),
     getPlaybook: (attackType) => apiFetch(`/blueteam/playbook/${attackType}`),
 };

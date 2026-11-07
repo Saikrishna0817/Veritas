@@ -71,51 +71,17 @@ function AttackClassCard({ classification }) {
     );
 }
 
-function SophisticationCard({ sophistication }) {
-    if (!sophistication) return null;
-    const score = sophistication.sophistication_score || 0;
-    const colorClass = score >= 8 ? 'text-statusCritical' : score >= 4 ? 'text-statusWarn' : 'text-statusSafe';
-
-    return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
-            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
-                <BrainCircuit className="w-4 h-4" /> Sophistication
-            </div>
-            <div className="flex items-center gap-5 mb-6 bg-bgVoid p-4 rounded-lg border border-borderHairline">
-                <div className={`text-6xl font-mono font-bold ${colorClass}`}>{score}</div>
-                <div>
-                    <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest">/ 10 Score</div>
-                    <div className={`font-mono text-sm font-bold ${colorClass} mt-1 uppercase`}>{sophistication.level}</div>
-                </div>
-            </div>
-            <div className="space-y-3">
-                {Object.entries(sophistication.factors || {}).map(([key, val]) => (
-                    <div key={key} className="flex justify-between font-mono text-xs pb-2 border-b border-borderHairline last:border-0">
-                        <span className="text-textMuted capitalize">{key.replace(/_/g, ' ')}</span>
-                        <span className="text-textSecondary font-bold">{(val * 100).toFixed(0)}%</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
 function PatternCard({ pattern }) {
     if (!pattern) return null;
     return (
         <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
             <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
-                <Fingerprint className="w-4 h-4" /> Injection Pattern
+                <Fingerprint className="w-4 h-4" /> Flagged Rows
             </div>
             <div className="space-y-0 font-mono text-xs">
                 {[
                     { label: 'Poisoned Samples', value: pattern.n_poisoned_samples },
-                    { label: 'Affected Batches', value: pattern.n_batches },
-                    { label: 'Injection Schedule', value: pattern.injection_schedule?.replace(/_/g, ' ') },
                     { label: 'Sigma Shift', value: pattern.sigma_shift != null ? `${pattern.sigma_shift}σ` : null },
-                    { label: 'Primary Client', value: pattern.primary_client },
-                    { label: 'First Injection', value: pattern.first_injection?.slice(0, 19) },
-                    { label: 'Last Injection', value: pattern.last_injection?.slice(0, 19) },
                 ].map(({ label, value }) => value != null && (
                     <div key={label} className="flex justify-between py-3 border-b border-borderHairline last:border-0 items-center">
                         <span className="text-textMuted">{label}</span>
@@ -259,24 +225,10 @@ export default function ForensicsPage() {
                     <NarrativeBox narrative={forensics.injection_pattern?.narrative} />
 
                     {/* Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <AttackClassCard classification={forensics.attack_classification} />
-                        <SophisticationCard sophistication={forensics.sophistication} />
                         <PatternCard pattern={forensics.injection_pattern} />
                     </div>
-
-                    {/* Proxy comparison */}
-                    {forensics.counterfactual && (
-                        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6">
-                            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-4 font-bold flex items-center gap-2">
-                                <Activity className="w-4 h-4" /> Proxy Comparison and Limits
-                            </div>
-                            <div className="bg-bgVoid border border-borderHairline rounded-lg p-5 font-mono text-sm">
-                                <div className="text-textPrimary font-bold">Proxy accuracy effect: <span className="text-redPrimary">{((forensics.counterfactual.proxy_accuracy_effect || 0) * 100).toFixed(1)}%</span></div>
-                                <div className="text-textMuted mt-3 text-xs leading-relaxed border-t border-borderHairline pt-3">{forensics.counterfactual.limitation}</div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
             

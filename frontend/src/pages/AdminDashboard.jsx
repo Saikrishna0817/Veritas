@@ -9,10 +9,8 @@ import {
   Activity,
   Lock,
   RefreshCw,
-  Radio,
   Eye,
   X,
-  Play,
   Layers,
 } from 'lucide-react';
 import { api } from '../services/api';
@@ -38,9 +36,6 @@ export default function AdminDashboard() {
   const [quarantining, setQuarantining] = useState(false);
   const [hitlCases, setHitlCases] = useState([]);
   const [loadingHitl, setLoadingHitl] = useState(false);
-  const [selectedAttack, setSelectedAttack] = useState('label_flip');
-  const [simResult, setSimResult] = useState(null);
-  const [runningSim, setRunningSim] = useState(false);
 
   // Audit feed state
   const [auditEvents, setAuditEvents] = useState([]);
@@ -179,21 +174,6 @@ export default function AdminDashboard() {
       fetchAuditEvents();
     } catch (err) {
       setUserError(err.message || 'Failed to submit HITL review decision.');
-    }
-  };
-
-  const handleRunRedTeam = async () => {
-    setRunningSim(true);
-    setSimResult(null);
-    try {
-      const res = await api.runRedTeamSimulation(selectedAttack);
-      setSimResult(res);
-      setUserSuccess(`Red team simulation '${selectedAttack}' executed successfully.`);
-      fetchAuditEvents();
-    } catch (err) {
-      setUserError(err.message || 'Red team simulation failed.');
-    } finally {
-      setRunningSim(false);
     }
   };
 
@@ -512,65 +492,6 @@ export default function AdminDashboard() {
               <AlertTriangle className="w-5 h-5" />
               {quarantining ? 'Executing Lockdown...' : 'Trigger System Quarantine Lockdown'}
             </button>
-          </div>
-
-          {/* Red Team Attack Simulator */}
-          <div className="p-6 rounded-2xl bg-bgPanel border border-borderHairline space-y-6">
-            <div className="flex items-center gap-3 text-purple-400 font-mono text-xs font-bold uppercase tracking-wider">
-              <Radio className="w-5 h-5" />
-              Adversarial Resilience Tester
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-white text-xl">Red Team Attack Simulation</h3>
-              <p className="text-xs font-sans text-textMuted mt-1 leading-relaxed">
-                Inject synthetic poisoning vectors into test workloads to see which are flagged.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <label className="block font-mono text-[10px] font-bold text-textMuted uppercase tracking-wider">
-                Select Attack Vector:
-              </label>
-              <select
-                value={selectedAttack}
-                onChange={(e) => setSelectedAttack(e.target.value)}
-                className="w-full p-3 rounded-xl bg-bgVoid border border-borderHairline text-white font-mono text-xs focus:border-redPrimary outline-none"
-              >
-                <option value="label_flip">Label Flip (Class Boundary Corruption)</option>
-                <option value="backdoor">Backdoor Trojan (Inference Trigger)</option>
-                <option value="clean_label">Clean Label (Feature Collision Outliers)</option>
-                <option value="gradient_poisoning">Gradient Poisoning (Federated Inversion)</option>
-                <option value="boiling_frog">Boiling Frog (Slow Cumulative Drift)</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleRunRedTeam}
-              disabled={runningSim}
-              className="w-full py-3.5 px-6 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <Play className="w-4 h-4" />
-              {runningSim ? 'Running Simulation...' : 'Execute Red Team Simulation'}
-            </button>
-
-            {simResult && (
-              <div className="p-4 rounded-xl bg-bgVoid border border-purple-500/30 font-mono text-xs space-y-2">
-                <div className="flex justify-between text-textMuted">
-                  <span>Detected Status:</span>
-                  <span className={simResult.detected ? 'text-emerald-400 font-bold' : 'text-redBright font-bold'}>
-                    {simResult.detected ? 'CAUGHT BY SPECTRA' : 'MISSED'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-textMuted">
-                  <span>Resilience Score:</span>
-                  <span className="text-purple-400 font-bold">{simResult.resilience_score} / 10.0</span>
-                </div>
-                <div className="flex justify-between text-textMuted">
-                  <span>Detection Speed:</span>
-                  <span className="text-white">{simResult.detection_speed_ms} ms</span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Pending HITL Cases Table (Full Width) */}

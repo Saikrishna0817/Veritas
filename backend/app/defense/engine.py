@@ -7,8 +7,6 @@ app.api.dependencies hold no per-request state.
 Sample ids such as ``row_5`` repeat across datasets, so quarantine bookkeeping is
 keyed by ``scope`` (the dataset id) as well as sample id.
 """
-import copy
-import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List
@@ -183,73 +181,3 @@ class HumanInTheLoopQueue:
     @property
     def decisions(self) -> List[Dict]:
         return db.get_hitl_decisions()
-
-
-class RedTeamSimulator:
-    """Injects synthetic attacks and measures detection resilience."""
-
-    def __init__(self, pipeline=None):
-        self.pipeline = pipeline
-
-    @property
-    def simulation_results(self) -> List[Dict[str, Any]]:
-        return db.get_redteam_simulations()
-
-    def run_simulation(self, attack_type: str, samples: List[Dict]) -> Dict[str, Any]:
-        """Inject a synthetic attack and measure detection performance."""
-        from app.demo.data_generator import (
-            inject_label_flip_attack, inject_backdoor_attack, inject_boiling_frog_attack,
-            inject_clean_label_attack, inject_gradient_poisoning_attack
-        )
-        from app.detection.pipeline import DetectionPipeline
-
-        control_samples = copy.deepcopy(samples)
-        test_samples = copy.deepcopy(samples)
-
-        if attack_type == "label_flip":
-            test_samples = inject_label_flip_attack(test_samples, n_poison=20)
-        elif attack_type == "backdoor":
-            test_samples = inject_backdoor_attack(test_samples, n_poison=15)
-        elif attack_type == "boiling_frog":
-            test_samples = inject_boiling_frog_attack(test_samples, n_poison=25)
-        elif attack_type == "clean_label":
-            test_samples = inject_clean_label_attack(test_samples, n_poison=18)
-        elif attack_type == "gradient_poisoning":
-            test_samples = inject_gradient_poisoning_attack(test_samples, n_poison=12)
-
-        n_injected = sum(1 for s in test_samples if s.get("poison_status") == "confirmed")
-
-        started = time.perf_counter()
-        result = (self.pipeline or DetectionPipeline()).run(test_samples)
-        elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
-
-        # Control run on the same data without the injection: a flagged control
-        # is a false positive for this batch.
-        control = DetectionPipeline().run(control_samples)
-        control_flagged = control["verdict"] not in ("CLEAN", "LOW_RISK")
-
-        detected = result["verdict"] not in ("CLEAN", "LOW_RISK")
-        suspicion = result["overall_suspicion_score"]
-        verdict = result.get("verdict", "CLEAN")
-
-        detection_component = 4.0 if detected else 0.0
-        speed_component = min(3.0, 3.0 * (500.0 / max(elapsed_ms, 50.0)))
-        confidence_component = min(3.0, suspicion * 3.0)
-        resilience = round(detection_component + speed_component + confidence_component, 1)
-
-        sim_result = {
-            "simulation_id": str(uuid.uuid4()),
-            "attack_type": attack_type,
-            "n_injected": n_injected,
-            "detected": detected,
-            "verdict": verdict,
-            "suspicion_score": round(suspicion, 4),
-            "resilience_score": resilience,
-            "detection_speed_ms": elapsed_ms,
-            "clean_control_verdict": control["verdict"],
-            "clean_control_flagged": control_flagged,
-            "layer_scores": result.get("layer_scores", {}),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        db.save_redteam_simulation(sim_result)
-        return sim_result

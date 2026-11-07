@@ -177,9 +177,6 @@ export default function ReportsPage() {
                                 { label: 'Verdict', value: report.executive_summary?.verdict, color: report.executive_summary?.verdict === 'CONFIRMED_POISONED' ? 'statusCritical' : report.executive_summary?.verdict === 'CLEAN' ? 'statusSafe' : 'statusWarn' },
                                 { label: 'Attack Type', value: (report.executive_summary?.attack_type || '—').replace(/_/g, ' '), color: 'textSecondary' },
                                 { label: 'Confidence', value: `${((report.executive_summary?.confidence || 0) * 100).toFixed(1)}%`, color: 'textPrimary' },
-                                { label: 'Causal Effect', value: `${((report.executive_summary?.causal_effect || 0) * 100).toFixed(1)}%`, color: 'statusWarn' },
-                                { label: 'Sophistication', value: `${report.executive_summary?.sophistication_score || 0}/10`, color: 'statusCritical' },
-                                { label: 'Models Impacted', value: report.executive_summary?.blast_radius_summary?.models ?? '—', color: 'redPrimary' },
                             ].map(({ label, value, color }) => (
                                 <div key={label} className="bg-bgVoid border border-borderHairline rounded-xl p-5 hover:border-redPrimary/20 transition-all">
                                     <div className="font-mono text-[10px] text-textMuted uppercase tracking-widest font-bold mb-2">{label}</div>

@@ -206,6 +206,8 @@ The five-layer code, SHAP drift, the v1 harness (`research/evaluate.py`) and the
 tag `legacy-five-layer-pipeline` has them. Roadmap item 6 (audit M3) is done: the upload takes a trusted
 `reference_file`, or `split_column` + `split_cutoff`, else the first 70% in file order, and the UI has a selector.
 
-Known leftovers: `forensics/engine.py` blast-radius, counterfactual and sophistication outputs still read causal-effect
-fields that no longer exist and fall back to 0 or placeholder defaults, so they carry no information; the roadmap
-already lists them to cut or flag as research preview.
+Simulated features removed: the sophistication score, counterfactual, red-team simulator with its "resilience score"
+(routes, table writes, blue-team resilience panel, admin panel), and the fabricated timeline/schedule/source fields in the
+injection narrative (ingestion time is not injection time). The narrative now states the flagged-row count, the two check
+results and the average feature difference, and says it cannot say who or when. The attack-type guess is limited to the
+three types the checks can support (label flip, backdoor, clean label). The blast radius reports flagged-row counts only.

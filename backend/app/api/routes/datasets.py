@@ -2,7 +2,7 @@
 
 Fixes applied:
   H2 — real-dataset analysis delegates to run_csv_analysis (no more 4th copy of the pipeline)
-  M1 — /demo/run, /redteam/simulate, /datasets/real/{name}/analyze are now rate-limited
+  M1 — /demo/run, /datasets/real/{name}/analyze are now rate-limited
   M7 — Pydantic request bodies for POST endpoints
   M10 — error responses do not leak internal details
   L1 — datetime.utcnow() replaced
@@ -35,12 +35,6 @@ class AnalyzeRequest(BaseModel):
     sample_ids: list[str] = []
 
 
-class RedTeamRequest(BaseModel):
-    attack_type: Literal[
-        "label_flip", "backdoor", "boiling_frog", "clean_label", "gradient_poisoning"
-    ] = "label_flip"
-
-
 # ── Demo endpoints ─────────────────────────────────────────────────────────────
 
 @router.post("/demo/run")
@@ -66,9 +60,7 @@ async def run_demo(
         result = deps.new_detection_pipeline().run(all_samples)
         attack_class = deps.classifier.classify(result["layer_results"], all_samples)
         pattern = deps.reconstructor.reconstruct(all_samples, attack_class, result["layer_results"])
-        sophistication = deps.sophistication.score(attack_class, pattern, result)
         blast = deps.blast_mapper.map(all_samples, result["layer_results"])
-        counterfactual = deps.counterfactual.simulate(result["layer_results"], blast)
         defense_action = deps.defense.decide_action(
             all_samples, result["overall_suspicion_score"], result["verdict"], scope="demo"
         )
@@ -84,9 +76,7 @@ async def run_demo(
             **result,
             "attack_classification": attack_class,
             "injection_pattern": pattern,
-            "sophistication": sophistication,
             "blast_radius": blast,
-            "counterfactual": counterfactual,
             "defense_action": defense_action,
             "hitl_case": hitl_case,
             "timeline": data["timeline"],
@@ -246,31 +236,3 @@ async def analyze_real_dataset(
     ws_manager = request.app.state.ws_manager
     background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result)
     return JSONResponse(content=full_result)
-
-
-# ── Red Team ───────────────────────────────────────────────────────────────────
-
-@router.post("/redteam/simulate")
-async def run_red_team(
-    body: RedTeamRequest,  # M7: Pydantic model instead of raw request.json()
-    request: Request,
-    user: dict = Depends(require_user),
-):
-    """Inject a synthetic attack and measure detection resilience."""
-    client_ip = request.client.host if request.client else "unknown"
-    if not deps.analysis_rate_limiter.allow(f"redteam:{user['id']}:{client_ip}"):
-        raise HTTPException(
-            status_code=429,
-            detail="Too many red-team requests. Try again in one minute.",
-        )
-
-    samples = deps.get_demo_data()["samples"][:200]
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        deps.get_thread_pool(), deps.red_team.run_simulation, body.attack_type, samples
-    )
-
-
-@router.get("/redteam/history")
-async def get_red_team_history(user: dict = Depends(require_user)):
-    return {"simulations": deps.red_team.simulation_results}

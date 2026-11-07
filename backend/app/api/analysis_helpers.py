@@ -47,9 +47,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None)
             s["poison_status"] = "suspected"
 
     pattern = deps.reconstructor.reconstruct(incoming_samples, attack_class, detection_result["layer_results"])
-    sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
     blast = deps.blast_mapper.map(incoming_samples, detection_result["layer_results"])
-    counterfactual = deps.counterfactual.simulate(detection_result["layer_results"], blast)
     scope = ingested["dataset_id"]
     defense_action = deps.defense.decide_action(
         incoming_samples,
@@ -84,9 +82,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None)
         },
         "attack_classification": attack_class,
         "injection_pattern": pattern,
-        "sophistication": sophistication,
         "blast_radius": blast,
-        "counterfactual": counterfactual,
         "defense_action": defense_action,
         "hitl_case": hitl_case,
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
@@ -130,7 +126,6 @@ def _orchestrate_model(
 
     attack_class = deps.classifier.classify(detection_result["layer_results"], incoming)
     pattern = deps.reconstructor.reconstruct(incoming, attack_class, detection_result["layer_results"])
-    sophistication = deps.sophistication.score(attack_class, pattern, detection_result)
     blast = deps.blast_mapper.map(incoming, detection_result["layer_results"])
     defense_action = deps.defense.decide_action(
         incoming, detection_result["overall_suspicion_score"], detection_result["verdict"],
@@ -147,7 +142,6 @@ def _orchestrate_model(
         "extraction_info": ingested["extraction_info"],
         "attack_classification": attack_class,
         "injection_pattern": pattern,
-        "sophistication": sophistication,
         "blast_radius": blast,
         "defense_action": defense_action,
         "source": "model_scan",

@@ -130,9 +130,7 @@ async def get_latest_forensics(source: str = Query("auto", description="auto|dem
     return {
         "attack_classification": r.get("attack_classification"),
         "injection_pattern": r.get("injection_pattern"),
-        "sophistication": r.get("sophistication"),
         "blast_radius": r.get("blast_radius"),
-        "counterfactual": r.get("counterfactual"),
         "source": r.get("source", "demo"),
         "verdict": r.get("verdict"),
         "overall_suspicion_score": r.get("overall_suspicion_score"),
@@ -246,7 +244,6 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
             "verdict": r.get("verdict"),
             "attack_type": (r.get("attack_classification") or {}).get("attack_type", "unknown"),
             "confidence": (r.get("attack_classification") or {}).get("confidence", 0),
-            "sophistication_score": (r.get("sophistication") or {}).get("sophistication_score", 0),
             "blast_radius_summary": {
                 "batches": (r.get("blast_radius") or {}).get("n_batches_affected", 0),
                 "models": (r.get("blast_radius") or {}).get("n_models_affected", 0),
@@ -281,8 +278,6 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
 async def get_blueteam_status():
     defense_status = deps.defense.get_status()
     pending_cases = deps.hitl.get_pending()
-    sims = deps.red_team.simulation_results
-
     threat_level = "NOMINAL"
     verdict = "CLEAN"
     suspicion = 0.0
@@ -297,13 +292,6 @@ async def get_blueteam_status():
         elif suspicion > 0.15:
             threat_level = "GUARDED"
 
-    total_sims = len(sims)
-    caught = sum(1 for s in sims if s.get("detected", False))
-    resilience_pct = round((caught / total_sims * 100) if total_sims > 0 else 100.0, 1)
-    avg_resilience = round(
-        sum(s.get("resilience_score", 0) for s in sims) / total_sims if total_sims > 0 else 10.0, 1
-    )
-
     return {
         "threat_level": threat_level,
         "current_verdict": verdict,
@@ -314,13 +302,6 @@ async def get_blueteam_status():
         "last_defense_action": defense_status["last_action"],
         "hitl_queue_depth": len(pending_cases),
         "pending_cases": pending_cases[:5],
-        "red_team": {
-            "total_simulations": total_sims,
-            "attacks_caught": caught,
-            "attacks_missed": total_sims - caught,
-            "resilience_pct": resilience_pct,
-            "avg_resilience_score": avg_resilience,
-        },
         "updated_at": datetime.now(timezone.utc).isoformat(),  # L1
     }
 
@@ -363,51 +344,6 @@ async def get_blueteam_incidents():
         "total": len(incidents),
         "auto_defense_count": len(log),
         "human_decision_count": len(hitl_decisions),
-    }
-
-
-@router.get("/blueteam/resilience")
-async def get_blueteam_resilience():
-    sims = deps.red_team.simulation_results
-    if not sims:
-        return {
-            "overall_resilience_pct": 100.0,
-            "by_attack_type": {},
-            "total_tests": 0,
-            "message": "No red team simulations run yet. Go to Red-Team Mode and fire some attacks!",
-        }
-
-    by_type: dict = {}
-    for s in sims:
-        t = s["attack_type"]
-        if t not in by_type:
-            by_type[t] = {"total": 0, "caught": 0, "detection_times": [], "resilience_scores": []}
-        by_type[t]["total"] += 1
-        if s.get("detected"):
-            by_type[t]["caught"] += 1
-        by_type[t]["detection_times"].append(s.get("detection_speed_ms", 0))
-        by_type[t]["resilience_scores"].append(s.get("resilience_score", 0))
-
-    summary = {}
-    for t, stats in by_type.items():
-        summary[t] = {
-            "total_tests": stats["total"],
-            "caught": stats["caught"],
-            "catch_rate_pct": round(stats["caught"] / stats["total"] * 100, 1),
-            "avg_detection_ms": round(sum(stats["detection_times"]) / len(stats["detection_times"]), 1),
-            "avg_resilience_score": round(sum(stats["resilience_scores"]) / len(stats["resilience_scores"]), 2),
-        }
-
-    total = len(sims)
-    caught = sum(1 for s in sims if s.get("detected"))
-    return {
-        "overall_resilience_pct": round(caught / total * 100, 1),
-        "total_tests": total,
-        "total_caught": caught,
-        "total_missed": total - caught,
-        "avg_detection_ms": round(sum(s.get("detection_speed_ms", 0) for s in sims) / total, 1),
-        "by_attack_type": summary,
-        "recent_simulations": list(reversed(sims))[:10],
     }
 
 

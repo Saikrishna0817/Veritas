@@ -93,14 +93,11 @@ function ThreatBanner({ status }) {
 
 function DefenseStats({ status }) {
     if (!status) return null;
-    const rt = status.red_team || {};
     return (
         <div className="flex flex-wrap gap-4 mb-8">
             <StatCard icon={Lock} label="Total Quarantined" value={status.total_quarantined || 0} color="var(--status-critical)" />
             <StatCard icon={Zap} label="Defense Actions" value={status.n_defense_actions || 0} color="var(--status-warn)" />
             <StatCard icon={ClipboardList} label="HITL Queue" value={status.hitl_queue_depth || 0} sub="pending analyst review" color="#a855f7" />
-            <StatCard icon={Target} label="Red Team Tests" value={rt.total_simulations || 0} sub={`${rt.attacks_caught || 0} caught`} color="#06b6d4" />
-            <StatCard icon={ShieldCheck} label="Resilience" value={`${rt.resilience_pct ?? 100}%`} sub="attack catch rate" color="var(--status-safe)" />
         </div>
     );
 }
@@ -197,55 +194,6 @@ function IncidentLog({ incidents }) {
     );
 }
 
-function ResiliencePanel({ resilience }) {
-    if (!resilience) return <div className="text-textMuted text-sm font-mono p-4">Loading metrics...</div>;
-    if (resilience.total_tests === 0) {
-        return (
-            <div className="p-8 text-center border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
-                <Target className="w-10 h-10 mb-3 opacity-20 text-textMuted" />
-                <div className="text-textMuted text-sm font-mono">{resilience.message || "No resilience data available."}</div>
-            </div>
-        );
-    }
-    return (
-        <div>
-            <div className="flex flex-wrap gap-4 mb-6">
-                <div className="flex-1 min-w-[100px] bg-statusSafe/10 border border-statusSafe/20 rounded-xl p-4 text-center">
-                    <div className="text-4xl font-black font-mono text-statusSafe">{resilience.overall_resilience_pct}%</div>
-                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Overall Catch Rate</div>
-                </div>
-                <div className="flex-1 min-w-[100px] bg-redPrimary/10 border border-redPrimary/20 rounded-xl p-4 text-center">
-                    <div className="text-4xl font-black font-mono text-redPrimary">{resilience.avg_detection_ms}ms</div>
-                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Avg Detection Time</div>
-                </div>
-                <div className="flex-1 min-w-[100px] bg-statusCritical/10 border border-statusCritical/20 rounded-xl p-4 text-center">
-                    <div className="text-4xl font-black font-mono text-statusCritical">{resilience.total_missed}</div>
-                    <div className="text-[10px] text-textSecondary uppercase tracking-widest font-bold mt-2">Attacks Missed</div>
-                </div>
-            </div>
-            <div className="space-y-4">
-                {Object.entries(resilience.by_attack_type || {}).map(([type, stats]) => {
-                    const color = ATTACK_COLORS[type] || 'var(--red-primary)';
-                    const pct = stats.catch_rate_pct || 0;
-                    return (
-                        <div key={type}>
-                            <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wider mb-2">
-                                <span className="text-textSecondary">{type.replace(/_/g, ' ')}</span>
-                                <span className="font-mono text-[11px]" style={{ color }}>
-                                    {stats.caught}/{stats.total_tests} · {pct}% · {stats.avg_detection_ms}ms
-                                </span>
-                            </div>
-                            <div className="h-1.5 bg-bgVoid rounded-full overflow-hidden">
-                                <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${pct}%`, background: color, boxShadow: `0 0 10px ${color}80` }} />
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
 function PlaybookPanel() {
     const [playbooks, setPlaybooks] = useState([]);
     const [selected, setSelected] = useState(null);
@@ -338,20 +286,17 @@ function PlaybookPanel() {
 export default function BlueTeamPage() {
     const [status, setStatus] = useState(null);
     const [incidents, setIncidents] = useState([]);
-    const [resilience, setResilience] = useState(null);
     const [loading, setLoading] = useState(true);
     const [decisionMsg, setDecisionMsg] = useState(null);
 
     const loadAll = useCallback(async () => {
         try {
-            const [s, inc, res] = await Promise.all([
+            const [s, inc] = await Promise.all([
                 api.getBlueTeamStatus(),
                 api.getBlueTeamIncidents(),
-                api.getBlueTeamResilience(),
             ]);
             setStatus(s);
             setIncidents(inc.incidents || []);
-            setResilience(res);
         } catch (e) { console.error(e); }
         finally { setLoading(false); }
     }, []);
@@ -388,7 +333,7 @@ export default function BlueTeamPage() {
                         Security Operations <span className="text-redPrimary">Centre</span>
                     </h1>
                     <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
-                        Real-time defense status // HITL review queue // Resilience metrics
+                        Real-time defense status // HITL review queue
                     </p>
                 </div>
                 <button onClick={loadAll} className="flex items-center gap-2 px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest">
@@ -416,12 +361,6 @@ export default function BlueTeamPage() {
                     <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
                     </div>
-                </div>
-
-                {/* Resilience */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
-                    <SectionHeader title="Red Team Resilience Metrics" icon={Target} />
-                    <ResiliencePanel resilience={resilience} />
                 </div>
             </div>
 

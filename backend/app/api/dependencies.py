@@ -18,16 +18,14 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from app.models import database as db
-from app.defense.engine import HumanInTheLoopQueue, RedTeamSimulator, StabilityAwareAutoDefense
+from app.defense.engine import HumanInTheLoopQueue, StabilityAwareAutoDefense
 from app.demo.data_generator import get_demo_data
 from app.demo.real_datasets import DATASET_CATALOG, get_real_dataset
 from app.detection.pipeline import DetectionPipeline
 from app.forensics.engine import (
     AttackTypeClassifier,
     BlastRadiusMapper,
-    CounterfactualSimulator,
     InjectionPatternReconstructor,
-    SophisticationScorer,
 )
 from app.ingestion.csv_engine import CSVIngestionEngine
 from app.ingestion.model_engine import ModelScanEngine
@@ -56,12 +54,9 @@ def get_thread_pool() -> ThreadPoolExecutor:
 # ── Singletons ────────────────────────────────────────────────────────────────
 classifier    = AttackTypeClassifier()
 reconstructor = InjectionPatternReconstructor()
-sophistication = SophisticationScorer()
 blast_mapper  = BlastRadiusMapper()
-counterfactual = CounterfactualSimulator()
 defense       = StabilityAwareAutoDefense()
 hitl          = HumanInTheLoopQueue()
-red_team      = RedTeamSimulator()
 model_engine  = ModelScanEngine()
 
 

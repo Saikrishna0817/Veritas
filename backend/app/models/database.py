@@ -122,18 +122,6 @@ def init_db():
             decided_at       TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_hitl_decided ON hitl_decisions(decided_at DESC);
-
-        CREATE TABLE IF NOT EXISTS redteam_simulations (
-            simulation_id    TEXT PRIMARY KEY,
-            attack_type      TEXT NOT NULL,
-            detected         INTEGER NOT NULL,
-            verdict          TEXT NOT NULL,
-            suspicion_score  REAL NOT NULL,
-            resilience_score REAL NOT NULL,
-            details_json     TEXT NOT NULL,
-            created_at       TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_redteam_created ON redteam_simulations(created_at DESC);
     """
     )
     conn.commit()
@@ -502,36 +490,3 @@ def get_hitl_decisions(limit: int = 50) -> List[Dict[str, Any]]:
         (max(1, min(limit, 200)),),
     ).fetchall()
     return [dict(row) for row in rows]
-
-
-def save_redteam_simulation(sim: Dict[str, Any]) -> None:
-    conn = _get_conn()
-    conn.execute(
-        """
-        INSERT OR REPLACE INTO redteam_simulations
-        (simulation_id, attack_type, detected, verdict, suspicion_score, resilience_score, details_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            sim["simulation_id"],
-            sim["attack_type"],
-            1 if sim.get("detected") else 0,
-            sim.get("verdict", "CLEAN"),
-            sim.get("suspicion_score", 0.0),
-            sim.get("resilience_score", 0.0),
-            json.dumps(sim),
-            sim.get("timestamp", datetime.now(timezone.utc).isoformat()),
-        ),
-    )
-    conn.commit()
-
-
-def get_redteam_simulations(limit: int = 50) -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    rows = conn.execute(
-        "SELECT details_json FROM redteam_simulations ORDER BY created_at DESC LIMIT ?",
-        (max(1, min(limit, 200)),),
-    ).fetchall()
-    return [json.loads(row["details_json"]) for row in rows]
-
-
