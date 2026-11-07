@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     logger.info("AI Trust Forensics Platform v2.2 starting (real-data primary mode)")
     from app.models import database as db
     try:
-        stats = db.get_stats()
+        stats = db.get_stats(db.ALL_OWNERS)
         logger.info("SQLite ready — total_analyses=%s by_source=%s",
                     stats.get("total_analyses", 0), stats.get("by_source", {}))
     except Exception as exc:
@@ -77,7 +77,7 @@ async def health():
     """Basic liveness probe.  For a readiness probe use /health/ready."""
     from app.models import database as db
     try:
-        stats = db.get_stats()
+        stats = db.get_stats(db.ALL_OWNERS)
         db_ok = True
     except Exception:
         stats = {}
