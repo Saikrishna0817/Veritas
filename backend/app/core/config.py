@@ -32,6 +32,8 @@ class Settings:
     jwt_expiry_minutes: int = int(os.getenv("VERITAS_JWT_EXPIRY_MINUTES", "60"))
     admin_username: str = os.getenv("VERITAS_ADMIN_USERNAME", "")
     admin_password: str = os.getenv("VERITAS_ADMIN_PASSWORD", "")
+    # Stored results older than this many days are deleted at startup (0 keeps everything).
+    retention_days: int = int(os.getenv("VERITAS_RETENTION_DAYS", "30"))
     # Per-user daily quotas (UTC day). Admins are exempt. 0 disables a limit.
     quota_analyses_per_day: int = int(os.getenv("VERITAS_QUOTA_ANALYSES_PER_DAY", "50"))
     quota_rows_per_day: int = int(os.getenv("VERITAS_QUOTA_ROWS_PER_DAY", "2000000"))

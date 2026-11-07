@@ -8,6 +8,7 @@ from fastapi import Depends
 
 from app.core.security import require_admin, require_user
 
+from app.api.routes.account import router as account_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.datasets import router as datasets_router
 from app.api.routes.jobs import router as jobs_router
@@ -28,6 +29,7 @@ api_router.include_router(upload_router, tags=["upload"], dependencies=[Depends(
 api_router.include_router(models_router, tags=["models"], dependencies=[Depends(require_user)])
 api_router.include_router(datasets_router, tags=["datasets"], dependencies=[Depends(require_user)])
 api_router.include_router(reports_router, tags=["reports"], dependencies=[Depends(require_user)])
+api_router.include_router(account_router, tags=["account"], dependencies=[Depends(require_user)])
 api_router.include_router(jobs_router, tags=["jobs"], dependencies=[Depends(require_user)])
 
 # WebSocket routes (no `/api/v1` prefix)

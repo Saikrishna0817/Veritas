@@ -17,6 +17,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from app.core.config import settings
 from app.models import database as db
 from app.defense.engine import HumanInTheLoopQueue, StabilityAwareAutoDefense
 from app.demo.data_generator import get_demo_data
@@ -34,6 +35,7 @@ from app.core.rate_limit import SlidingWindowRateLimiter
 
 # ── Database init ─────────────────────────────────────────────────────────────
 db.init_db()
+db.purge_older_than(settings.retention_days)   # retention: runs once per process start
 
 
 # ── Shared worker pool ────────────────────────────────────────────────────────

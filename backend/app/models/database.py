@@ -10,7 +10,7 @@ import json
 import sqlite3
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from app.core.config import settings
@@ -528,3 +528,34 @@ def get_usage(owner_id: str) -> Dict[str, int]:
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     rows = _get_conn().execute("SELECT kind, amount FROM usage_daily WHERE owner_id=? AND day=?", (owner_id, day)).fetchall()
     return {r["kind"]: r["amount"] for r in rows}
+
+
+# ── Data deletion and retention ───────────────────────────────────────────────
+
+_OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases")
+
+
+def delete_owner_data(owner_id: str) -> Dict[str, int]:
+    """Erase everything stored for one user (the delete-my-data action). Audit events stay: they hold no results."""
+    conn = _get_conn()
+    counts = {}
+    conn.execute("DELETE FROM hitl_decisions WHERE case_id IN (SELECT case_id FROM hitl_cases WHERE owner_id = ?)", (owner_id,))
+    for table in _OWNED_TABLES:
+        counts[table] = conn.execute(f"DELETE FROM {table} WHERE owner_id = ?", (owner_id,)).rowcount
+    counts["usage_daily"] = conn.execute("DELETE FROM usage_daily WHERE owner_id = ?", (owner_id,)).rowcount
+    conn.commit()
+    return counts
+
+
+def purge_older_than(days: int) -> Dict[str, int]:
+    """Retention: drop results, scans, defense actions and cases older than ``days`` (0 keeps everything)."""
+    if days <= 0:
+        return {}
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    conn = _get_conn()
+    counts = {}
+    conn.execute("DELETE FROM hitl_decisions WHERE case_id IN (SELECT case_id FROM hitl_cases WHERE created_at < ?)", (cutoff,))
+    for table in _OWNED_TABLES:
+        counts[table] = conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (cutoff,)).rowcount
+    conn.commit()
+    return counts

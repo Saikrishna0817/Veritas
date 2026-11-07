@@ -117,3 +117,26 @@ def test_oversized_request_is_refused_before_any_work():
     with pytest.raises(Exception) as exc:
         quota.charge({"id": "quota-w", "role": "user"}, "rows", 5_000, 1_000)
     assert exc.value.status_code == 429
+
+
+def test_delete_my_data_erases_only_the_callers_data(two_users):
+    alice, bob, result = two_users
+    rid = result["dataset_info"]["dataset_id"]
+    client.post("/api/v1/analyze/upload", headers=bob, files={"file": ("bob.csv", _csv(2), "text/csv")})
+    assert client.get("/api/v1/account/usage", headers=alice).json()["used"]["analyses"] >= 1
+    deleted = client.delete("/api/v1/account/data", headers=alice).json()["deleted"]
+    assert deleted["analysis_results"] >= 1
+    assert client.get(f"/api/v1/analyze/upload/{rid}", headers=alice).status_code == 404
+    assert client.get("/api/v1/analyze/upload/latest", headers=alice).status_code == 404
+    assert any(r["filename"] == "bob.csv" for r in client.get("/api/v1/history", headers=bob).json()["results"])
+
+
+def test_retention_purge_drops_only_old_rows(tmp_path):
+    from app.models import database as db
+    db.save_result({"verdict": "CLEAN", "dataset_info": {"dataset_id": "keep-me"}}, "upload", "new.csv", "ret-user")
+    conn = db._get_conn()
+    conn.execute("INSERT INTO analysis_results (id, source, full_json, created_at, owner_id) VALUES ('old-one','upload','{}','2000-01-01T00:00:00+00:00','ret-user')")
+    conn.commit()
+    assert db.purge_older_than(30)["analysis_results"] >= 1
+    assert db.get_result("old-one", "ret-user") is None and db.get_result("keep-me", "ret-user") is not None
+    assert db.purge_older_than(0) == {}
