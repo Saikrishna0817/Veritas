@@ -11,7 +11,7 @@
 
 ## 🎯 What is this?
 
-**Data poisoning** is when an attacker secretly injects malicious training samples into an AI model's dataset. The model trains normally, passes all standard tests, gets deployed — and then silently causes harm. Our platform detects these attacks using a 5-layer forensic pipeline, proves the harm causally, and generates regulatory evidence.
+**Data poisoning** is when an attacker secretly injects malicious training samples into an AI model's dataset. The model trains normally, passes all standard tests, gets deployed — and then silently causes harm. Our platform detects these attacks with a label check and a distribution-shift check against a trusted reference set (measured in `docs/benchmark-v2-findings.md`).
 
 Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically targeting SDG 3 (Good Health), SDG 9 (Infrastructure), and SDG 16 (Strong Institutions).
 

@@ -523,7 +523,7 @@ export default function AdminDashboard() {
             <div>
               <h3 className="font-display font-bold text-white text-xl">Red Team Attack Simulation</h3>
               <p className="text-xs font-sans text-textMuted mt-1 leading-relaxed">
-                Inject synthetic poisoning vectors into test workloads to evaluate 5-layer detection coverage and resilience scores.
+                Inject synthetic poisoning vectors into test workloads to see which are flagged.
               </p>
             </div>
 

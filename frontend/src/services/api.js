@@ -123,9 +123,15 @@ export const api = {
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
 
     // CSV Upload Analysis
-    uploadCSV: (file) => {
+    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order
+    uploadCSV: (file, opts = {}) => {
         const formData = new FormData();
         formData.append('file', file);
+        if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
+        if (opts.splitColumn && opts.splitCutoff) {
+            formData.append('split_column', opts.splitColumn);
+            formData.append('split_cutoff', opts.splitCutoff);
+        }
         return apiFormData('/analyze/upload', formData);
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),

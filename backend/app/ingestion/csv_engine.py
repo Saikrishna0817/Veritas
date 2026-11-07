@@ -28,6 +28,10 @@ def _name_tokens(col: str) -> set:
     return {t for t in re.split(r'[^a-z0-9]+', spaced.lower()) if t}
 
 
+_REF_COL = "__veritas_is_reference"
+MIN_REFERENCE_ROWS, MIN_INCOMING_ROWS = 30, 10
+
+
 class CSVIngestionEngine:
     """
     Ingests a CSV file and prepares it for the detection pipeline.
@@ -244,9 +248,40 @@ class CSVIngestionEngine:
 
     # ── Main Ingestion ─────────────────────────────────────────────────────────
 
-    def ingest(self, csv_bytes: bytes, filename: str = "upload.csv") -> Dict[str, Any]:
+    def _parse(self, csv_bytes: bytes, what: str = "CSV") -> pd.DataFrame:
+        try:
+            df = pd.read_csv(io.BytesIO(csv_bytes))
+        except Exception as e:
+            raise ValueError(f"Failed to parse {what}: {e}")
+        return df
+
+    @staticmethod
+    def _cutoff_mask(df: pd.DataFrame, column: str, cutoff: str) -> np.ndarray:
+        """True for rows strictly before ``cutoff`` in ``column`` (numbers or dates)."""
+        if column not in df.columns:
+            raise ValueError(f"Split column {column!r} is not in the CSV.")
+        series = df[column]
+        try:
+            numeric = pd.to_numeric(series, errors="raise")
+            values, edge = numeric, float(cutoff)
+        except (ValueError, TypeError):
+            try:
+                values, edge = pd.to_datetime(series, errors="raise"), pd.to_datetime(cutoff)
+            except (ValueError, TypeError):
+                raise ValueError(f"Column {column!r} must hold numbers or dates, and the cutoff {cutoff!r} must match.")
+        if values.isna().any():
+            raise ValueError(f"Split column {column!r} has empty values; every row needs a value to be placed.")
+        return (values < edge).to_numpy()
+
+    def ingest(self, csv_bytes: bytes, filename: str = "upload.csv", *, reference_bytes: bytes | None = None,
+               split_column: str | None = None, split_cutoff: str | None = None) -> Dict[str, Any]:
         """
         Main ingestion method. Returns a structured dataset ready for detection.
+
+        The trusted reference rows (what "normal" looks like) come from one of:
+          * ``reference_bytes``: a separate CSV with the same columns (it is the reference, the main file is incoming)
+          * ``split_column`` + ``split_cutoff``: rows of the main file strictly before the cutoff (number or date)
+          * neither: the first 70% of the main file in file order
         
         Returns:
             {
@@ -269,28 +304,46 @@ class CSVIngestionEngine:
         warnings = []
 
         # ── Parse CSV ──────────────────────────────────────────────────────
-        try:
-            df = pd.read_csv(io.BytesIO(csv_bytes))
-        except Exception as e:
-            raise ValueError(f"Failed to parse CSV: {e}")
+        if reference_bytes is not None and (split_column or split_cutoff):
+            raise ValueError("Give either a reference file or a split column and cutoff, not both.")
+        if bool(split_column) != bool(split_cutoff):
+            raise ValueError("A split needs both a column and a cutoff.")
 
-        # Row limit
+        df = self._parse(csv_bytes)
         if len(df) > MAX_ROWS:
             df = df.head(MAX_ROWS)
             warnings.append(f"Dataset truncated to {MAX_ROWS} rows (limit).")
+        is_reference = None          # None = file order
+        split_method = "file_order"
+        extra_excluded: set = set()
+        if reference_bytes is not None:
+            ref = self._parse(reference_bytes, "reference CSV")
+            if len(ref) > MAX_ROWS:
+                ref = ref.head(MAX_ROWS)
+                warnings.append(f"Reference file truncated to {MAX_ROWS} rows (limit).")
+            if set(ref.columns) != set(df.columns):
+                only_ref, only_main = sorted(set(ref.columns) - set(df.columns)), sorted(set(df.columns) - set(ref.columns))
+                raise ValueError(f"Reference and main CSV must have the same columns (only in reference: {only_ref}; only in main: {only_main}).")
+            df = pd.concat([ref[df.columns], df], ignore_index=True)
+            is_reference = np.r_[np.ones(len(ref), bool), np.zeros(len(df) - len(ref), bool)]
+            split_method = "reference_file"
+        elif split_column:
+            is_reference = self._cutoff_mask(df, split_column, split_cutoff)
+            extra_excluded = {split_column}
+            split_method = "column_cutoff"
 
         if len(df) < 20:
             raise ValueError("Dataset too small (minimum 20 rows required).")
 
         # ── Schema Detection ───────────────────────────────────────────────
-        ground_truth_cols = [c for c in df.columns if str(c).lower().strip() in GROUND_TRUTH_NAMES]
+        ground_truth_cols = [c for c in df.columns if str(c).lower().strip() in GROUND_TRUTH_NAMES and c not in extra_excluded]
         if ground_truth_cols:
             warnings.append(
                 f"Column(s) {', '.join(map(str, ground_truth_cols))} look like an answer key or model output; "
                 "excluded from features and labels."
             )
-        label_col = self._detect_label_column(df, exclude=set(ground_truth_cols))
-        feature_cols = self._detect_feature_columns(df, label_col, exclude=set(ground_truth_cols))
+        label_col = self._detect_label_column(df, exclude=set(ground_truth_cols) | extra_excluded)
+        feature_cols = self._detect_feature_columns(df, label_col, exclude=set(ground_truth_cols) | extra_excluded)
 
         if len(feature_cols) == 0:
             raise ValueError("No numeric feature columns found in the CSV.")
@@ -302,6 +355,8 @@ class CSVIngestionEngine:
             warnings.append("More than 100 features detected. Keeping top 100 by variance.")
 
         # ── Clean Data ─────────────────────────────────────────────────────
+        if is_reference is not None:
+            df = df.assign(**{_REF_COL: is_reference})   # cleaning drops rows; this tag travels with them
         df_clean, feature_cols = self._clean_dataframe(
             df, feature_cols, label_col=label_col, warnings=warnings
         )
@@ -338,16 +393,32 @@ class CSVIngestionEngine:
         # ── Feature Matrix ─────────────────────────────────────────────────
         features = df_clean[feature_cols].values.astype(np.float64)
 
-        # ── Self-contained Split ───────────────────────────────────────────
-        # 70% reference (what "normal" looks like), 30% incoming (what we analyze).
-        # The split follows file order, so shuffled files should be ordered by
-        # ingestion time first. This is purely internal; no external baseline needed.
+        # ── Reference / incoming split ─────────────────────────────────────
         n = len(features)
-        split_idx = int(n * 0.70)
-        warnings.append(
-            f"Reference = first {split_idx} rows in file order; incoming = remaining {n - split_idx}. "
-            "Order the file by ingestion time for meaningful results."
-        )
+        if is_reference is None:
+            split_idx = int(n * 0.70)
+            warnings.append(
+                f"Reference = first {split_idx} rows in file order; incoming = remaining {n - split_idx}. "
+                "If rows are not ordered by time, or the file may contain bad rows anywhere, give a trusted "
+                "reference file or a split column and cutoff instead."
+            )
+        else:
+            tag = df_clean[_REF_COL].to_numpy(bool)
+            order = np.argsort(~tag, kind="stable")      # reference rows first, order kept within each side
+            features, df_clean = features[order], df_clean.iloc[order].reset_index(drop=True)
+            if labels is not None:
+                labels = labels[order]
+            df_clean = df_clean.drop(columns=_REF_COL)
+            split_idx = int(tag.sum())
+            if split_idx < MIN_REFERENCE_ROWS or n - split_idx < MIN_INCOMING_ROWS:
+                raise ValueError(
+                    f"The split leaves {split_idx} reference and {n - split_idx} incoming rows after cleaning; "
+                    f"need at least {MIN_REFERENCE_ROWS} and {MIN_INCOMING_ROWS}."
+                )
+            warnings.append(
+                f"Reference = {split_idx} rows from {'the reference file' if split_method == 'reference_file' else f'{split_column} < {split_cutoff}'}; "
+                f"incoming = {n - split_idx} rows."
+            )
 
         # Scale to [0, 1] using the REFERENCE rows only, so incoming rows cannot shape
         # the baseline. Incoming values are not clipped: a value outside the reference
@@ -383,7 +454,7 @@ class CSVIngestionEngine:
             "n_rows": n,
             "n_features": len(feature_cols),
             "ground_truth_columns": [str(c) for c in ground_truth_cols],
-            "split_method": "file_order",
+            "split_method": split_method,
             "dtypes": {col: str(df_clean[col].dtype) for col in feature_cols},
             "missing_pct": {
                 col: round(df_clean[col].isna().mean() * 100, 2)

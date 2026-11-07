@@ -97,7 +97,7 @@ Full tables: `research/results/2026-11-06-benchmark-v2-final-r1.md` (old Veritas
 ## Still open
 
 - ~~Move `veritas2` into the app pipeline~~ done (see Phase 2b below).
-- Explicit reference-set input in the UI/API instead of a file-order split.
+- ~~Explicit reference-set input~~ done: separate reference file, column cutoff (numbers/dates), or file order (default, with a warning).
 - ~~Fix batch-level power at small contamination~~ partly done (Phase 3 below): calibration fixed, power at 1-3% is a sample-size limit.
 - Sandboxed model-file scanner; more real-noise datasets (CIFAR-100N, text embeddings).
 
@@ -199,3 +199,13 @@ Row-level AUPRC is unchanged (the row ranking was not touched).
   at >= 5% contamination; for less, use the ranked row list".
 - Old `veritas2` binomial results remain in `results/*final-r1*`; `v2_ls_gate4` in `baselines.py` is the same detector.
 - CIs from 40 clean batches (test: 240) give only a rough read on the false-alarm rates above.
+
+# Phase 3b: legacy removal and explicit reference set
+
+The five-layer code, SHAP drift, the v1 harness (`research/evaluate.py`) and the synthetic federated page were deleted;
+tag `legacy-five-layer-pipeline` has them. Roadmap item 6 (audit M3) is done: the upload takes a trusted
+`reference_file`, or `split_column` + `split_cutoff`, else the first 70% in file order, and the UI has a selector.
+
+Known leftovers: `forensics/engine.py` blast-radius, counterfactual and sophistication outputs still read causal-effect
+fields that no longer exist and fall back to 0 or placeholder defaults, so they carry no information; the roadmap
+already lists them to cut or flag as research preview.

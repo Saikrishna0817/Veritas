@@ -36,6 +36,10 @@ function StatCard({ label, value, sub, color = 'var(--red-primary)', icon }) {
 export default function UploadPage() {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState(null);
+  const [refMode, setRefMode] = useState('order'); // order | file | column
+  const [referenceFile, setReferenceFile] = useState(null);
+  const [splitColumn, setSplitColumn] = useState('');
+  const [splitCutoff, setSplitCutoff] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -72,6 +76,10 @@ export default function UploadPage() {
 
   const runAnalysis = async () => {
     if (!file) return;
+    if ((refMode === 'file' && !referenceFile) || (refMode === 'column' && (!splitColumn.trim() || !splitCutoff.trim()))) {
+      setError('Finish choosing the trusted reference first.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setProgress(0);
@@ -81,7 +89,11 @@ export default function UploadPage() {
     }, 300);
 
     try {
-      const data = await api.uploadCSV(file);
+      const data = await api.uploadCSV(file, {
+        referenceFile: refMode === 'file' ? referenceFile : null,
+        splitColumn: refMode === 'column' ? splitColumn.trim() : '',
+        splitCutoff: refMode === 'column' ? splitCutoff.trim() : '',
+      });
       clearInterval(interval);
       setProgress(100);
       setTimeout(() => setResult(data), 300);
@@ -116,7 +128,7 @@ export default function UploadPage() {
                   </h1>
                 </div>
                 <p className="text-textSecondary text-[18px] leading-relaxed max-w-md">
-                  Upload any CSV file — the platform auto-detects schema, splits 70/30 for baseline, and runs all 5 detection layers.
+                  Upload a CSV and say which rows are trusted — the platform auto-detects the schema, then checks the rest for wrong labels and distribution shift.
                 </p>
               </div>
 
@@ -130,8 +142,8 @@ export default function UploadPage() {
                   </li>
                   <li className="relative pl-12">
                     <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary/30 border border-redPrimary rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">2. Auto-split & Baseline</h4>
-                    <p className="text-textMuted text-sm">Automatically detects schema and splits 70/30 to establish a nominal statistical baseline.</p>
+                    <h4 className="font-bold text-textPrimary mb-1">2. Trusted reference</h4>
+                    <p className="text-textMuted text-sm">Use a separate trusted file, rows before a cutoff, or the first 70% of the file as the baseline.</p>
                   </li>
                   <li className="relative pl-12">
                     <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-borderHairline rounded-full ring-4 ring-bgPanel" />
@@ -188,6 +200,30 @@ export default function UploadPage() {
               )}
 
               {file && !result && (
+                <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-5 space-y-3 text-sm">
+                  <div className="font-bold text-textPrimary">Which rows are trusted (the reference)?</div>
+                  <select value={refMode} onChange={(e) => setRefMode(e.target.value)}
+                    className="w-full bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary">
+                    <option value="order">First 70% of this file (file order)</option>
+                    <option value="file">A separate trusted CSV with the same columns</option>
+                    <option value="column">Rows before a cutoff in a column (number or date)</option>
+                  </select>
+                  {refMode === 'file' && (
+                    <input type="file" accept=".csv" onChange={(e) => setReferenceFile(e.target.files[0] || null)} className="text-textMuted" />
+                  )}
+                  {refMode === 'column' && (
+                    <div className="flex gap-2">
+                      <input value={splitColumn} onChange={(e) => setSplitColumn(e.target.value)} placeholder="column, e.g. date"
+                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
+                      <input value={splitCutoff} onChange={(e) => setSplitCutoff(e.target.value)} placeholder="cutoff, e.g. 2026-03-01"
+                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
+                    </div>
+                  )}
+                  <div className="text-textMuted">Everything else in this file is checked against the reference. File order only works if the first rows are known good.</div>
+                </div>
+              )}
+
+              {file && !result && (
                 <button
                   onClick={runAnalysis}
                   disabled={loading}
@@ -200,7 +236,7 @@ export default function UploadPage() {
               {loading && (
                 <div className="p-6 bg-bgPanel border border-borderHairline rounded-[20px]">
                   <div className="flex justify-between text-sm text-textPrimary font-bold mb-3">
-                    <span>Running 5-layer detection pipeline...</span>
+                    <span>Running label and shift checks...</span>
                     <span className="font-mono">{Math.round(progress)}%</span>
                   </div>
                   <div className="h-3 bg-bgVoid rounded-full overflow-hidden">

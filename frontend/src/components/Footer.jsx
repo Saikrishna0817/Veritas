@@ -148,7 +148,7 @@ export default function Footer() {
               <Cpu className="w-3.5 h-3.5 text-redPrimary" />
               <span>VERSION: <strong className="text-textPrimary">v2.2</strong></span>
             </span>
-            <span>ALGORITHM: <strong className="text-textPrimary">L1-L5 Spectral + Counterfactual</strong></span>
+            <span>ALGORITHM: <strong className="text-textPrimary">Label check + shift check</strong></span>
             <span>INGESTION: <strong className="text-textPrimary">REST / CSV / sklearn .pkl</strong></span>
           </div>
           <div className="text-textMuted">Mapping to frameworks is informational, not a compliance certification.</div>

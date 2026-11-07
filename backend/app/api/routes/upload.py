@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
@@ -42,14 +42,17 @@ async def analyze_uploaded_csv(
     background_tasks: BackgroundTasks,
     request: Request,
     file: UploadFile = File(...),
+    reference_file: UploadFile | None = File(None, description="Optional trusted reference CSV with the same columns; the main file is then all incoming"),
+    split_column: str | None = Form(None, description="Optional column to split on (numbers or dates)"),
+    split_cutoff: str | None = Form(None, description="Rows with split_column strictly below this are the trusted reference"),
     background: bool = Query(False, description="Return 202 + job_id immediately; poll GET /jobs/{job_id}"),
     user: dict = Depends(require_user),
 ):
-    """Upload a CSV file and run the full 5-layer poisoning detection pipeline.
+    """Upload a CSV file and check it against a trusted reference set.
 
     - Auto-detects label column, feature columns, data types
-    - Runs supervised detection if label column found, unsupervised otherwise
-    - Self-contained: uses internal 70/30 split (no external baseline needed)
+    - The reference is a separate file (`reference_file`), the rows before a cutoff
+      (`split_column` + `split_cutoff`), or by default the first 70% in file order
     - Max 200,000 rows, 200 MB file size
     """
     client_ip = request.client.host if request.client else "unknown"
@@ -68,10 +71,18 @@ async def analyze_uploaded_csv(
 
     content = await read_upload_limited(file, MAX_CSV_SIZE)
     filename = file.filename
+    split: dict = {}
+    if reference_file is not None:
+        if not reference_file.filename or not is_safe_filename(reference_file.filename) \
+                or not reference_file.filename.lower().endswith(".csv"):
+            raise HTTPException(status_code=400, detail="The reference file must be a CSV.")
+        split["reference_bytes"] = await read_upload_limited(reference_file, MAX_CSV_SIZE)
+    if split_column or split_cutoff:
+        split.update(split_column=split_column or None, split_cutoff=split_cutoff or None)
 
     if background:
         def _job() -> dict:
-            result, dataset_id = _orchestrate_csv(content, filename)
+            result, dataset_id = _orchestrate_csv(content, filename, split)
             result["source"] = "upload"
             result = deps.to_serializable(result)
             deps.upload_result_cache[dataset_id] = result
@@ -87,7 +98,7 @@ async def analyze_uploaded_csv(
         return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
-        full_result, dataset_id = await run_csv_analysis(content, filename, source="upload")
+        full_result, dataset_id = await run_csv_analysis(content, filename, source="upload", split=split)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception:

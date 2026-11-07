@@ -33,7 +33,7 @@ const features = [
   {
     id: 'f1',
     title: 'Detect Data & Model Poisoning',
-    desc: 'Upload a dataset or a trained .pkl model and run it through all 5 detection layers to catch poisoned samples before they ship.',
+    desc: 'Upload a dataset or a trained .pkl model and check it for wrong labels and shifted rows and catch poisoned samples before they ship.',
     icon: <BrainCircuit className="w-8 h-8 text-white" />,
   },
   {

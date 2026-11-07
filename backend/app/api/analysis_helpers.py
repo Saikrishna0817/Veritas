@@ -21,7 +21,7 @@ from app.api import dependencies as deps
 logger = logging.getLogger(__name__)
 
 
-def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], str]:
+def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None) -> tuple[dict[str, Any], str]:
     """Run the full CSV ingestion + detection + forensics pipeline (blocking).
 
     Returns (full_result_dict, dataset_id).
@@ -30,7 +30,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], s
     started = time.perf_counter()
 
     engine = deps.CSVIngestionEngine()
-    ingested = engine.ingest(csv_bytes, filename=filename)
+    ingested = engine.ingest(csv_bytes, filename=filename, **(split or {}))
 
     upload_pipeline = deps.DetectionPipeline()
     detection_result = upload_pipeline.run_on_upload(ingested)
@@ -99,11 +99,12 @@ async def run_csv_analysis(
     filename: str,
     source: str = "upload",
     extra: dict | None = None,
+    split: dict | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Async wrapper: runs _orchestrate_csv in the shared thread pool."""
     loop = asyncio.get_running_loop()
     full_result, dataset_id = await loop.run_in_executor(
-        deps.get_thread_pool(), _orchestrate_csv, csv_bytes, filename
+        deps.get_thread_pool(), _orchestrate_csv, csv_bytes, filename, split
     )
     full_result["source"] = source
     if extra:

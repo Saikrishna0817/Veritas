@@ -189,7 +189,7 @@ export default function ModelScanPage() {
                     </div>
                     <p className="text-textSecondary text-[18px] leading-relaxed">
                         Upload a trained sklearn <code className="bg-bgPanel px-2 py-0.5 rounded border border-borderHairline font-mono text-redPrimary">.pkl</code> model
-                        — we extract its learned parameters and run all 5 detection layers to check if it was trained on poisoned data.
+                        — we extract its learned parameters and run the label and shift checks to see if it was trained on poisoned data.
                         Optionally attach the training CSV for deeper analysis.
                     </p>
                     <div className="flex gap-2 mt-6 flex-wrap">
@@ -253,7 +253,7 @@ export default function ModelScanPage() {
                         {loading && (
                             <div className="p-6 bg-bgPanel border border-borderHairline rounded-[20px]">
                                 <div className="flex justify-between text-sm text-textPrimary font-bold mb-3">
-                                    <span>Extracting parameters → running 5-layer detection...</span>
+                                    <span>Extracting parameters → running checks...</span>
                                     <span className="font-mono">{Math.round(progress)}%</span>
                                 </div>
                                 <div className="h-3 bg-bgVoid rounded-full overflow-hidden">

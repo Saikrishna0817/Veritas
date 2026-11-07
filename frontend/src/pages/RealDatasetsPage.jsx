@@ -146,7 +146,7 @@ export default function RealDatasetsPage() {
                 <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0 }}>📚 Real World Dataset Library</h1>
                 <p style={{ color: '#475569', marginTop: 12, fontSize: 18, maxWidth: '80%', lineHeight: 1.6 }}>
                     {catalog.length} real public datasets (UCI, Wisconsin, MNIST, and more) with controlled poison injection — known ground truth,
-                    real features. Click <strong style={{ color: '#141414' }}>Analyze</strong> to run the full 5-layer detection pipeline,
+                    real features. Click <strong style={{ color: '#141414' }}>Analyze</strong> to run the label and shift checks,
                     or <strong style={{ color: '#141414' }}>CSV</strong> to download and upload your own way.
                 </p>
             </div>
