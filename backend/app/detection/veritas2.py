@@ -13,25 +13,44 @@ statistic is a -log10 p-value and the row score is the -log10 share of clean row
 from __future__ import annotations
 
 import numpy as np
-from scipy.stats import binom, rankdata
+from scipy.stats import binom, hypergeom, rankdata
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.preprocessing import StandardScaler
 
 TAIL_QUANTILE = 0.99
-GATE = 4.0             # frozen on the dev datasets (gates 3/4/6 tied)
+GATE = 3.0             # shift evidence needed before it joins the row ranking; gates 2/3/4 tied on dev
 CAL_FRACTION = 0.3     # share of the reference set held out as clean calibration rows
 MIN_ROWS = 200         # below this on either side the tail test cannot resolve a 1% tail
 
-# Batch evidence (-log10 p) at which clean batches stop being typical, measured on held-out
-# clean batches: ~95% of them score below SUSPICIOUS_AT, ~99% below CONFIRMED_AT.
-LOW_RISK_AT, SUSPICIOUS_AT, CONFIRMED_AT, SATURATED_AT = 4.0, 5.5, 9.5, 14.0
+# Weighted Bonferroni: the label test gets 80% of the false-alarm budget and the shift test 20%, so the
+# shift evidence is lowered by log10(4). Chosen on the dev datasets (penalties 0.6 / 1.0 / 1.5 compared).
+SHIFT_PENALTY = float(np.log10(4))
+
+# Batch evidence is a -log10 p-value that is calibrated on clean batches (see exact_tail_test), so the
+# cut-offs are false-alarm rates: p<=0.05, p<=0.01, p<=1e-4.
+LOW_RISK_AT, SUSPICIOUS_AT, CONFIRMED_AT, SATURATED_AT = 1.3, 2.0, 4.0, 8.0
 
 
 def tail_test(cal: np.ndarray, inc: np.ndarray, q: float = TAIL_QUANTILE) -> float:
     """-log10 binomial p of the number of incoming scores above the q-quantile of clean scores."""
     exceed = int((inc > np.quantile(cal, q)).sum())
     return float(-np.log10(max(binom.sf(exceed - 1, len(inc), 1 - q), 1e-300)))
+
+
+def exact_tail_test(cal: np.ndarray, inc: np.ndarray, q: float = TAIL_QUANTILE) -> float:
+    """-log10 p of how many incoming scores beat the m-th largest clean score (m ~ 1% of the clean rows).
+
+    If the incoming batch looks like the clean rows the pooled order is random, so this is an exact
+    hypergeometric tail. The binomial ``tail_test`` ignores the noise in the clean quantile and, with a few
+    hundred clean rows, lets ~5% of clean batches reach -log10 p = 4.6; this one reaches 1.3 as it should.
+    """
+    n_c, n_i = len(cal), len(inc)
+    m = max(1, round((1 - q) * n_c))
+    x = int((inc > np.sort(cal)[-m]).sum())
+    if x == 0:
+        return 0.0
+    return float(-np.log10(max(hypergeom.cdf(m - 1, n_c + n_i, n_c, x + m - 1), 1e-300)))
 
 
 def neg_log_p(cal: np.ndarray, inc: np.ndarray) -> np.ndarray:
@@ -76,10 +95,11 @@ def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
     evidence, rows = {}, []
     for name, component in components.items():
         cal, inc = component(d)
-        evidence[name] = tail_test(cal, inc)
+        evidence[name] = exact_tail_test(cal, inc)
         if name == "label" or evidence[name] >= gate:   # a quiet shift check must not dilute the ranking
             rows.append(neg_log_p(cal, inc))
-    return {"row_scores": np.max(rows, axis=0), "batch_evidence": max(evidence.values()), "evidence": evidence,
+    batch = max(e - (SHIFT_PENALTY if name == "shift" else 0.0) for name, e in evidence.items())
+    return {"row_scores": np.max(rows, axis=0), "batch_evidence": batch, "evidence": evidence,
             "shift_in_ranking": "shift" in evidence and evidence["shift"] >= gate}
 
 

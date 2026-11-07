@@ -132,6 +132,66 @@ def veritas2(d):
     return out["row_scores"], out["batch_evidence"]
 
 
+# ── Batch-power experiments (dev only; see docs/benchmark-v2-findings.md, Phase 3) ──────────────
+def _mwu_evidence(cal, inc):
+    """-log10 one-sided Mann-Whitney p: are incoming scores shifted up relative to clean ones?"""
+    from scipy.stats import mannwhitneyu
+    return float(-np.log10(max(mannwhitneyu(inc, cal, alternative="greater").pvalue, 1e-300)))
+
+
+def _oof_label_component(d):
+    """Label scores for ALL reference rows out of fold (a ~3x larger calibration set), incoming from a full fit."""
+    X = np.vstack([d["X_fit"], d["X_cal"]]); y = np.r_[d["y_fit"], d["y_cal"]]
+    P = np.zeros((len(X), d["n_classes"]))
+    for tr, te in StratifiedKFold(5, shuffle=True, random_state=0).split(X, y):
+        m = HistGradientBoostingClassifier(random_state=0).fit(X[tr], y[tr])
+        P[te] = _probs(m, X[te], d["n_classes"])
+    full = HistGradientBoostingClassifier(random_state=0).fit(X, y)
+    Pi = _probs(full, d["X_inc"], d["n_classes"])
+    return 1 - P[np.arange(len(y)), y], 1 - Pi[np.arange(len(d["y_inc"])), d["y_inc"]]
+
+
+def make_batchpower(label_fn, label_stat, shift_batch):
+    """rows as veritas2 (label always, shift gated at 4); batch = strongest of the chosen statistics."""
+    def detect(d):
+        cal, inc = label_fn(d)
+        rows = [_neg_log_p(cal, inc)]
+        label_ev = max(tail_test(cal, inc), _mwu_evidence(cal, inc)) if label_stat == "tail+mwu" else tail_test(cal, inc)
+        scal, sinc = _shift_component(d)
+        shift_ev = tail_test(scal, sinc)
+        if shift_ev >= 4.0:
+            rows.append(_neg_log_p(scal, sinc))
+        return np.max(rows, axis=0), max(label_ev, shift_ev) if shift_batch else label_ev
+    return detect
+
+
+def exact_tail_test(cal, inc, q=0.99):
+    """-log10 p of how many incoming scores beat the m-th largest clean score. Under 'incoming looks like
+    clean' the pooled order is random, so this is an exact hypergeometric tail: it stays calibrated when the
+    clean set is small, where the plain binomial tail test inherits the noise in the clean quantile."""
+    from scipy.stats import hypergeom
+    n_c, n_i = len(cal), len(inc)
+    m = max(1, round((1 - q) * n_c))
+    x = int((inc > np.sort(cal)[-m]).sum())
+    if x == 0:
+        return 0.0
+    return float(-np.log10(max(hypergeom.cdf(m - 1, n_c + n_i, n_c, x + m - 1), 1e-300)))
+
+
+def make_exact(gate, names=("label", "shift"), shift_penalty=0.0):
+    """shift_penalty: -log10 weight of the shift test in the batch statistic (weighted Bonferroni)."""
+    def detect(d):
+        rows, ev = [], []
+        for name in names:
+            cal, inc = COMPONENTS[name](d)
+            e = exact_tail_test(cal, inc)
+            ev.append(e - (shift_penalty if name != "label" else 0.0))
+            if name == "label" or e >= gate:
+                rows.append(_neg_log_p(cal, inc))
+        return np.max(rows, axis=0), max(ev)
+    return detect
+
+
 DETECTORS = {
     "veritas": veritas,
     "cleanlab_hgb": _label_detector(lambda: HistGradientBoostingClassifier(random_state=0), _cleanlab_score),
@@ -149,6 +209,17 @@ DETECTORS = {
     "v2_gate8": make_gated_ensemble(("label", "shift", "ecod", "iforest"), 8.0),
     # FROZEN 2026-11-06 after dev-only tuning (gate 3/4/6 tied; middle value kept). Do not retune on test.
     "veritas2": veritas2,
+    "bp_exact_g2": make_exact(2.0),
+    "bp_exact_g3": make_exact(3.0),
+    "bp_exact_g4": make_exact(4.0),
+    "bp_exact_p06": make_exact(3.0, shift_penalty=0.6),
+    "bp_exact_p10": make_exact(3.0, shift_penalty=1.0),
+    "bp_exact_p15": make_exact(3.0, shift_penalty=1.5),
+    "bp_exact_label": make_exact(1e9, ("label",)),
+    "bp_label_only": make_batchpower(_label_component, "tail", False),
+    "bp_mwu": make_batchpower(_label_component, "tail+mwu", True),
+    "bp_oof": make_batchpower(_oof_label_component, "tail", True),
+    "bp_oof_mwu": make_batchpower(_oof_label_component, "tail+mwu", True),
     "v2_ls_gate3": make_gated_ensemble(("label", "shift"), 3.0),
     "v2_ls_gate4": make_gated_ensemble(("label", "shift"), 4.0),
     "v2_ls_gate6": make_gated_ensemble(("label", "shift"), 6.0),

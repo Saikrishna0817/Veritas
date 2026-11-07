@@ -1,7 +1,7 @@
 import numpy as np
 
 from app.detection.pipeline import DetectionPipeline
-from app.detection.veritas2 import verdict_for
+from app.detection.veritas2 import exact_tail_test, verdict_for
 from sklearn.datasets import make_classification
 
 
@@ -34,5 +34,12 @@ def test_label_noise_is_caught_and_the_flags_are_mostly_the_flipped_rows():
 
 def test_verdict_cutoffs_map_to_the_thresholds_the_app_uses():
     assert verdict_for(0)[0] == "CLEAN"
-    assert verdict_for(5.5) == ("SUSPICIOUS", 0.35)
-    assert verdict_for(9.5) == ("CONFIRMED_POISONED", 0.65)
+    assert verdict_for(2.0) == ("SUSPICIOUS", 0.35)
+    assert verdict_for(4.0) == ("CONFIRMED_POISONED", 0.65)
+
+
+def test_batch_test_is_calibrated_when_incoming_matches_clean():
+    """The old binomial tail test let ~5% of clean batches reach -log10 p = 4.6; this must stay near 1.3."""
+    rng = np.random.default_rng(0)
+    ev = [exact_tail_test(rng.normal(size=540), rng.normal(size=1260)) for _ in range(400)]
+    assert np.mean(np.array(ev) >= 1.3) < 0.08 and np.mean(np.array(ev) >= 2.0) < 0.025

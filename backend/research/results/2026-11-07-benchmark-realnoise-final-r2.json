@@ -1,0 +1,5542 @@
+{
+ "manifest": {
+  "schema_version": 1,
+  "benchmark_id": "veritas-realnoise-v1",
+  "created_at": "2026-11-06",
+  "immutable": true,
+  "random_seed": 20261107,
+  "source": "CIFAR-10N (UCSC-REAL, ICLR 2022): real Mechanical Turk labels for CIFAR-10, ImageNet ResNet-18 embeddings reduced to 32 dims. See research/noise_data.py",
+  "batch_rows": 3000,
+  "reference_fraction": 0.6,
+  "calibration_fraction_of_reference": 0.3,
+  "reference_labels": "original CIFAR-10 labels (the trusted set)",
+  "incoming_labels": "worker labels; the mistake mask is worker label != original label",
+  "noise_sources": [
+   "aggre_label",
+   "random_label1",
+   "worse_label"
+  ],
+  "poison_rates": [
+   0.03,
+   0.05,
+   0.1
+  ],
+  "seeds": 20,
+  "clean_batches_per_seed": 2,
+  "detector_seed_limits": {
+   "veritas": 5
+  },
+  "metrics": {
+   "row": [
+    "auroc",
+    "auprc",
+    "precision_at_k"
+   ],
+   "batch": {
+    "tpr_at_clean_fpr": 0.05
+   },
+   "ci": {
+    "method": "bootstrap over seeds (one dataset, so seeds are the only unit)",
+    "resamples": 1000,
+    "level": 0.95
+   }
+  },
+  "profiles": {
+   "smoke": {
+    "seeds": 2,
+    "poison_rates": [
+     0.05
+    ],
+    "clean_batches_per_seed": 1,
+    "noise_sources": [
+     "aggre_label"
+    ]
+   }
+  },
+  "policy": "Real human mistakes at a controlled rate: wrong rows are drawn from the workers' actual mistakes, the rest from rows they labelled correctly. Never edit in place; create a new benchmark_id.",
+  "profile": "full"
+ },
+ "label": "final-r2",
+ "n_batches": 220,
+ "runtime_seconds": 198.8,
+ "summary": {
+  "cleanlab_hgb": {
+   "_clean_batch_threshold": 2.9298,
+   "_n_batches": 220,
+   "_mean_seconds": 3.383,
+   "aggre_label": {
+    "0.03": {
+     "auroc": [
+      0.8957,
+      0.8831,
+      0.909
+     ],
+     "auprc": [
+      0.3761,
+      0.3442,
+      0.408
+     ],
+     "precision_at_k": [
+      0.3694,
+      0.3444,
+      0.3903
+     ],
+     "batch_tpr": [
+      0.15,
+      0.0,
+      0.45
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.8986,
+      0.8898,
+      0.9067
+     ],
+     "auprc": [
+      0.4597,
+      0.4366,
+      0.4837
+     ],
+     "precision_at_k": [
+      0.4433,
+      0.4233,
+      0.4617
+     ],
+     "batch_tpr": [
+      0.75,
+      0.15,
+      0.95
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.8942,
+      0.8864,
+      0.9006
+     ],
+     "auprc": [
+      0.5845,
+      0.5699,
+      0.5969
+     ],
+     "precision_at_k": [
+      0.5525,
+      0.5383,
+      0.5642
+     ],
+     "batch_tpr": [
+      0.95,
+      0.85,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   },
+   "random_label1": {
+    "0.03": {
+     "auroc": [
+      0.911,
+      0.9009,
+      0.9213
+     ],
+     "auprc": [
+      0.4617,
+      0.4305,
+      0.4924
+     ],
+     "precision_at_k": [
+      0.4458,
+      0.4139,
+      0.475
+     ],
+     "batch_tpr": [
+      0.45,
+      0.05,
+      0.75
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.9242,
+      0.9173,
+      0.9307
+     ],
+     "auprc": [
+      0.5611,
+      0.5253,
+      0.5938
+     ],
+     "precision_at_k": [
+      0.5283,
+      0.5033,
+      0.5517
+     ],
+     "batch_tpr": [
+      0.8,
+      0.6,
+      1.0
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.9193,
+      0.9132,
+      0.9254
+     ],
+     "auprc": [
+      0.6638,
+      0.6437,
+      0.6828
+     ],
+     "precision_at_k": [
+      0.6079,
+      0.5887,
+      0.6275
+     ],
+     "batch_tpr": [
+      1.0,
+      0.9,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   },
+   "worse_label": {
+    "0.03": {
+     "auroc": [
+      0.9331,
+      0.925,
+      0.9412
+     ],
+     "auprc": [
+      0.5039,
+      0.4722,
+      0.5378
+     ],
+     "precision_at_k": [
+      0.4736,
+      0.4444,
+      0.5
+     ],
+     "batch_tpr": [
+      0.55,
+      0.3,
+      0.8
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.9266,
+      0.9182,
+      0.9351
+     ],
+     "auprc": [
+      0.5828,
+      0.5529,
+      0.6138
+     ],
+     "precision_at_k": [
+      0.5508,
+      0.525,
+      0.5767
+     ],
+     "batch_tpr": [
+      0.8,
+      0.4,
+      1.0
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.9337,
+      0.9288,
+      0.9392
+     ],
+     "auprc": [
+      0.7142,
+      0.6989,
+      0.731
+     ],
+     "precision_at_k": [
+      0.6512,
+      0.6379,
+      0.6675
+     ],
+     "batch_tpr": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   }
+  },
+  "veritas2": {
+   "_clean_batch_threshold": 1.2378,
+   "_n_batches": 220,
+   "_mean_seconds": 5.314,
+   "aggre_label": {
+    "0.03": {
+     "auroc": [
+      0.8957,
+      0.8831,
+      0.909
+     ],
+     "auprc": [
+      0.3761,
+      0.3442,
+      0.408
+     ],
+     "precision_at_k": [
+      0.3694,
+      0.3444,
+      0.3903
+     ],
+     "batch_tpr": [
+      0.1,
+      0.0,
+      0.55
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.8986,
+      0.8898,
+      0.9067
+     ],
+     "auprc": [
+      0.4597,
+      0.4366,
+      0.4837
+     ],
+     "precision_at_k": [
+      0.4433,
+      0.4233,
+      0.4617
+     ],
+     "batch_tpr": [
+      0.55,
+      0.3,
+      1.0
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.8942,
+      0.8864,
+      0.9006
+     ],
+     "auprc": [
+      0.5845,
+      0.5699,
+      0.5969
+     ],
+     "precision_at_k": [
+      0.5525,
+      0.5383,
+      0.5642
+     ],
+     "batch_tpr": [
+      0.95,
+      0.85,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   },
+   "random_label1": {
+    "0.03": {
+     "auroc": [
+      0.911,
+      0.9009,
+      0.9213
+     ],
+     "auprc": [
+      0.4617,
+      0.4305,
+      0.4924
+     ],
+     "precision_at_k": [
+      0.4458,
+      0.4139,
+      0.475
+     ],
+     "batch_tpr": [
+      0.5,
+      0.1,
+      0.75
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.9208,
+      0.9114,
+      0.9294
+     ],
+     "auprc": [
+      0.5495,
+      0.5054,
+      0.5893
+     ],
+     "precision_at_k": [
+      0.52,
+      0.4875,
+      0.5484
+     ],
+     "batch_tpr": [
+      0.9,
+      0.6988,
+      1.0
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.9193,
+      0.9132,
+      0.9254
+     ],
+     "auprc": [
+      0.6638,
+      0.6437,
+      0.6828
+     ],
+     "precision_at_k": [
+      0.6079,
+      0.5887,
+      0.6275
+     ],
+     "batch_tpr": [
+      0.95,
+      0.8,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   },
+   "worse_label": {
+    "0.03": {
+     "auroc": [
+      0.9331,
+      0.925,
+      0.9412
+     ],
+     "auprc": [
+      0.5039,
+      0.4722,
+      0.5378
+     ],
+     "precision_at_k": [
+      0.4736,
+      0.4444,
+      0.5
+     ],
+     "batch_tpr": [
+      0.5,
+      0.3,
+      0.8012
+     ],
+     "n_batches": 20
+    },
+    "0.05": {
+     "auroc": [
+      0.9266,
+      0.9182,
+      0.9351
+     ],
+     "auprc": [
+      0.5828,
+      0.5529,
+      0.6138
+     ],
+     "precision_at_k": [
+      0.5508,
+      0.525,
+      0.5767
+     ],
+     "batch_tpr": [
+      0.7,
+      0.5,
+      1.0
+     ],
+     "n_batches": 20
+    },
+    "0.1": {
+     "auroc": [
+      0.9337,
+      0.9288,
+      0.9392
+     ],
+     "auprc": [
+      0.7142,
+      0.6989,
+      0.731
+     ],
+     "precision_at_k": [
+      0.6512,
+      0.6379,
+      0.6675
+     ],
+     "batch_tpr": [
+      1.0,
+      1.0,
+      1.0
+     ],
+     "n_batches": 20
+    }
+   }
+  }
+ },
+ "batches": [
+  {
+   "source": null,
+   "seed": 0,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 3.685
+    },
+    "veritas2": {
+     "batch_score": 0.11521986358851938,
+     "seconds": 3.504
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 0,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0724821083803067,
+     "seconds": 2.981
+    },
+    "veritas2": {
+     "batch_score": 1.1617018290064096,
+     "seconds": 5.458
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 0,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.9991336212816339,
+     "seconds": 3.898,
+     "auroc": 0.9201269568537609,
+     "auprc": 0.428918219742833,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.603844466127597,
+     "seconds": 4.232,
+     "auroc": 0.9201269568537609,
+     "auprc": 0.428918219742833,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 0,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 4.246,
+     "auroc": 0.9001900584795322,
+     "auprc": 0.527432440194421,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 0.079845842069564,
+     "seconds": 6.735,
+     "auroc": 0.9001900584795322,
+     "auprc": 0.527432440194421,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 0,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.245433670869263,
+     "seconds": 4.312,
+     "auroc": 0.9057947530864197,
+     "auprc": 0.6305353324863077,
+     "precision_at_k": 0.5916666666666667
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 6.787,
+     "auroc": 0.9057947530864197,
+     "auprc": 0.6305353324863077,
+     "precision_at_k": 0.5916666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 0,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 3.369,
+     "auroc": 0.9227758686521572,
+     "auprc": 0.44069912884998325,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 6.833,
+     "auroc": 0.9227758686521572,
+     "auprc": 0.44069912884998325,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 0,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 10.496561593876566,
+     "seconds": 4.394,
+     "auroc": 0.9326608187134503,
+     "auprc": 0.5617200830336072,
+     "precision_at_k": 0.5333333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.059984793900906,
+     "seconds": 6.233,
+     "auroc": 0.9326608187134503,
+     "auprc": 0.5617200830336072,
+     "precision_at_k": 0.5333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 0,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 21.27725828862803,
+     "seconds": 2.313,
+     "auroc": 0.9279398148148148,
+     "auprc": 0.7192588133336015,
+     "precision_at_k": 0.6666666666666666
+    },
+    "veritas2": {
+     "batch_score": 5.299985383547297,
+     "seconds": 5.306,
+     "auroc": 0.9279398148148148,
+     "auprc": 0.7192588133336015,
+     "precision_at_k": 0.6666666666666666
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 0,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.412,
+     "auroc": 0.9474990454371898,
+     "auprc": 0.476856917222464,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 0.9488493732565474,
+     "seconds": 6.492,
+     "auroc": 0.9474990454371898,
+     "auprc": 0.476856917222464,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 0,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.897136511196985,
+     "seconds": 3.819,
+     "auroc": 0.932485380116959,
+     "auprc": 0.5782889330572687,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.10083888233892,
+     "seconds": 3.495,
+     "auroc": 0.932485380116959,
+     "auprc": 0.5782889330572687,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 0,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 13.391825784106276,
+     "seconds": 3.068,
+     "auroc": 0.9355324074074074,
+     "auprc": 0.6995193127755854,
+     "precision_at_k": 0.65
+    },
+    "veritas2": {
+     "batch_score": 3.438033629925876,
+     "seconds": 6.76,
+     "auroc": 0.9355324074074074,
+     "auprc": 0.6995193127755854,
+     "precision_at_k": 0.65
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 1,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 4.11
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 6.698
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 1,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 3.466
+    },
+    "veritas2": {
+     "batch_score": 0.014600609799269958,
+     "seconds": 3.382
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 1,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.207571864833751,
+     "seconds": 3.349,
+     "auroc": 0.912180221458572,
+     "auprc": 0.3174342780173052,
+     "precision_at_k": 0.2777777777777778
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 5.722,
+     "auroc": 0.912180221458572,
+     "auprc": 0.3174342780173052,
+     "precision_at_k": 0.2777777777777778
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 1,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.697349969993813,
+     "seconds": 2.652,
+     "auroc": 0.8966228070175438,
+     "auprc": 0.46041970578116215,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 4.984,
+     "auroc": 0.8966228070175438,
+     "auprc": 0.46041970578116215,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 1,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.245433670869263,
+     "seconds": 3.426,
+     "auroc": 0.8936728395061728,
+     "auprc": 0.5658654349849768,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 5.16,
+     "auroc": 0.8936728395061728,
+     "auprc": 0.5658654349849768,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 1,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.1942237577762502,
+     "seconds": 2.356,
+     "auroc": 0.881610347460863,
+     "auprc": 0.44287025797231255,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.442187679341071,
+     "seconds": 5.227,
+     "auroc": 0.881610347460863,
+     "auprc": 0.44287025797231255,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 1,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 3.317,
+     "auroc": 0.9118567251461989,
+     "auprc": 0.5081228613181913,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 4.735,
+     "auroc": 0.9118567251461989,
+     "auprc": 0.5081228613181913,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 1,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 19.879301812560286,
+     "seconds": 3.037,
+     "auroc": 0.9314969135802469,
+     "auprc": 0.6931172529564044,
+     "precision_at_k": 0.6583333333333333
+    },
+    "veritas2": {
+     "batch_score": 4.7537527200721845,
+     "seconds": 4.763,
+     "auroc": 0.9314969135802469,
+     "auprc": 0.6931172529564044,
+     "precision_at_k": 0.6583333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 1,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.1942237577762502,
+     "seconds": 3.102,
+     "auroc": 0.9058323787705231,
+     "auprc": 0.4620669732525443,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 5.073,
+     "auroc": 0.9058323787705231,
+     "auprc": 0.4620669732525443,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 1,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 9.411252009091251,
+     "seconds": 2.054,
+     "auroc": 0.9193567251461988,
+     "auprc": 0.6554783748559027,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.185020183760441,
+     "seconds": 3.419,
+     "auroc": 0.9193567251461988,
+     "auprc": 0.6554783748559027,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 1,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 16.526615959748504,
+     "seconds": 3.603,
+     "auroc": 0.9273302469135802,
+     "auprc": 0.6813089340503332,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.8243880551654095,
+     "seconds": 3.713,
+     "auroc": 0.9273302469135802,
+     "auprc": 0.6813089340503332,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 2,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 4.116
+    },
+    "veritas2": {
+     "batch_score": 0.5262622926098941,
+     "seconds": 6.062
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 2,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.37259953567444304,
+     "seconds": 3.136
+    },
+    "veritas2": {
+     "batch_score": 0.16784921104225692,
+     "seconds": 5.518
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 2,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.6836929518925003,
+     "seconds": 2.575,
+     "auroc": 0.8900105001909127,
+     "auprc": 0.43325581820380415,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.9488493732565474,
+     "seconds": 4.759,
+     "auroc": 0.8900105001909127,
+     "auprc": 0.43325581820380415,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 2,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.697349969993813,
+     "seconds": 4.041,
+     "auroc": 0.9147222222222222,
+     "auprc": 0.4602635353881728,
+     "precision_at_k": 0.4
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 6.812,
+     "auroc": 0.9147222222222222,
+     "auprc": 0.4602635353881728,
+     "precision_at_k": 0.4
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 2,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 13.391825784106276,
+     "seconds": 3.18,
+     "auroc": 0.8502932098765432,
+     "auprc": 0.5088271538921598,
+     "precision_at_k": 0.475
+    },
+    "veritas2": {
+     "batch_score": 3.8243880551654095,
+     "seconds": 5.17,
+     "auroc": 0.8502932098765432,
+     "auprc": 0.5088271538921598,
+     "precision_at_k": 0.475
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 2,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 4.337,
+     "auroc": 0.878627338678885,
+     "auprc": 0.42911115922076254,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 6.889,
+     "auroc": 0.878627338678885,
+     "auprc": 0.42911115922076254,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 2,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.282,
+     "auroc": 0.8958771929824562,
+     "auprc": 0.43492069376745546,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 6.183,
+     "auroc": 0.8958771929824562,
+     "auprc": 0.43492069376745546,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 2,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.881592960157636,
+     "seconds": 4.244,
+     "auroc": 0.928804012345679,
+     "auprc": 0.6550894605697108,
+     "precision_at_k": 0.5583333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.8243880551654095,
+     "seconds": 6.807,
+     "auroc": 0.928804012345679,
+     "auprc": 0.6550894605697108,
+     "precision_at_k": 0.5583333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 2,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 2.817,
+     "auroc": 0.9414614356624667,
+     "auprc": 0.5689709911723964,
+     "precision_at_k": 0.4722222222222222
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 5.535,
+     "auroc": 0.9414614356624667,
+     "auprc": 0.5689709911723964,
+     "precision_at_k": 0.4722222222222222
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 2,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 10.496561593876566,
+     "seconds": 3.317,
+     "auroc": 0.933845029239766,
+     "auprc": 0.5536148444088602,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 5.461,
+     "auroc": 0.933845029239766,
+     "auprc": 0.5536148444088602,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 2,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 20.574350578248392,
+     "seconds": 3.33,
+     "auroc": 0.9422762345679012,
+     "auprc": 0.7290764119001316,
+     "precision_at_k": 0.625
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 5.918,
+     "auroc": 0.9422762345679012,
+     "auprc": 0.7290764119001316,
+     "precision_at_k": 0.625
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 3,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 4.255
+    },
+    "veritas2": {
+     "batch_score": 0.11521986358851938,
+     "seconds": 7.015
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 3,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0032211010385070978,
+     "seconds": 4.392
+    },
+    "veritas2": {
+     "batch_score": 0.05129663049243952,
+     "seconds": 5.185
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 3,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.6438526997535722,
+     "seconds": 3.101,
+     "auroc": 0.8825171821305842,
+     "auprc": 0.32838914422351434,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 5.162,
+     "auroc": 0.8825171821305842,
+     "auprc": 0.32838914422351434,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 3,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 3.997,
+     "auroc": 0.9108333333333334,
+     "auprc": 0.5223453237031529,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.8745195678955227,
+     "seconds": 4.175,
+     "auroc": 0.9108333333333334,
+     "auprc": 0.5223453237031529,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 3,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.792842641112959,
+     "seconds": 2.401,
+     "auroc": 0.918233024691358,
+     "auprc": 0.6396309319826795,
+     "precision_at_k": 0.5833333333333334
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 5.761,
+     "auroc": 0.918233024691358,
+     "auprc": 0.6396309319826795,
+     "precision_at_k": 0.5833333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 3,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 3.731,
+     "auroc": 0.9280498281786941,
+     "auprc": 0.5126076859583304,
+     "precision_at_k": 0.4722222222222222
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 4.938,
+     "auroc": 0.9280498281786941,
+     "auprc": 0.5126076859583304,
+     "precision_at_k": 0.4722222222222222
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 3,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.88513299077313,
+     "seconds": 2.507,
+     "auroc": 0.9343859649122807,
+     "auprc": 0.6317164193817807,
+     "precision_at_k": 0.5833333333333334
+    },
+    "veritas2": {
+     "batch_score": 2.9359821724240844,
+     "seconds": 4.842,
+     "auroc": 0.9343859649122807,
+     "auprc": 0.6317164193817807,
+     "precision_at_k": 0.5833333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 3,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.20361880997449,
+     "seconds": 2.081,
+     "auroc": 0.9027314814814814,
+     "auprc": 0.6161630356305492,
+     "precision_at_k": 0.5583333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.6947349291210405,
+     "seconds": 3.481,
+     "auroc": 0.9027314814814814,
+     "auprc": 0.6161630356305492,
+     "precision_at_k": 0.5583333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 3,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.207571864833751,
+     "seconds": 3.418,
+     "auroc": 0.9426785032455135,
+     "auprc": 0.5840805308493744,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 0.6851489961633598,
+     "seconds": 5.001,
+     "auroc": 0.9426785032455135,
+     "auprc": 0.5840805308493744,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 3,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 4.337,
+     "auroc": 0.9279824561403508,
+     "auprc": 0.5178107942384761,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 6.849,
+     "auroc": 0.9279824561403508,
+     "auprc": 0.5178107942384761,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 3,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 13.391825784106276,
+     "seconds": 4.652,
+     "auroc": 0.9319753086419753,
+     "auprc": 0.684687024160144,
+     "precision_at_k": 0.625
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 5.467,
+     "auroc": 0.9319753086419753,
+     "auprc": 0.684687024160144,
+     "precision_at_k": 0.625
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 4,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.11980120089530723,
+     "seconds": 4.201
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 6.457
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 4,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 2.154
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 5.333
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 4,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.950301813851997,
+     "seconds": 4.461,
+     "auroc": 0.8545007636502481,
+     "auprc": 0.3391913282208313,
+     "precision_at_k": 0.3333333333333333
+    },
+    "veritas2": {
+     "batch_score": 0.8578826955737393,
+     "seconds": 6.724,
+     "auroc": 0.8545007636502481,
+     "auprc": 0.3391913282208313,
+     "precision_at_k": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 4,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.376090781263231,
+     "seconds": 3.978,
+     "auroc": 0.8876608187134504,
+     "auprc": 0.3949102734504658,
+     "precision_at_k": 0.36666666666666664
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 4.075,
+     "auroc": 0.8876608187134504,
+     "auprc": 0.3949102734504658,
+     "precision_at_k": 0.36666666666666664
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 4,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.20361880997449,
+     "seconds": 3.435,
+     "auroc": 0.9233873456790124,
+     "auprc": 0.6019148795635384,
+     "precision_at_k": 0.5583333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.438033629925876,
+     "seconds": 6.634,
+     "auroc": 0.9233873456790124,
+     "auprc": 0.6019148795635384,
+     "precision_at_k": 0.5583333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 4,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.88513299077313,
+     "seconds": 4.013,
+     "auroc": 0.9114404352806416,
+     "auprc": 0.4990002501688264,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 6.36,
+     "auroc": 0.9114404352806416,
+     "auprc": 0.4990002501688264,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 4,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 9.948478081955463,
+     "seconds": 2.888,
+     "auroc": 0.9356140350877193,
+     "auprc": 0.6393739879258982,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.8130545594160576,
+     "seconds": 3.369,
+     "auroc": 0.9356140350877193,
+     "auprc": 0.6393739879258982,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 4,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 21.987900252230148,
+     "seconds": 2.278,
+     "auroc": 0.925625,
+     "auprc": 0.6884541221965346,
+     "precision_at_k": 0.65
+    },
+    "veritas2": {
+     "batch_score": 4.88935522086373,
+     "seconds": 6.26,
+     "auroc": 0.925625,
+     "auprc": 0.6884541221965346,
+     "precision_at_k": 0.65
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 4,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 2.462,
+     "auroc": 0.9238974799541809,
+     "auprc": 0.5116406225887798,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 2.10083888233892,
+     "seconds": 5.001,
+     "auroc": 0.9238974799541809,
+     "auprc": 0.5116406225887798,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 4,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.430724390496756,
+     "seconds": 4.232,
+     "auroc": 0.9502631578947367,
+     "auprc": 0.6132280335556135,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 5.323,
+     "auroc": 0.9502631578947367,
+     "auprc": 0.6132280335556135,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 4,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 22.706155822312372,
+     "seconds": 2.253,
+     "auroc": 0.9413888888888888,
+     "auprc": 0.7348829260721143,
+     "precision_at_k": 0.675
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 3.629,
+     "auroc": 0.9413888888888888,
+     "auprc": 0.7348829260721143,
+     "precision_at_k": 0.675
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 5,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 2.336
+    },
+    "veritas2": {
+     "batch_score": 0.2053734793777881,
+     "seconds": 6.146
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 5,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.6836929518925003,
+     "seconds": 3.179
+    },
+    "veritas2": {
+     "batch_score": 0.603844466127597,
+     "seconds": 5.094
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 5,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.8576967610106756,
+     "seconds": 3.194,
+     "auroc": 0.9388841160748377,
+     "auprc": 0.45034584284829476,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 4.211,
+     "auroc": 0.9388841160748377,
+     "auprc": 0.45034584284829476,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 5,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.5469258718621095,
+     "seconds": 3.389,
+     "auroc": 0.9237719298245614,
+     "auprc": 0.43615788506744996,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 4.169,
+     "auroc": 0.9237719298245614,
+     "auprc": 0.43615788506744996,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 5,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 21.27725828862803,
+     "seconds": 3.192,
+     "auroc": 0.8977932098765432,
+     "auprc": 0.5843881215699402,
+     "precision_at_k": 0.5583333333333333
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 6.845,
+     "auroc": 0.8977932098765432,
+     "auprc": 0.5843881215699402,
+     "precision_at_k": 0.5583333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 5,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.4359333754571435,
+     "seconds": 3.127,
+     "auroc": 0.8865024818633065,
+     "auprc": 0.31088990979520553,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.8578826955737393,
+     "seconds": 6.335,
+     "auroc": 0.8865024818633065,
+     "auprc": 0.31088990979520553,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 5,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.897136511196985,
+     "seconds": 4.189,
+     "auroc": 0.9255701754385965,
+     "auprc": 0.543721666131399,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 2.8359736385979133,
+     "seconds": 5.812,
+     "auroc": 0.8582529239766081,
+     "auprc": 0.31124908486687913,
+     "precision_at_k": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 5,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 9.411252009091251,
+     "seconds": 3.266,
+     "auroc": 0.9409413580246914,
+     "auprc": 0.7219360014292135,
+     "precision_at_k": 0.6833333333333333
+    },
+    "veritas2": {
+     "batch_score": 2.45119015248746,
+     "seconds": 5.719,
+     "auroc": 0.9409413580246914,
+     "auprc": 0.7219360014292135,
+     "precision_at_k": 0.6833333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 5,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 14.618303616750769,
+     "seconds": 3.96,
+     "auroc": 0.9137313860252004,
+     "auprc": 0.3689948613530557,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 3.565939885774207,
+     "seconds": 3.858,
+     "auroc": 0.9137313860252004,
+     "auprc": 0.3689948613530557,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 5,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.8576967610106756,
+     "seconds": 4.211,
+     "auroc": 0.9472368421052632,
+     "auprc": 0.6479995030098237,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 7.018,
+     "auroc": 0.9472368421052632,
+     "auprc": 0.6479995030098237,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 5,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 48.23052051358222,
+     "seconds": 3.226,
+     "auroc": 0.9272762345679012,
+     "auprc": 0.7068851513775247,
+     "precision_at_k": 0.65
+    },
+    "veritas2": {
+     "batch_score": 8.901067851239514,
+     "seconds": 5.277,
+     "auroc": 0.9272762345679012,
+     "auprc": 0.7068851513775247,
+     "precision_at_k": 0.65
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 6,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0724821083803067,
+     "seconds": 2.128
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 3.35
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 6,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.37259953567444304,
+     "seconds": 2.843
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 5.489
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 6,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 3.212,
+     "auroc": 0.8273434516991218,
+     "auprc": 0.27546029538254724,
+     "precision_at_k": 0.2777777777777778
+    },
+    "veritas2": {
+     "batch_score": 0.6851489961633598,
+     "seconds": 5.153,
+     "auroc": 0.8273434516991218,
+     "auprc": 0.27546029538254724,
+     "precision_at_k": 0.2777777777777778
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 6,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 17.842621084798704,
+     "seconds": 3.133,
+     "auroc": 0.9118274853801169,
+     "auprc": 0.5156805548121837,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 3.059984793900906,
+     "seconds": 3.591,
+     "auroc": 0.9118274853801169,
+     "auprc": 0.5156805548121837,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 6,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 20.574350578248392,
+     "seconds": 2.056,
+     "auroc": 0.8816435185185185,
+     "auprc": 0.6149843216507148,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 3.438033629925876,
+     "seconds": 4.047,
+     "auroc": 0.8816435185185185,
+     "auprc": 0.6149843216507148,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 6,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 3.177,
+     "auroc": 0.9419625811378389,
+     "auprc": 0.5922957843467198,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 5.202,
+     "auroc": 0.9419625811378389,
+     "auprc": 0.5922957843467198,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 6,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.897136511196985,
+     "seconds": 3.224,
+     "auroc": 0.9532163742690059,
+     "auprc": 0.5764704432544732,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 4.507,
+     "auroc": 0.9532163742690059,
+     "auprc": 0.5764704432544732,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 6,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 19.879301812560286,
+     "seconds": 2.82,
+     "auroc": 0.9148688271604939,
+     "auprc": 0.6432448896347566,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 5.02560640115173,
+     "seconds": 3.922,
+     "auroc": 0.9148688271604939,
+     "auprc": 0.6432448896347566,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 6,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 11.624355822293815,
+     "seconds": 3.244,
+     "auroc": 0.928741886216113,
+     "auprc": 0.4685766512404216,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 2.6912471490479932,
+     "seconds": 4.059,
+     "auroc": 0.928741886216113,
+     "auprc": 0.4685766512404216,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 6,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 4.05,
+     "auroc": 0.9501169590643275,
+     "auprc": 0.71659314746231,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 6.96,
+     "auroc": 0.9501169590643275,
+     "auprc": 0.71659314746231,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 6,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 27.937758503266164,
+     "seconds": 3.933,
+     "auroc": 0.9344058641975308,
+     "auprc": 0.715657921426657,
+     "precision_at_k": 0.6416666666666667
+    },
+    "veritas2": {
+     "batch_score": 6.420321119314367,
+     "seconds": 7.227,
+     "auroc": 0.9344058641975308,
+     "auprc": 0.715657921426657,
+     "precision_at_k": 0.6416666666666667
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 7,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 3.881
+    },
+    "veritas2": {
+     "batch_score": 0.079845842069564,
+     "seconds": 5.387
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 7,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0032211010385070978,
+     "seconds": 4.149
+    },
+    "veritas2": {
+     "batch_score": 0.02962896043047352,
+     "seconds": 7.17
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 7,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.37259953567444304,
+     "seconds": 3.361,
+     "auroc": 0.850610920198549,
+     "auprc": 0.30205089048508177,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 5.388,
+     "auroc": 0.850610920198549,
+     "auprc": 0.30205089048508177,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 7,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 4.292,
+     "auroc": 0.9317690058479533,
+     "auprc": 0.49322999107723964,
+     "precision_at_k": 0.48333333333333334
+    },
+    "veritas2": {
+     "batch_score": 0.9488493732565474,
+     "seconds": 6.895,
+     "auroc": 0.9317690058479533,
+     "auprc": 0.49322999107723964,
+     "precision_at_k": 0.48333333333333334
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 7,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 16.526615959748504,
+     "seconds": 4.238,
+     "auroc": 0.8917283950617284,
+     "auprc": 0.5707152160884785,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 5.963,
+     "auroc": 0.8917283950617284,
+     "auprc": 0.5707152160884785,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 7,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.207571864833751,
+     "seconds": 3.476,
+     "auroc": 0.9068823978617793,
+     "auprc": 0.3947186685645837,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.603844466127597,
+     "seconds": 7.32,
+     "auroc": 0.9068823978617793,
+     "auprc": 0.3947186685645837,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 7,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.53686319536541,
+     "seconds": 4.343,
+     "auroc": 0.9035233918128655,
+     "auprc": 0.4915884915337152,
+     "precision_at_k": 0.48333333333333334
+    },
+    "veritas2": {
+     "batch_score": 2.10083888233892,
+     "seconds": 7.035,
+     "auroc": 0.9035233918128655,
+     "auprc": 0.4915884915337152,
+     "precision_at_k": 0.48333333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 7,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 23.431908207879708,
+     "seconds": 2.351,
+     "auroc": 0.8963657407407407,
+     "auprc": 0.6015515984724864,
+     "precision_at_k": 0.575
+    },
+    "veritas2": {
+     "batch_score": 2.10083888233892,
+     "seconds": 3.359,
+     "auroc": 0.8963657407407407,
+     "auprc": 0.6015515984724864,
+     "precision_at_k": 0.575
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 7,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.430724390496756,
+     "seconds": 3.139,
+     "auroc": 0.9396716303932798,
+     "auprc": 0.4215775817783169,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.45119015248746,
+     "seconds": 4.66,
+     "auroc": 0.9396716303932798,
+     "auprc": 0.4215775817783169,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 7,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 3.468,
+     "auroc": 0.9334210526315789,
+     "auprc": 0.5136295685195525,
+     "precision_at_k": 0.48333333333333334
+    },
+    "veritas2": {
+     "batch_score": 0.9488493732565474,
+     "seconds": 7.017,
+     "auroc": 0.9334210526315789,
+     "auprc": 0.5136295685195525,
+     "precision_at_k": 0.48333333333333334
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 7,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 11.055263725116093,
+     "seconds": 4.303,
+     "auroc": 0.9206944444444445,
+     "auprc": 0.6977375299076001,
+     "precision_at_k": 0.65
+    },
+    "veritas2": {
+     "batch_score": 3.565939885774207,
+     "seconds": 6.661,
+     "auroc": 0.9206944444444445,
+     "auprc": 0.6977375299076001,
+     "precision_at_k": 0.65
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 8,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0009621420942314752,
+     "seconds": 3.22
+    },
+    "veritas2": {
+     "batch_score": 0.014600609799269958,
+     "seconds": 5.89
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 8,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.906
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 4.713
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 8,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 2.519,
+     "auroc": 0.9302691867124857,
+     "auprc": 0.47117445721363743,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 3.513,
+     "auroc": 0.9302691867124857,
+     "auprc": 0.47117445721363743,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 8,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 2.969,
+     "auroc": 0.886812865497076,
+     "auprc": 0.39318615845582666,
+     "precision_at_k": 0.4
+    },
+    "veritas2": {
+     "batch_score": 1.0426093784994745,
+     "seconds": 5.92,
+     "auroc": 0.886812865497076,
+     "auprc": 0.39318615845582666,
+     "precision_at_k": 0.4
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 8,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.430724390496756,
+     "seconds": 3.309,
+     "auroc": 0.8670756172839507,
+     "auprc": 0.5560160034681471,
+     "precision_at_k": 0.525
+    },
+    "veritas2": {
+     "batch_score": 2.2162430027364355,
+     "seconds": 4.676,
+     "auroc": 0.8670756172839507,
+     "auprc": 0.5560160034681471,
+     "precision_at_k": 0.525
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 8,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 3.074,
+     "auroc": 0.9023959526536846,
+     "auprc": 0.42402476842443104,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 4.375,
+     "auroc": 0.9023959526536846,
+     "auprc": 0.42402476842443104,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 8,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 3.775,
+     "auroc": 0.9105555555555556,
+     "auprc": 0.5320469252357675,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 4.726,
+     "auroc": 0.9105555555555556,
+     "auprc": 0.5320469252357675,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 8,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 19.879301812560286,
+     "seconds": 2.468,
+     "auroc": 0.9194521604938272,
+     "auprc": 0.6634090640762361,
+     "precision_at_k": 0.5916666666666667
+    },
+    "veritas2": {
+     "batch_score": 5.438080602587854,
+     "seconds": 5.614,
+     "auroc": 0.9194521604938272,
+     "auprc": 0.6634090640762361,
+     "precision_at_k": 0.5916666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 8,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.6836929518925003,
+     "seconds": 2.954,
+     "auroc": 0.9461387934326079,
+     "auprc": 0.5475506201033316,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 0.8578826955737393,
+     "seconds": 5.483,
+     "auroc": 0.9461387934326079,
+     "auprc": 0.5475506201033316,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 8,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.792842641112959,
+     "seconds": 3.385,
+     "auroc": 0.9484941520467836,
+     "auprc": 0.6574316710912813,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 3.059984793900906,
+     "seconds": 3.914,
+     "auroc": 0.9484941520467836,
+     "auprc": 0.6574316710912813,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 8,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 29.494938495865693,
+     "seconds": 2.795,
+     "auroc": 0.9387345679012346,
+     "auprc": 0.732649904173283,
+     "precision_at_k": 0.675
+    },
+    "veritas2": {
+     "batch_score": 6.705594815742597,
+     "seconds": 6.074,
+     "auroc": 0.9387345679012346,
+     "auprc": 0.732649904173283,
+     "precision_at_k": 0.675
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 9,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.8576967610106756,
+     "seconds": 4.34
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 6.902
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 9,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 2.852
+    },
+    "veritas2": {
+     "batch_score": 0.346789381928585,
+     "seconds": 4.138
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 9,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.376090781263231,
+     "seconds": 3.872,
+     "auroc": 0.933061282932417,
+     "auprc": 0.45108150714590584,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 6.833,
+     "auroc": 0.933061282932417,
+     "auprc": 0.45108150714590584,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 9,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.4359333754571435,
+     "seconds": 2.322,
+     "auroc": 0.9045029239766083,
+     "auprc": 0.43877068284594783,
+     "precision_at_k": 0.43333333333333335
+    },
+    "veritas2": {
+     "batch_score": 0.3834632655781609,
+     "seconds": 4.961,
+     "auroc": 0.9045029239766083,
+     "auprc": 0.43877068284594783,
+     "precision_at_k": 0.43333333333333335
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 9,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 28.713007502620314,
+     "seconds": 4.111,
+     "auroc": 0.9003009259259258,
+     "auprc": 0.5934759306850764,
+     "precision_at_k": 0.575
+    },
+    "veritas2": {
+     "batch_score": 4.7537527200721845,
+     "seconds": 5.438,
+     "auroc": 0.9003009259259258,
+     "auprc": 0.5934759306850764,
+     "precision_at_k": 0.575
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 9,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.977184468753222,
+     "seconds": 4.232,
+     "auroc": 0.8987447499045437,
+     "auprc": 0.4829018398532856,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 6.714,
+     "auroc": 0.8987447499045437,
+     "auprc": 0.4829018398532856,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 9,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 19.19224092886174,
+     "seconds": 2.174,
+     "auroc": 0.9421052631578947,
+     "auprc": 0.6124917201693769,
+     "precision_at_k": 0.5333333333333333
+    },
+    "veritas2": {
+     "batch_score": 5.02560640115173,
+     "seconds": 3.543,
+     "auroc": 0.9421052631578947,
+     "auprc": 0.6124917201693769,
+     "precision_at_k": 0.5333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 9,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 20.574350578248392,
+     "seconds": 3.952,
+     "auroc": 0.9197222222222222,
+     "auprc": 0.6942369100990037,
+     "precision_at_k": 0.6166666666666667
+    },
+    "veritas2": {
+     "batch_score": 4.618817403855654,
+     "seconds": 4.956,
+     "auroc": 0.9197222222222222,
+     "auprc": 0.6942369100990037,
+     "precision_at_k": 0.6166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 9,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.430724390496756,
+     "seconds": 3.185,
+     "auroc": 0.9274054982817869,
+     "auprc": 0.5835390035154266,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 5.67,
+     "auroc": 0.9274054982817869,
+     "auprc": 0.5835390035154266,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 9,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.88513299077313,
+     "seconds": 3.173,
+     "auroc": 0.9266374269005848,
+     "auprc": 0.6140316738790667,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 2.8130545594160576,
+     "seconds": 4.327,
+     "auroc": 0.9266374269005848,
+     "auprc": 0.6140316738790667,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 9,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 24.165044295966933,
+     "seconds": 2.505,
+     "auroc": 0.9215972222222222,
+     "auprc": 0.6460825023787063,
+     "precision_at_k": 0.5916666666666667
+    },
+    "veritas2": {
+     "batch_score": 5.299985383547297,
+     "seconds": 5.481,
+     "auroc": 0.9215972222222222,
+     "auprc": 0.6460825023787063,
+     "precision_at_k": 0.5916666666666667
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 10,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.18453840144994768,
+     "seconds": 3.404
+    },
+    "veritas2": {
+     "batch_score": 0.7368540688504209,
+     "seconds": 7.126
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 10,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 4.128
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 5.315
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 10,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.697349969993813,
+     "seconds": 3.264,
+     "auroc": 0.9113927071401298,
+     "auprc": 0.42143898593512386,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 1.547495037730427,
+     "seconds": 3.51,
+     "auroc": 0.9113927071401298,
+     "auprc": 0.42143898593512386,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 10,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.1942237577762502,
+     "seconds": 2.034,
+     "auroc": 0.8383625730994152,
+     "auprc": 0.4517417882818557,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 5.207,
+     "auroc": 0.8383625730994152,
+     "auprc": 0.4517417882818557,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 10,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 31.87994599850336,
+     "seconds": 3.481,
+     "auroc": 0.8814274691358025,
+     "auprc": 0.6083568593114467,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 5.716006859829482,
+     "seconds": 7.164,
+     "auroc": 0.8814274691358025,
+     "auprc": 0.6083568593114467,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 10,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 14.618303616750769,
+     "seconds": 4.427,
+     "auroc": 0.9513172966781215,
+     "auprc": 0.5447332040293746,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 3.8243880551654095,
+     "seconds": 6.693,
+     "auroc": 0.9513172966781215,
+     "auprc": 0.5447332040293746,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 10,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 10.496561593876566,
+     "seconds": 2.121,
+     "auroc": 0.9261403508771929,
+     "auprc": 0.5753370518744475,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 5.218,
+     "auroc": 0.9261403508771929,
+     "auprc": 0.5753370518744475,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 10,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.881592960157636,
+     "seconds": 3.664,
+     "auroc": 0.8975848765432098,
+     "auprc": 0.6022398454982705,
+     "precision_at_k": 0.5416666666666666
+    },
+    "veritas2": {
+     "batch_score": 3.9548703551117366,
+     "seconds": 5.327,
+     "auroc": 0.8975848765432098,
+     "auprc": 0.6022398454982705,
+     "precision_at_k": 0.5416666666666666
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 10,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.1942237577762502,
+     "seconds": 4.191,
+     "auroc": 0.9442058037418862,
+     "auprc": 0.6162689960153225,
+     "precision_at_k": 0.5555555555555556
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 6.741,
+     "auroc": 0.9442058037418862,
+     "auprc": 0.6162689960153225,
+     "precision_at_k": 0.5555555555555556
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 10,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.1942237577762502,
+     "seconds": 4.346,
+     "auroc": 0.9047514619883041,
+     "auprc": 0.49411625710712825,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.442187679341071,
+     "seconds": 5.153,
+     "auroc": 0.9047514619883041,
+     "auprc": 0.49411625710712825,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 10,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.370382110468148,
+     "seconds": 4.105,
+     "auroc": 0.9488657407407407,
+     "auprc": 0.7648568569316082,
+     "precision_at_k": 0.675
+    },
+    "veritas2": {
+     "batch_score": 1.986905877113078,
+     "seconds": 5.328,
+     "auroc": 0.9488657407407407,
+     "auprc": 0.7648568569316082,
+     "precision_at_k": 0.675
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 11,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 3.311
+    },
+    "veritas2": {
+     "batch_score": 0.3834632655781609,
+     "seconds": 7.027
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 11,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 3.345
+    },
+    "veritas2": {
+     "batch_score": 0.7699092023702193,
+     "seconds": 4.29
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 11,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.253,
+     "auroc": 0.9401489117983963,
+     "auprc": 0.5061793559310724,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 5.566,
+     "auroc": 0.9401489117983963,
+     "auprc": 0.5061793559310724,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 11,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 3.648,
+     "auroc": 0.9096929824561404,
+     "auprc": 0.4824580907346243,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 4.232,
+     "auroc": 0.9096929824561404,
+     "auprc": 0.4824580907346243,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 11,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 9.411252009091251,
+     "seconds": 2.112,
+     "auroc": 0.8961496913580247,
+     "auprc": 0.5756982128301048,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.2162430027364355,
+     "seconds": 4.593,
+     "auroc": 0.8961496913580247,
+     "auprc": 0.5756982128301048,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 11,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.6438526997535722,
+     "seconds": 2.626,
+     "auroc": 0.8815387552500955,
+     "auprc": 0.37816610959442865,
+     "precision_at_k": 0.3333333333333333
+    },
+    "veritas2": {
+     "batch_score": 0.3189138028857139,
+     "seconds": 3.397,
+     "auroc": 0.8815387552500955,
+     "auprc": 0.37816610959442865,
+     "precision_at_k": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 11,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 2.089,
+     "auroc": 0.9355555555555555,
+     "auprc": 0.6857347596616205,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 4.158,
+     "auroc": 0.9355555555555555,
+     "auprc": 0.6857347596616205,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 11,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.245433670869263,
+     "seconds": 4.179,
+     "auroc": 0.9030787037037037,
+     "auprc": 0.6079341332444277,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 3.438033629925876,
+     "seconds": 7.099,
+     "auroc": 0.9030787037037037,
+     "auprc": 0.6079341332444277,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 11,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.370382110468148,
+     "seconds": 4.319,
+     "auroc": 0.9549923634975181,
+     "auprc": 0.6161545791988206,
+     "precision_at_k": 0.5555555555555556
+    },
+    "veritas2": {
+     "batch_score": 1.986905877113078,
+     "seconds": 6.202,
+     "auroc": 0.9549923634975181,
+     "auprc": 0.6161545791988206,
+     "precision_at_k": 0.5555555555555556
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 11,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.5469258718621095,
+     "seconds": 4.061,
+     "auroc": 0.9137134502923976,
+     "auprc": 0.580590020770232,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 7.373,
+     "auroc": 0.9137134502923976,
+     "auprc": 0.580590020770232,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 11,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.867272636075849,
+     "seconds": 3.436,
+     "auroc": 0.9463348765432098,
+     "auprc": 0.7560366036085939,
+     "precision_at_k": 0.6583333333333333
+    },
+    "veritas2": {
+     "batch_score": 2.5706083625867584,
+     "seconds": 5.543,
+     "auroc": 0.9463348765432098,
+     "auprc": 0.7560366036085939,
+     "precision_at_k": 0.6583333333333333
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 12,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0032211010385070978,
+     "seconds": 3.256
+    },
+    "veritas2": {
+     "batch_score": 0.05129663049243952,
+     "seconds": 5.145
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 12,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.6836929518925003,
+     "seconds": 3.327
+    },
+    "veritas2": {
+     "batch_score": 0.7699092023702193,
+     "seconds": 4.876
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 12,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.4359333754571435,
+     "seconds": 3.246,
+     "auroc": 0.8801069110347461,
+     "auprc": 0.2770924516109417,
+     "precision_at_k": 0.25
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 5.002,
+     "auroc": 0.8801069110347461,
+     "auprc": 0.2770924516109417,
+     "precision_at_k": 0.25
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 12,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 2.215,
+     "auroc": 0.9155116959064328,
+     "auprc": 0.5052300158617636,
+     "precision_at_k": 0.48333333333333334
+    },
+    "veritas2": {
+     "batch_score": 1.442187679341071,
+     "seconds": 3.522,
+     "auroc": 0.9155116959064328,
+     "auprc": 0.5052300158617636,
+     "precision_at_k": 0.48333333333333334
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 12,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 18.51330132443936,
+     "seconds": 4.805,
+     "auroc": 0.9181867283950618,
+     "auprc": 0.6240086220396491,
+     "precision_at_k": 0.5833333333333334
+    },
+    "veritas2": {
+     "batch_score": 3.059984793900906,
+     "seconds": 6.94,
+     "auroc": 0.9181867283950618,
+     "auprc": 0.6240086220396491,
+     "precision_at_k": 0.5833333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 12,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 4.399,
+     "auroc": 0.9199121802214586,
+     "auprc": 0.40248893875742,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 4.258,
+     "auroc": 0.9199121802214586,
+     "auprc": 0.40248893875742,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 12,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 11.055263725116093,
+     "seconds": 3.583,
+     "auroc": 0.900219298245614,
+     "auprc": 0.520946802976267,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 2.6912471490479932,
+     "seconds": 5.571,
+     "auroc": 0.900219298245614,
+     "auprc": 0.520946802976267,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 12,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 14.000374744165974,
+     "seconds": 3.434,
+     "auroc": 0.910733024691358,
+     "auprc": 0.6408050318592226,
+     "precision_at_k": 0.6
+    },
+    "veritas2": {
+     "batch_score": 2.6912471490479932,
+     "seconds": 6.799,
+     "auroc": 0.910733024691358,
+     "auprc": 0.6408050318592226,
+     "precision_at_k": 0.6
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 12,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.18453840144994768,
+     "seconds": 4.337,
+     "auroc": 0.8853331424207713,
+     "auprc": 0.3983043969901558,
+     "precision_at_k": 0.3333333333333333
+    },
+    "veritas2": {
+     "batch_score": 0.3189138028857139,
+     "seconds": 6.966,
+     "auroc": 0.8853331424207713,
+     "auprc": 0.3983043969901558,
+     "precision_at_k": 0.3333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 12,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.376090781263231,
+     "seconds": 3.966,
+     "auroc": 0.9269736842105263,
+     "auprc": 0.5221157396804615,
+     "precision_at_k": 0.5333333333333333
+    },
+    "veritas2": {
+     "batch_score": 1.986905877113078,
+     "seconds": 4.927,
+     "auroc": 0.9269736842105263,
+     "auprc": 0.5221157396804615,
+     "precision_at_k": 0.5333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 12,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 11.055263725116093,
+     "seconds": 3.438,
+     "auroc": 0.9319212962962963,
+     "auprc": 0.7176756772514695,
+     "precision_at_k": 0.6416666666666667
+    },
+    "veritas2": {
+     "batch_score": 3.059984793900906,
+     "seconds": 5.319,
+     "auroc": 0.9319212962962963,
+     "auprc": 0.7176756772514695,
+     "precision_at_k": 0.6416666666666667
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 13,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0724821083803067,
+     "seconds": 4.031
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 4.817
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 13,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.18453840144994768,
+     "seconds": 2.146
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 3.452
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 13,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.5469258718621095,
+     "seconds": 2.999,
+     "auroc": 0.895069683085147,
+     "auprc": 0.311370133727493,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 1.0426093784994745,
+     "seconds": 5.55,
+     "auroc": 0.895069683085147,
+     "auprc": 0.311370133727493,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 13,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 4.481,
+     "auroc": 0.9156140350877193,
+     "auprc": 0.5633387006098685,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 6.593,
+     "auroc": 0.9156140350877193,
+     "auprc": 0.5633387006098685,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 13,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 20.574350578248392,
+     "seconds": 4.328,
+     "auroc": 0.8881404320987656,
+     "auprc": 0.5565312184185253,
+     "precision_at_k": 0.5333333333333333
+    },
+    "veritas2": {
+     "batch_score": 5.299985383547297,
+     "seconds": 5.893,
+     "auroc": 0.8881404320987656,
+     "auprc": 0.5565312184185253,
+     "precision_at_k": 0.5333333333333333
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 13,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.950301813851997,
+     "seconds": 3.314,
+     "auroc": 0.8662418862161131,
+     "auprc": 0.4073367264222489,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.6851489961633598,
+     "seconds": 6.705,
+     "auroc": 0.8662418862161131,
+     "auprc": 0.4073367264222489,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 13,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.792842641112959,
+     "seconds": 4.322,
+     "auroc": 0.9158479532163744,
+     "auprc": 0.5370120116874583,
+     "precision_at_k": 0.48333333333333334
+    },
+    "veritas2": {
+     "batch_score": 3.9548703551117366,
+     "seconds": 6.253,
+     "auroc": 0.9158479532163744,
+     "auprc": 0.5370120116874583,
+     "precision_at_k": 0.48333333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 13,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 24.905454484389736,
+     "seconds": 3.432,
+     "auroc": 0.9350925925925926,
+     "auprc": 0.7267977299422683,
+     "precision_at_k": 0.6583333333333333
+    },
+    "veritas2": {
+     "batch_score": 6.278422217659956,
+     "seconds": 4.424,
+     "auroc": 0.9350925925925926,
+     "auprc": 0.7267977299422683,
+     "precision_at_k": 0.6583333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 13,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.867272636075849,
+     "seconds": 2.089,
+     "auroc": 0.9524389079801451,
+     "auprc": 0.4325200386794599,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 4.804,
+     "auroc": 0.9524389079801451,
+     "auprc": 0.4325200386794599,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 13,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 3.345,
+     "auroc": 0.9261549707602339,
+     "auprc": 0.5939105376042592,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 6.784,
+     "auroc": 0.9261549707602339,
+     "auprc": 0.5939105376042592,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 13,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 31.078493055049268,
+     "seconds": 4.46,
+     "auroc": 0.9571527777777777,
+     "auprc": 0.7685153293429198,
+     "precision_at_k": 0.7166666666666667
+    },
+    "veritas2": {
+     "batch_score": 7.57252469024412,
+     "seconds": 6.756,
+     "auroc": 0.9571527777777777,
+     "auprc": 0.7685153293429198,
+     "precision_at_k": 0.7166666666666667
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 14,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.18453840144994768,
+     "seconds": 3.981
+    },
+    "veritas2": {
+     "batch_score": 0.2053734793777881,
+     "seconds": 4.791
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 14,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.49766625581410395,
+     "seconds": 3.373
+    },
+    "veritas2": {
+     "batch_score": 0.3834632655781609,
+     "seconds": 4.897
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 14,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.11980120089530723,
+     "seconds": 3.292,
+     "auroc": 0.9077415043909889,
+     "auprc": 0.40425778575003196,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.25941961865089297,
+     "seconds": 6.614,
+     "auroc": 0.9077415043909889,
+     "auprc": 0.40425778575003196,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 14,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.897136511196985,
+     "seconds": 4.369,
+     "auroc": 0.894312865497076,
+     "auprc": 0.3350731498660411,
+     "precision_at_k": 0.4
+    },
+    "veritas2": {
+     "batch_score": 2.45119015248746,
+     "seconds": 7.212,
+     "auroc": 0.894312865497076,
+     "auprc": 0.3350731498660411,
+     "precision_at_k": 0.4
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 14,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 19.19224092886174,
+     "seconds": 2.341,
+     "auroc": 0.8922222222222222,
+     "auprc": 0.582824665417582,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.2162430027364355,
+     "seconds": 5.324,
+     "auroc": 0.8922222222222222,
+     "auprc": 0.582824665417582,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 14,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 3.875,
+     "auroc": 0.9056176021382207,
+     "auprc": 0.3765119955459461,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 0.6851489961633598,
+     "seconds": 5.546,
+     "auroc": 0.9056176021382207,
+     "auprc": 0.3765119955459461,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 14,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.5469258718621095,
+     "seconds": 4.276,
+     "auroc": 0.9385233918128656,
+     "auprc": 0.6735962712475914,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.3389140601783833,
+     "seconds": 4.91,
+     "auroc": 0.9385233918128656,
+     "auprc": 0.6735962712475914,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 14,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 12.792842641112959,
+     "seconds": 2.118,
+     "auroc": 0.9221141975308643,
+     "auprc": 0.684617614512915,
+     "precision_at_k": 0.625
+    },
+    "veritas2": {
+     "batch_score": 3.311048810480091,
+     "seconds": 4.042,
+     "auroc": 0.9221141975308643,
+     "auprc": 0.684617614512915,
+     "precision_at_k": 0.625
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 14,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.4359333754571435,
+     "seconds": 3.231,
+     "auroc": 0.9497899961817486,
+     "auprc": 0.5565649063460503,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 0.7699092023702193,
+     "seconds": 6.512,
+     "auroc": 0.9497899961817486,
+     "auprc": 0.5565649063460503,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 14,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.370382110468148,
+     "seconds": 4.245,
+     "auroc": 0.9238450292397661,
+     "auprc": 0.5749599508626123,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 3.642,
+     "auroc": 0.9238450292397661,
+     "auprc": 0.5749599508626123,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 14,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 22.706155822312372,
+     "seconds": 2.621,
+     "auroc": 0.9301157407407408,
+     "auprc": 0.6903268797598355,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 5.299985383547297,
+     "seconds": 4.874,
+     "auroc": 0.9301157407407408,
+     "auprc": 0.6903268797598355,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 15,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.697349969993813,
+     "seconds": 3.451
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 5.393
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 15,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.6438526997535722,
+     "seconds": 3.421
+    },
+    "veritas2": {
+     "batch_score": 0.4526952202266348,
+     "seconds": 5.575
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 15,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.8576967610106756,
+     "seconds": 3.233,
+     "auroc": 0.9233008781977855,
+     "auprc": 0.4303224100262995,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 0.3834632655781609,
+     "seconds": 6.374,
+     "auroc": 0.9233008781977855,
+     "auprc": 0.4303224100262995,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 15,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.409,
+     "auroc": 0.8869005847953216,
+     "auprc": 0.4708967197536354,
+     "precision_at_k": 0.43333333333333335
+    },
+    "veritas2": {
+     "batch_score": 1.0426093784994745,
+     "seconds": 5.992,
+     "auroc": 0.8869005847953216,
+     "auprc": 0.4708967197536354,
+     "precision_at_k": 0.43333333333333335
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 15,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.950301813851997,
+     "seconds": 4.251,
+     "auroc": 0.8920293209876544,
+     "auprc": 0.5587959093274777,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 0.7699092023702193,
+     "seconds": 6.816,
+     "auroc": 0.8920293209876544,
+     "auprc": 0.5587959093274777,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 15,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 2.136,
+     "auroc": 0.9214633447880871,
+     "auprc": 0.5710165921709351,
+     "precision_at_k": 0.5555555555555556
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 4.164,
+     "auroc": 0.9214633447880871,
+     "auprc": 0.5710165921709351,
+     "precision_at_k": 0.5555555555555556
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 15,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.897136511196985,
+     "seconds": 4.378,
+     "auroc": 0.910438596491228,
+     "auprc": 0.5013608588257378,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.5706083625867584,
+     "seconds": 6.929,
+     "auroc": 0.910438596491228,
+     "auprc": 0.5013608588257378,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 15,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 9.411252009091251,
+     "seconds": 4.34,
+     "auroc": 0.9167592592592593,
+     "auprc": 0.63114969882978,
+     "precision_at_k": 0.575
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 7.247,
+     "auroc": 0.9167592592592593,
+     "auprc": 0.63114969882978,
+     "precision_at_k": 0.575
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 15,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 3.319,
+     "auroc": 0.9417478045055365,
+     "auprc": 0.42879505733220996,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 5.2,
+     "auroc": 0.9417478045055365,
+     "auprc": 0.42879505733220996,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 15,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 3.031,
+     "auroc": 0.9093421052631578,
+     "auprc": 0.5204611190793478,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 4.855,
+     "auroc": 0.9093421052631578,
+     "auprc": 0.5204611190793478,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 15,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 18.51330132443936,
+     "seconds": 4.349,
+     "auroc": 0.905162037037037,
+     "auprc": 0.6421262808794485,
+     "precision_at_k": 0.6
+    },
+    "veritas2": {
+     "batch_score": 4.2182150266411504,
+     "seconds": 3.661,
+     "auroc": 0.905162037037037,
+     "auprc": 0.6421262808794485,
+     "precision_at_k": 0.6
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 16,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.008728098505893669,
+     "seconds": 3.245
+    },
+    "veritas2": {
+     "batch_score": 0.05129663049243952,
+     "seconds": 4.106
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 16,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.11980120089530723,
+     "seconds": 2.968
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 5.051
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 16,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0724821083803067,
+     "seconds": 3.395,
+     "auroc": 0.8892707140129821,
+     "auprc": 0.3959231549267492,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.2053734793777881,
+     "seconds": 5.197,
+     "auroc": 0.8892707140129821,
+     "auprc": 0.3959231549267492,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 16,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 3.117,
+     "auroc": 0.8950584795321638,
+     "auprc": 0.43280553480933937,
+     "precision_at_k": 0.45
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 5.499,
+     "auroc": 0.8950584795321638,
+     "auprc": 0.43280553480933937,
+     "precision_at_k": 0.45
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 16,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 13.391825784106276,
+     "seconds": 3.58,
+     "auroc": 0.9018827160493827,
+     "auprc": 0.5968495993298979,
+     "precision_at_k": 0.5916666666666667
+    },
+    "veritas2": {
+     "batch_score": 3.8243880551654095,
+     "seconds": 4.479,
+     "auroc": 0.9018827160493827,
+     "auprc": 0.5968495993298979,
+     "precision_at_k": 0.5916666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 16,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 2.016,
+     "auroc": 0.9156643757159222,
+     "auprc": 0.5146845439499663,
+     "precision_at_k": 0.5555555555555556
+    },
+    "veritas2": {
+     "batch_score": 0.6851489961633598,
+     "seconds": 4.29,
+     "auroc": 0.9156643757159222,
+     "auprc": 0.5146845439499663,
+     "precision_at_k": 0.5555555555555556
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 16,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 11.624355822293815,
+     "seconds": 3.147,
+     "auroc": 0.9248538011695906,
+     "auprc": 0.5420268958936991,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 2.5706083625867584,
+     "seconds": 3.715,
+     "auroc": 0.9248538011695906,
+     "auprc": 0.5420268958936991,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 16,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 4.119,
+     "auroc": 0.9042283950617284,
+     "auprc": 0.602425250320062,
+     "precision_at_k": 0.55
+    },
+    "veritas2": {
+     "batch_score": 1.547495037730427,
+     "seconds": 6.49,
+     "auroc": 0.9042283950617284,
+     "auprc": 0.602425250320062,
+     "precision_at_k": 0.55
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 16,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 6.430724390496756,
+     "seconds": 3.542,
+     "auroc": 0.9530593738067965,
+     "auprc": 0.5952429026898733,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 5.356,
+     "auroc": 0.9530593738067965,
+     "auprc": 0.5952429026898733,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 16,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.53686319536541,
+     "seconds": 2.587,
+     "auroc": 0.9664766081871344,
+     "auprc": 0.7033196994962396,
+     "precision_at_k": 0.6166666666666667
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 6.15,
+     "auroc": 0.9664766081871344,
+     "auprc": 0.7033196994962396,
+     "precision_at_k": 0.6166666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 16,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 31.87994599850336,
+     "seconds": 4.223,
+     "auroc": 0.9438425925925926,
+     "auprc": 0.729830954793732,
+     "precision_at_k": 0.675
+    },
+    "veritas2": {
+     "batch_score": 5.162488688674633,
+     "seconds": 6.128,
+     "auroc": 0.9438425925925926,
+     "auprc": 0.729830954793732,
+     "precision_at_k": 0.675
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 17,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.37259953567444304,
+     "seconds": 3.779
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 4.83
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 17,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 4.09
+    },
+    "veritas2": {
+     "batch_score": 0.11521986358851938,
+     "seconds": 5.942
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 17,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.207571864833751,
+     "seconds": 2.881,
+     "auroc": 0.8582235586101565,
+     "auprc": 0.2177437677710971,
+     "precision_at_k": 0.3055555555555556
+    },
+    "veritas2": {
+     "batch_score": 0.603844466127597,
+     "seconds": 4.777,
+     "auroc": 0.8582235586101565,
+     "auprc": 0.2177437677710971,
+     "precision_at_k": 0.3055555555555556
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 17,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 4.298941237185871,
+     "seconds": 4.294,
+     "auroc": 0.877046783625731,
+     "auprc": 0.43118626439518554,
+     "precision_at_k": 0.38333333333333336
+    },
+    "veritas2": {
+     "batch_score": 1.8745195678955227,
+     "seconds": 5.014,
+     "auroc": 0.877046783625731,
+     "auprc": 0.43118626439518554,
+     "precision_at_k": 0.38333333333333336
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 17,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 16.526615959748504,
+     "seconds": 4.255,
+     "auroc": 0.8981095679012345,
+     "auprc": 0.577526358983111,
+     "precision_at_k": 0.5833333333333334
+    },
+    "veritas2": {
+     "batch_score": 4.2182150266411504,
+     "seconds": 7.288,
+     "auroc": 0.8981095679012345,
+     "auprc": 0.577526358983111,
+     "precision_at_k": 0.5833333333333334
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 17,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.537849173674452,
+     "seconds": 2.365,
+     "auroc": 0.9308419243986255,
+     "auprc": 0.556144040748736,
+     "precision_at_k": 0.5277777777777778
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 5.886,
+     "auroc": 0.9308419243986255,
+     "auprc": 0.556144040748736,
+     "precision_at_k": 0.5277777777777778
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 17,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.977184468753222,
+     "seconds": 3.178,
+     "auroc": 0.9428654970760234,
+     "auprc": 0.6863562016228962,
+     "precision_at_k": 0.6
+    },
+    "veritas2": {
+     "batch_score": 2.2162430027364355,
+     "seconds": 3.314,
+     "auroc": 0.9428654970760234,
+     "auprc": 0.6863562016228962,
+     "precision_at_k": 0.6
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 17,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 26.407675371401904,
+     "seconds": 3.241,
+     "auroc": 0.9112731481481482,
+     "auprc": 0.647804239821331,
+     "precision_at_k": 0.5666666666666667
+    },
+    "veritas2": {
+     "batch_score": 5.299985383547297,
+     "seconds": 6.587,
+     "auroc": 0.9112731481481482,
+     "auprc": 0.647804239821331,
+     "precision_at_k": 0.5666666666666667
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 17,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.8110958404233126,
+     "seconds": 4.271,
+     "auroc": 0.9431319205803742,
+     "auprc": 0.5193922614815883,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 0.5262622926098941,
+     "seconds": 7.488,
+     "auroc": 0.9431319205803742,
+     "auprc": 0.5193922614815883,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 17,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.110124350297927,
+     "seconds": 4.255,
+     "auroc": 0.885219298245614,
+     "auprc": 0.6018265031381279,
+     "precision_at_k": 0.6
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 4.156,
+     "auroc": 0.885219298245614,
+     "auprc": 0.6018265031381279,
+     "precision_at_k": 0.6
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 17,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 20.574350578248392,
+     "seconds": 2.939,
+     "auroc": 0.9402006172839505,
+     "auprc": 0.7790414887373324,
+     "precision_at_k": 0.725
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 5.559,
+     "auroc": 0.9402006172839505,
+     "auprc": 0.7790414887373324,
+     "precision_at_k": 0.725
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 18,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 1.4359333754571435,
+     "seconds": 3.126
+    },
+    "veritas2": {
+     "batch_score": 0.8578826955737393,
+     "seconds": 6.304
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 18,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.11980120089530723,
+     "seconds": 4.082
+    },
+    "veritas2": {
+     "batch_score": 0.2558227042457769,
+     "seconds": 5.83
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 18,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.0724821083803067,
+     "seconds": 3.191,
+     "auroc": 0.8686521573119511,
+     "auprc": 0.3675819238151812,
+     "precision_at_k": 0.4166666666666667
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 6.616,
+     "auroc": 0.8686521573119511,
+     "auprc": 0.3675819238151812,
+     "precision_at_k": 0.4166666666666667
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 18,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.5469258718621095,
+     "seconds": 4.621,
+     "auroc": 0.8728947368421053,
+     "auprc": 0.43665854671669563,
+     "precision_at_k": 0.43333333333333335
+    },
+    "veritas2": {
+     "batch_score": 1.442187679341071,
+     "seconds": 6.689,
+     "auroc": 0.8728947368421053,
+     "auprc": 0.43665854671669563,
+     "precision_at_k": 0.43333333333333335
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 18,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 15.245433670869263,
+     "seconds": 2.702,
+     "auroc": 0.8875308641975309,
+     "auprc": 0.5777239700732439,
+     "precision_at_k": 0.525
+    },
+    "veritas2": {
+     "batch_score": 4.484568775808465,
+     "seconds": 5.237,
+     "auroc": 0.8875308641975309,
+     "auprc": 0.5777239700732439,
+     "precision_at_k": 0.525
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 18,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 3.26,
+     "auroc": 0.9350897289041619,
+     "auprc": 0.471001077366705,
+     "precision_at_k": 0.4722222222222222
+    },
+    "veritas2": {
+     "batch_score": 1.6547214608100413,
+     "seconds": 4.462,
+     "auroc": 0.9350897289041619,
+     "auprc": 0.471001077366705,
+     "precision_at_k": 0.4722222222222222
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 18,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.118,
+     "auroc": 0.9251315789473684,
+     "auprc": 0.5612040749475411,
+     "precision_at_k": 0.6
+    },
+    "veritas2": {
+     "batch_score": 1.2377994890165838,
+     "seconds": 3.487,
+     "auroc": 0.9251315789473684,
+     "auprc": 0.5612040749475411,
+     "precision_at_k": 0.6
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 18,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 8.88513299077313,
+     "seconds": 2.792,
+     "auroc": 0.9319753086419753,
+     "auprc": 0.7143756132166496,
+     "precision_at_k": 0.6333333333333333
+    },
+    "veritas2": {
+     "batch_score": 2.45119015248746,
+     "seconds": 4.687,
+     "auroc": 0.9319753086419753,
+     "auprc": 0.7143756132166496,
+     "precision_at_k": 0.6333333333333333
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 18,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.8576967610106756,
+     "seconds": 3.23,
+     "auroc": 0.9215588010691104,
+     "auprc": 0.48309063624759774,
+     "precision_at_k": 0.5555555555555556
+    },
+    "veritas2": {
+     "batch_score": 1.0426093784994745,
+     "seconds": 5.683,
+     "auroc": 0.9215588010691104,
+     "auprc": 0.48309063624759774,
+     "precision_at_k": 0.5555555555555556
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 18,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 3.949,
+     "auroc": 0.8946929824561404,
+     "auprc": 0.4599942348272568,
+     "precision_at_k": 0.4
+    },
+    "veritas2": {
+     "batch_score": 1.0426093784994745,
+     "seconds": 4.352,
+     "auroc": 0.8946929824561404,
+     "auprc": 0.4599942348272568,
+     "precision_at_k": 0.4
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 18,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 29.494938495865693,
+     "seconds": 2.8,
+     "auroc": 0.9154861111111111,
+     "auprc": 0.6844918006111204,
+     "precision_at_k": 0.6166666666666667
+    },
+    "veritas2": {
+     "batch_score": 4.086154581659201,
+     "seconds": 4.371,
+     "auroc": 0.9154861111111111,
+     "auprc": 0.6844918006111204,
+     "precision_at_k": 0.6166666666666667
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 19,
+   "rate": 0.0,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 2.259
+    },
+    "veritas2": {
+     "batch_score": 0.346789381928585,
+     "seconds": 3.13
+    }
+   }
+  },
+  {
+   "source": null,
+   "seed": 19,
+   "rate": 0.0,
+   "rep": 1,
+   "n_incoming": 1200,
+   "n_poisoned": 0,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.040200703091430305,
+     "seconds": 4.159
+    },
+    "veritas2": {
+     "batch_score": 0.1571769308603732,
+     "seconds": 4.302
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 19,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 2.2352043190196684,
+     "seconds": 1.931,
+     "auroc": 0.8998902252768232,
+     "auprc": 0.39265568427770414,
+     "precision_at_k": 0.3888888888888889
+    },
+    "veritas2": {
+     "batch_score": 0.8578826955737393,
+     "seconds": 3.076,
+     "auroc": 0.8998902252768232,
+     "auprc": 0.39265568427770414,
+     "precision_at_k": 0.3888888888888889
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 19,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 5.977184468753222,
+     "seconds": 3.607,
+     "auroc": 0.8987426900584795,
+     "auprc": 0.44199866155437373,
+     "precision_at_k": 0.38333333333333336
+    },
+    "veritas2": {
+     "batch_score": 1.7637618203343721,
+     "seconds": 5.442,
+     "auroc": 0.8987426900584795,
+     "auprc": 0.44199866155437373,
+     "precision_at_k": 0.38333333333333336
+    }
+   }
+  },
+  {
+   "source": "aggre_label",
+   "seed": 19,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 13.391825784106276,
+     "seconds": 2.945,
+     "auroc": 0.8990123456790123,
+     "auprc": 0.5656433957908124,
+     "precision_at_k": 0.5166666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.2162430027364355,
+     "seconds": 2.695,
+     "auroc": 0.8990123456790123,
+     "auprc": 0.5656433957908124,
+     "precision_at_k": 0.5166666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 19,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 3.007,
+     "auroc": 0.9338010691103474,
+     "auprc": 0.483004506319781,
+     "precision_at_k": 0.4444444444444444
+    },
+    "veritas2": {
+     "batch_score": 0.3834632655781609,
+     "seconds": 3.21,
+     "auroc": 0.9338010691103474,
+     "auprc": 0.483004506319781,
+     "precision_at_k": 0.4444444444444444
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 19,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 7.867272636075849,
+     "seconds": 1.881,
+     "auroc": 0.9193128654970761,
+     "auprc": 0.40691496788229403,
+     "precision_at_k": 0.4666666666666667
+    },
+    "veritas2": {
+     "batch_score": 2.333048341677892,
+     "seconds": 3.199,
+     "auroc": 0.9193128654970761,
+     "auprc": 0.40691496788229403,
+     "precision_at_k": 0.4666666666666667
+    }
+   }
+  },
+  {
+   "source": "random_label1",
+   "seed": 19,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 41.970568229410986,
+     "seconds": 2.012,
+     "auroc": 0.9449382716049383,
+     "auprc": 0.7207146459111967,
+     "precision_at_k": 0.65
+    },
+    "veritas2": {
+     "batch_score": 8.159056813708569,
+     "seconds": 3.068,
+     "auroc": 0.9449382716049383,
+     "auprc": 0.7207146459111967,
+     "precision_at_k": 0.65
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 19,
+   "rate": 0.03,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 36,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 0.26842913226348686,
+     "seconds": 1.973,
+     "auroc": 0.8979572355861016,
+     "auprc": 0.43768389447006895,
+     "precision_at_k": 0.3611111111111111
+    },
+    "veritas2": {
+     "batch_score": 0.3189138028857139,
+     "seconds": 2.985,
+     "auroc": 0.8979572355861016,
+     "auprc": 0.43768389447006895,
+     "precision_at_k": 0.3611111111111111
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 19,
+   "rate": 0.05,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 60,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 3.9153192884190724,
+     "seconds": 4.113,
+     "auroc": 0.9115204678362573,
+     "auprc": 0.5362590665131539,
+     "precision_at_k": 0.5
+    },
+    "veritas2": {
+     "batch_score": 1.1389811313350346,
+     "seconds": 4.785,
+     "auroc": 0.9115204678362573,
+     "auprc": 0.5362590665131539,
+     "precision_at_k": 0.5
+    }
+   }
+  },
+  {
+   "source": "worse_label",
+   "seed": 19,
+   "rate": 0.1,
+   "rep": 0,
+   "n_incoming": 1200,
+   "n_poisoned": 120,
+   "detectors": {
+    "cleanlab_hgb": {
+     "batch_score": 34.322031622906536,
+     "seconds": 1.699,
+     "auroc": 0.9343364197530863,
+     "auprc": 0.7220783150459599,
+     "precision_at_k": 0.6666666666666666
+    },
+    "veritas2": {
+     "batch_score": 6.420321119314367,
+     "seconds": 2.389,
+     "auroc": 0.9343364197530863,
+     "auprc": 0.7220783150459599,
+     "precision_at_k": 0.6666666666666666
+    }
+   }
+  }
+ ]
+}

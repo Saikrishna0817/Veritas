@@ -98,7 +98,7 @@ Full tables: `research/results/2026-11-06-benchmark-v2-final-r1.md` (old Veritas
 
 - ~~Move `veritas2` into the app pipeline~~ done (see Phase 2b below).
 - Explicit reference-set input in the UI/API instead of a file-order split.
-- Fix batch-level power at small contamination rates; pick the fix on dev, report on test + real noise.
+- ~~Fix batch-level power at small contamination~~ partly done (Phase 3 below): calibration fixed, power at 1-3% is a sample-size limit.
 - Sandboxed model-file scanner; more real-noise datasets (CIFAR-100N, text embeddings).
 
 ---
@@ -147,3 +147,55 @@ Exploratory, not a benchmark: it is small and nothing here was used for tuning. 
 Net: the old design (hand-weighted average of five mostly label-blind layers, with the top verdict gated on a proof that
 never validates) was not recoverable by re-weighting, which matches the earlier benchmark-v1 finding of 0.00 F1 per layer.
 The legacy code is retained only so the benchmark can keep comparing against it; decide later whether to delete layers 1-5.
+
+---
+
+# Phase 3 (2026-11-07): batch-level power
+
+**Cause found:** the batch statistic was miscalibrated, not weak. The binomial tail test treats the clean 99% quantile as
+exact, but it is estimated from ~540 calibration rows (the ~5 largest), so its noise leaks into the p-value. Clean batches
+reached -log10 p = 4.6 at the 95th percentile (it should be 1.3), which made the empirical threshold high for every attack.
+
+**Tried on the 6 dev datasets only** (batch TPR at 5% false alarms, mean over attack types):
+
+| variant | 1% | 3% | 5% | 10% |
+|---|---|---|---|---|
+| veritas2 as frozen (binomial tail) | 0.18 | 0.32 | 0.67 | 0.81 |
+| + Mann-Whitney mean test | 0.18 | 0.32 | 0.67 | 0.81 (no change) |
+| out-of-fold labels on the whole reference (3x clean rows) | 0.13 | 0.27 | 0.64 | - (worse) |
+| exact hypergeometric tail, label + shift | 0.16 | 0.41 | 0.63 | 0.79 |
+| same, shift weighted by 4:1 (**chosen**, penalty log10 4) | 0.23 | 0.46 | 0.68 | 0.83 |
+| shift penalties 1.0 / 1.5 | 0.29 / 0.33 | 0.42 / 0.40 | 0.65 / 0.60 | 0.82 / 0.80 |
+
+The exact test (`exact_tail_test`) conditions on the pooled order being random when the batch is clean, so it is
+valid at any calibration size; clean batches now reach 1.3 at the 95th percentile. The 4:1 weight is a weighted
+Bonferroni split of the false-alarm budget between the two checks (label 80%, shift 20%); the heavier penalties
+traded away collisions and backdoors for label flips, so 4:1 was kept as the middle.
+
+**Held-out result (12 test datasets; real-noise track, which was not used for tuning):**
+
+| batch TPR at 5% false alarms | old veritas2 | new veritas2 | cleanlab |
+|---|---|---|---|
+| test, 1% poison | 0.11 | 0.15 | 0.14 |
+| test, 3% | 0.65 | 0.65 | 0.49 |
+| test, 5% | 0.78 | 0.75 | 0.55 |
+| test, 10% | 0.89 | 0.89 | 0.64 |
+| CIFAR-10N, 3% mistakes (mean of 3 sources) | 0.25 | 0.37 | 0.38 |
+| CIFAR-10N, 5% | 0.53 | 0.72 | 0.78 |
+| CIFAR-10N, 5%, aggre labels only | 0.25 | 0.55 [0.30, 1.00] | 0.75 [0.15, 0.95] |
+| CIFAR-10N, 10% | 0.97 | 0.97 | 0.98 |
+
+Row-level AUPRC is unchanged (the row ranking was not touched).
+
+**Honest reading:**
+- On tabular data nothing improves at the 5%-false-alarm operating point (differences are within noise). On real human
+  noise the gap to cleanlab closes (aggre 5%: 0.25 -> 0.55; cleanlab 0.75, CIs overlap widely).
+- The real gain is **calibration**: the batch score is now a proper p-value. The shipped verdict cut-offs are p <= 0.05
+  (LOW_RISK), 0.01 (SUSPICIOUS), 1e-4 (CONFIRMED). On held-out clean batches: 7.1% reached 1.3 (nominal 5%, n=240),
+  0.4% reached 2.0, none reached 4.0; on CIFAR clean batches 2.5% / 0% (n=40). At SUSPICIOUS (2.0) a 5%-poisoned batch is
+  caught 68% of the time with ~0.4% false alarms; before, the SUSPICIOUS cut-off sat at about 5% false alarms for 75%.
+- **Small rates stay hard.** At 1% poison (about 12 rows in 1,200) every method catches ~15%; at 3% about half. That is a
+  sample-size limit of any single-batch test, not something more tuning fixes. The honest product statement is "reliable
+  at >= 5% contamination; for less, use the ranked row list".
+- Old `veritas2` binomial results remain in `results/*final-r1*`; `v2_ls_gate4` in `baselines.py` is the same detector.
+- CIs from 40 clean batches (test: 240) give only a rough read on the false-alarm rates above.

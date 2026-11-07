@@ -15,7 +15,7 @@ try:
     from .layer4_causal       import CausalProofEngine
     from .layer5_federated    import FederatedTrustAnalyzer
     from .shap_drift          import SHAPDriftMonitor
-    from .veritas2            import Veritas2, SUSPICIOUS_AT, verdict_for
+    from .veritas2            import Veritas2, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
 except ImportError:
     from layer1_statistical import StatisticalShiftDetector
     from layer2_spectral     import SpectralActivationAnalyzer
@@ -23,7 +23,7 @@ except ImportError:
     from layer4_causal       import CausalProofEngine
     from layer5_federated    import FederatedTrustAnalyzer
     from shap_drift          import SHAPDriftMonitor
-    from veritas2            import Veritas2, SUSPICIOUS_AT, verdict_for
+    from veritas2            import Veritas2, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
 
 
 # ── Layer weights (RECT 9: rebalanced) ────────────────────────────────────────
@@ -223,7 +223,8 @@ class DetectionPipeline:
     def _analyze_v2(self, X: np.ndarray, y: np.ndarray) -> dict:
         r = self.v2.analyze(X, y)
         flagged = r["flagged_indices"]
-        label_ev, shift_ev = r["evidence"].get("label", 0.0), r["evidence"]["shift"]
+        label_ev = r["evidence"].get("label", 0.0)
+        shift_ev = max(r["evidence"]["shift"] - SHIFT_PENALTY, 0.0)  # same weighting as the batch statistic
         # Same keys the forensics/defense/report code reads; old layers that no longer run are empty.
         details = {
             "engine": "v2",
