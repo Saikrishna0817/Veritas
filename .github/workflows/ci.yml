@@ -27,7 +27,7 @@ jobs:
         ports: ["6379:6379"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12", cache: pip }
       - run: pip install -r backend/requirements.txt "moto[s3]" torch --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
       - name: Tests
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install pip-audit && pip-audit -r backend/requirements.txt
       - uses: aquasecurity/trivy-action@v0.36.0
