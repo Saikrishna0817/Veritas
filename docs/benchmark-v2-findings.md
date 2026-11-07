@@ -96,7 +96,54 @@ Full tables: `research/results/2026-11-06-benchmark-v2-final-r1.md` (old Veritas
 
 ## Still open
 
-- Move `veritas2` from the research module into the app pipeline (the app still runs the old layers).
+- ~~Move `veritas2` into the app pipeline~~ done (see Phase 2b below).
 - Explicit reference-set input in the UI/API instead of a file-order split.
 - Fix batch-level power at small contamination rates; pick the fix on dev, report on test + real noise.
 - Sandboxed model-file scanner; more real-noise datasets (CIFAR-100N, text embeddings).
+
+---
+
+# Phase 2b (2026-11-07): `veritas2` is now the app's default engine
+
+`DetectionPipeline(engine="v2")` (the default) runs `app/detection/veritas2.py`; `engine="legacy"` keeps the
+original five layers for comparison. The benchmark imports the shipped module, and re-running four real-noise
+batches reproduced the stored scores exactly. End to end on a synthetic CSV upload (3,000 rows, 3 classes):
+clean file -> CLEAN, 10% flipped labels -> CONFIRMED_POISONED, 58 rows flagged of which 55 were the flipped ones, 1.3 s.
+
+Verdict cut-offs are batch evidence (-log10 p) read off held-out clean batches: LOW_RISK >= 4.0, SUSPICIOUS >= 5.5
+(~5% of clean batches reach it), CONFIRMED >= 9.5 (~1%). They map onto the app's 0.15 / 0.35 / 0.65 suspicion
+thresholds. **"CONFIRMED_POISONED" now means "evidence at the 1% false-alarm level", not a causal proof**: the
+causal layer no longer runs. Rows are flagged only when the batch itself is at least SUSPICIOUS.
+
+Not changed: the model-file scan still feeds extracted parameters through the same pipeline, and has no benchmark.
+
+# What was wrong with the old pipeline (diagnostic run)
+
+24 batches (3 dev datasets, 1 seed, 10% poison, 2 clean batches per dataset), every layer's score recorded.
+Exploratory, not a benchmark: it is small and nothing here was used for tuning. Script output is not committed.
+
+1. **The blend can never reach a verdict.** Layer 3 flagged *every* out-of-range backdoor row (31/31 and 55/55) and
+   almost nothing else, yet the batch verdict was LOW_RISK (overall 0.21-0.34), because one layer firing is weighted
+   at 0.20 and the rest sit near zero. Across all 18 attacked batches the overall score averaged 0.11 against 0.03-0.05
+   on clean batches, and no attacked batch reached SUSPICIOUS (0.35); the highest was 0.34. A weighted average needs several
+   layers to agree; these attacks trip one at a time.
+2. **No layer looks at labels properly.** Label flips (random and targeted) scored 0.03-0.15, equal to clean batches.
+   Layer 3 flagged 0-4 of 23-55 flipped rows, which is chance. Only the label-ratio shift in Layer 1 reacts, and only
+   to targeted flips in 2 of 3 datasets.
+3. **Layer 4 (causal) never fired and costs the most time.** `proof_valid` was false in all 24 batches and the causal
+   effect was ~0.01 everywhere (including 10% poisoning). It took 2-4 s per batch on sets under 1,000 rows (about 60%
+   of the run on qsar-biodeg), and it retrains models, so it grows with data size. Since `CONFIRMED_POISONED`
+   required it, the top verdict was unreachable.
+4. **Layer 2 adds a constant.** Spectral score is a fixed 0.10-0.20 on clean and attacked batches alike (it is 20% of
+   the weight), which only lifts every batch's floor.
+5. **Layer 1's KL and Mahalanobis alarms never fired** on any of the 24 batches; only the blend-trigger heuristic did,
+   and it fired on in-range backdoors and targeted flips inconsistently (0.32-0.37 vs 0.02 clean).
+6. **Layer 3 is a decent out-of-range row detector** (31/31 and 55/55 on `backdoor_ood`), but it is label-blind and
+   missed in-range backdoors (1 of 31 and 1 of 55) and feature collisions (0). That is the one piece worth keeping
+   in spirit; the shift check in `veritas2` does the same job with a trained discriminator and also finds in-range cases.
+7. **Speed:** timing was only measured per layer on small datasets (wdbc 0.8 s, qsar-biodeg 4.5 s); the 37 s average in
+   the full benchmark comes from larger sets and was not broken down per layer.
+
+Net: the old design (hand-weighted average of five mostly label-blind layers, with the top verdict gated on a proof that
+never validates) was not recoverable by re-weighting, which matches the earlier benchmark-v1 finding of 0.00 F1 per layer.
+The legacy code is retained only so the benchmark can keep comparing against it; decide later whether to delete layers 1-5.
