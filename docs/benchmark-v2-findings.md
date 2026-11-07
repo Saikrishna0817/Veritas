@@ -249,3 +249,32 @@ build their call chain without any dangerous import (the unknown-import rule cov
   self-serve sign-up/email verification/password reset, JWT in an httpOnly cookie with CSRF, Redis-backed rate limit (the limiter and
   the quotas' atomicity are single-process/SQLite), API keys and CLI, Playwright e2e and load tests. Pre-existing legacy rows with no owner
   are visible only to admins.
+
+# Phase 5: hardening completed and verified (2026-11-07)
+
+Verified by running it, not just writing it:
+- **Both databases:** the full backend suite (161 tests) passes on SQLite and on PostgreSQL 16 (`VERITAS_TEST_PG_URL`), including a real RQ
+  worker process fed through Redis (`VERITAS_TEST_REDIS_URL`) and the Redis-shared rate limiter. The first PostgreSQL run caught a dialect bug
+  and the first live-server run caught a startup bug (`get_stats` after the owner change); both fixed.
+- **Real stack:** `docker compose up --build` (Postgres, Redis, API, worker, nginx). Through nginx: cookie sign-in, CSRF enforced (403 without
+  the header), background upload -> Redis -> worker -> Postgres -> `CONFIRMED_POISONED` in about 2 s.
+- **Browser:** Playwright (3 tests, Chromium via the installed Brave) signs in, checks the session cookie is httpOnly and localStorage holds no
+  token, uploads a CSV through the UI and sees the verdict and "Label Check"; anonymous users are redirected and get 401; sign-up shows the next step.
+- **Load (k6, 5 virtual users, 30 s, one laptop):** history reads p95 13 ms, enqueue p95 25 ms, no errors other than the intended 429s.
+  This is a smoke test, not capacity planning.
+- **Backup:** `scripts/backup.sh` + `scripts/restore-drill.sh` restored a real dump into a scratch database and matched row counts.
+- **Dependencies:** `pip-audit` found 16 known issues in the pins (starlette, python-multipart, pyasn1, anyio, certifi, idna, python-dotenv,
+  python-jose with no fix); upgraded, `python-jose` replaced by PyJWT, now clean; `npm audit --omit=dev` clean; frontend lint and build pass.
+
+Built in this phase: self-serve sign-up with email verification, password reset (single-use hashed tokens, no account enumeration), Turnstile
+hook, API keys (hashed), httpOnly cookie sessions with double-submit CSRF and a WebSocket origin check, durable jobs table + blob storage
+(local or S3/R2) + separate worker, Redis rate limits, `veritas` CLI and GitHub Action, Prometheus `/metrics` (token-gated) and Sentry hook,
+compose stack, CI (tests on both databases, lint/build, pip-audit, Trivy, image push, SSH deploy), CodeQL, Dependabot, runbook (`docs/runbook.md`).
+
+Not verified / not done:
+- CI workflows, the deploy job, CodeQL and Dependabot have never run (they need the repository on GitHub with secrets).
+- SMTP delivery, Turnstile, Sentry, S3/R2 uploads against a real service (S3 is tested against `moto` only), Cloudflare, Oracle Cloud, Neon/Supabase, uptime monitors: all need your accounts.
+- Direct-to-storage presigned uploads were not built; uploads still pass through the API (limit 200 MB, nginx 210 MB).
+- OAuth (GitHub/Google) sign-in, accessibility pass, a published OpenAPI/CLI package, a staging environment, and legal pages (Terms, Privacy) are not done.
+- The Playwright suite is not in CI yet; the load test is not scheduled.
+- One API process: WebSocket events and a few caches are per-process; result pages must poll jobs when workers run elsewhere.
