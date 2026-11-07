@@ -240,3 +240,24 @@ def test_library_gadgets_are_flagged_not_waved_through():
     for module, name in (("pandas.core.computation.eval", "eval"), ("sklearn.utils._testing", "assert_run_python_script_without_output"),
                          ("pydoc", "pipepager")):
         assert scan_bytes(proto0(module, name, ["x"]), "m.pkl")["verdict"] == "DANGEROUS", (module, name)
+
+
+def test_dotted_and_aliased_names_through_allowed_libraries_are_dangerous():
+    from research.scanner_bench.build_corpus import proto0, proto4
+    for module, name in (("sklearn.utils", "os.system"), ("numpy.lib.utils", "os.popen"), ("scipy.sparse", "__builtins__.eval"),
+                         ("sklearn.utils", "os"), ("sklearn.tree", "subprocess.Popen")):
+        for build in (proto0, proto4):
+            assert scan_bytes(build(module, name, ["x"]), "m.pkl")["verdict"] == "DANGEROUS", (module, name)
+
+
+def test_a_pickle_nested_in_torch_load_from_bytes_is_scanned():
+    from research.scanner_bench.build_corpus import _bin_str, proto0
+    inner = proto0("os", "system", ["x"])
+    nested = b"\x80\x04" + _bin_str("torch.storage") + _bin_str("_load_from_bytes") + b"\x93\x94C" + bytes([len(inner)]) + inner + b"\x85\x94R\x94."
+    assert scan_bytes(nested, "m.pt")["verdict"] == "DANGEROUS"
+
+
+def test_file_and_exit_hooks_are_dangerous():
+    from research.scanner_bench.build_corpus import proto0
+    for module, name in (("atexit", "register"), ("codecs", "open"), ("io", "open")):
+        assert scan_bytes(proto0(module, name, ["x"]), "m.pkl")["verdict"] == "DANGEROUS", (module, name)

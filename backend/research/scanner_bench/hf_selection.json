@@ -1,0 +1,1285 @@
+{
+ "note": "Pinned Hugging Face files for the scanner benchmark. 'dev' files were used while building the scanner; 'heldout' files were chosen afterwards and not looked at before the first held-out run.",
+ "files": [
+  {
+   "repo": "julien-c/skops-digits",
+   "revision": "3cd865e73fe72cdd704871c0bc1a6d2aa7093077",
+   "filename": "sklearn_model.joblib",
+   "sha256": "a2570bdbea0077b295c39ba628ab7fc4adc2d03c481483f17dcc5ada0b29d8e8",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "julien-c/wine-quality",
+   "revision": "90ef3b74e2728ee35ac84e774fa34d8d7697c60c",
+   "filename": "sklearn_model.joblib",
+   "sha256": "f163e61594190915171651609102ecf30a4dfa23a140f6d28cfa8f06dbda6952",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "OKTAYBBS/DataScientst-models",
+   "revision": "c40104b6f379f3bc7a0f5d000cdf35fa8caf9467",
+   "filename": "classification/mobile_model.pkl",
+   "sha256": "c60dd168fb9adade1ebeb863e5d041879357a368e6380e8907117763580406a5",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "nateraw/iris-svc",
+   "revision": "9b16bc5c74397dd875002cdb075748376ecfb1d6",
+   "filename": "sklearn_model.joblib",
+   "sha256": "063178bab59455eb71145969ac0758c0dcbced0673b0482099ae3e5310fb9307",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "BenjaminB/plain-sklearn",
+   "revision": "4982c2f88d68adec7685924f0296f20601b72400",
+   "filename": "sklearn_model.joblib",
+   "sha256": "b8be99a5b79e48487ca91a80eb60ec7fa08c9b7f23974c36f9e9b5aeca005efa",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "rawqubit/ClassicML-Prompt-Injection-Detector",
+   "revision": "b8f239789d8af8459c92a82da0a4ec31a147ec0e",
+   "filename": "sklearn_model.joblib",
+   "sha256": "eb1ad3d085cdb02aab44bdfb8bdbd9dde9ed218c2187e89aa53b22a2e1b685b1",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "kiselyovd/cardio-risk-rf",
+   "revision": "dbe9debeed52e94df2a2d3be03710a46d3fbb091",
+   "filename": "cardio_risk_lgbm.joblib",
+   "sha256": "d0b96ed0fb1209be8ed73ebb41d41225d6d106c2f291a285c6c9fc8950a2ad39",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "scikit-learn-examples/example",
+   "revision": "f91a8fc15a48ff8cbedbc840b185d406059c3727",
+   "filename": "sklearn_model.joblib",
+   "sha256": "80aef8d0e9b0606e5e26e9ba619df099c055a09098731352b30a4ac0b1106162",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "risingodegua/wine-quality-model",
+   "revision": "9e3c46f52502f30e785ce90b9a27aff136b11fef",
+   "filename": "sklearn_model.joblib",
+   "sha256": "f163e61594190915171651609102ecf30a4dfa23a140f6d28cfa8f06dbda6952",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "osanseviero/wine-quality",
+   "revision": "ea817ab93c80a3bb97ba6b6a271de23b5b921c50",
+   "filename": "sklearn_model.joblib",
+   "sha256": "f163e61594190915171651609102ecf30a4dfa23a140f6d28cfa8f06dbda6952",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "danupurnomo/dummy-titanic",
+   "revision": "eff5645a191c7906933331c14f6424be960ff4ca",
+   "filename": "final_pipeline.pkl",
+   "sha256": "f19010fbf0a972ebd404d9c7c07ff768b6793b51fdeb30122b254617b50bea78",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "nwhite-systems/nwhite-ai-operations-intent-classifier",
+   "revision": "0081618e669f5dcd10db6ae6ec6445a9f7a603fd",
+   "filename": "model.joblib",
+   "sha256": "a322f3a996b4c3fdda072f9328e3857da226cdedb5fa4acc0777442080296223",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "imodels/figs-compas-recidivism",
+   "revision": "3ce867c8fe9232d1afe3f4a6c62ab6942d549dc5",
+   "filename": "sklearn_model.joblib",
+   "sha256": "28bc9246450acc5146a8509ce2b60a7303d756073b09b92fb4e25b63030aec44",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "AWeirdDev/human-disease-prediction",
+   "revision": "df277795f763070566a3d3504c7f9ac66840a012",
+   "filename": "sklearn_model.joblib",
+   "sha256": "52c93c3caa550b229550f604dc913cdd6bc55be6e98f608292abd109f804493f",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "AgentsSci/EMNLP_Cost-Aware-Protocol-Routing",
+   "revision": "c408e0770448dd7264824b74fcacb6efa684579f",
+   "filename": "router_metadata_only/feature_builders.joblib",
+   "sha256": "3252c274c6ae5a90afe3655823e2a16977c21796f7d76fbe3e6141454ca61e62",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "pfizer-project-team/binary-segA-vs-segBC",
+   "revision": "b8fabd3866c19667e97af852d0567dfec1116326",
+   "filename": "sklearn_model.joblib",
+   "sha256": "911ca4a5f5ea719ebec985d166b10e898c8de4b2cde3c04e191e698d4e1c0d09",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "2gether330/diabetes-rf-regressor",
+   "revision": "dfd32a45edd8a3f48f12c8e7fff250f84d5bfd40",
+   "filename": "sklearn_model.joblib",
+   "sha256": "02703c3c1b7d58b3aa273c0b361f09ea0ce60a44d7be4a3b171a353d9ad986e2",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "wlaminack/testingmodel",
+   "revision": "3015b0c0380e8cc244f72b427d7b90764b9f35da",
+   "filename": "sklearn_model.joblib",
+   "sha256": "f163e61594190915171651609102ecf30a4dfa23a140f6d28cfa8f06dbda6952",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "emresvd/u202",
+   "revision": "13681998b863186dbbe9d38423e064270f9c827c",
+   "filename": "sklearn_model.joblib",
+   "sha256": "73dbdd30ccb08c0ebade08f15473e436b70a711d9a4dafe71384ea74ca342f98",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "mmx86/hf_heart",
+   "revision": "37c0ccdf12bfb1e22fe2f5612df23fbf3b28fc8f",
+   "filename": "sklearn_model.joblib",
+   "sha256": "2164291e0f5daf134c3dc697571d03fe5fda9d15fda04dd0dcfcfab25c4a8758",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "DineshKumar1329/Sentiment_Analysis",
+   "revision": "e4bef3e5b2764fe89f9dc2e9b221746eb63042ac",
+   "filename": "vectorizer_model.joblib",
+   "sha256": "d8087511b2217a8163f52f7b99a6148db8236f1e566d64855699879d6576b9a9",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "prabinpanta0/Patient-Readmission-Prediction",
+   "revision": "9c89bfe34b5eb3f05657ae6cc9a72c7b6b69698a",
+   "filename": "model_K_nearest.pkl",
+   "sha256": "e15a22303124e61c420d6bc55c2fcad2579b3f0464f81e1e0dc1a68eeacf3f50",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "carineRam/wine_model",
+   "revision": "8c9c1419cc96fb10b76603a62c37370549664b9c",
+   "filename": "sklearn_model.joblib",
+   "sha256": "f163e61594190915171651609102ecf30a4dfa23a140f6d28cfa8f06dbda6952",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "ai-mitra/prompt-injection-detector",
+   "revision": "dc0198de23a8264bbcb00799cce5af6e91e604d4",
+   "filename": "classifier.joblib",
+   "sha256": "4d4cb4926cb510657c54df7da8edb7ce1da169b441592f14d3261b1a6a608921",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "MarceloLZR/titanic",
+   "revision": "205ff18d0cea0ff9f1bfea3421a3d5dcb2d67171",
+   "filename": "final_pipeline.pkl",
+   "sha256": "f19010fbf0a972ebd404d9c7c07ff768b6793b51fdeb30122b254617b50bea78",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "sborhade/expense_forecaster",
+   "revision": "a00aae66ce12a63b398b9c67c834972a0c589d6c",
+   "filename": "model/expense_forecaster_model.pkl",
+   "sha256": "531163036e860f371e86c844d29dcc5d789e501122f0ee10a0b18fab7f578db2",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "vvmnnnkv/wine-quality",
+   "revision": "484a0f78c049d521ff474a7f25d469e4a0d16e44",
+   "filename": "model.pkl",
+   "sha256": "ba686fd0e7812ee55eb991e54d9ee50eb646ba49a156a91025f2e9dd20375509",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "Yu-Lieng/predict1",
+   "revision": "cd593d8c41bf9e50006f8c05e9eb24f3707ee869",
+   "filename": "loan_decision_tree.joblib",
+   "sha256": "4e8e40dcb7ac4859f8f5378bf9744ecdbf8f6a1303b2292c95990862d0fd484f",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "mohammed781234712/amazon-books-sentiment",
+   "revision": "ce7576681c79d252aca709c0dc9dfa3459961958",
+   "filename": "model.pkl",
+   "sha256": "e714c7106b32fe8946000bd2bcbeff67f41ab8f8569c18a8cf4e3da5796badfe",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "waghelad/dgvj-work",
+   "revision": "427d86ba91e9c62e3fad934d4086fa45f6cee5c6",
+   "filename": "risk_classifier.joblib",
+   "sha256": "28fed7e2d246113aa81d9c51590e57713c7ec5efd2e9e54ad159118406bad47e",
+   "family": "hf_sklearn",
+   "split": "dev"
+  },
+  {
+   "repo": "BAAI/bge-m3",
+   "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+   "filename": "onnx/model.onnx",
+   "sha256": "f84251230831afb359ab26d9fd37d5936d4d9bb5d1d5410e66442f630f24435b",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "intfloat/multilingual-e5-large",
+   "revision": "3d7cfbdacd47fdda877c5cd8a79fbcc4f2a574f3",
+   "filename": "onnx/model.onnx",
+   "sha256": "bb5a52503a3ef35247f5b5ae6c473aaae60505dd3ffaef56d7b69e2f84683c05",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "stabilityai/stable-diffusion-xl-base-1.0",
+   "revision": "462165984030d82259a11f4367a4eed129e94a7b",
+   "filename": "text_encoder_2/model.onnx",
+   "sha256": "162042ac6556e73f93d4172d4c67532c1cbe4dc7a6a8fa7e44dd2e3d7cbb772b",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "Snowflake/snowflake-arctic-embed-l-v2.0",
+   "revision": "ac6544c8a46e00af67e330e85a9028c66b8cfd9a",
+   "filename": "onnx/model.onnx",
+   "sha256": "f74aa79745ccfb1e75daa7e8e6552a78402d4de193eb8ca67a931358d3e0a25e",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "FacebookAI/xlm-roberta-large",
+   "revision": "c23d21b0620b635a76227c604d44e43a9f0ee389",
+   "filename": "onnx/model.onnx",
+   "sha256": "bb5a52503a3ef35247f5b5ae6c473aaae60505dd3ffaef56d7b69e2f84683c05",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "BAAI/bge-reranker-large",
+   "revision": "55611d7bca2a7133960a6d3b71e083071bbfc312",
+   "filename": "onnx/model.onnx",
+   "sha256": "0528834a83cbe4b37fd20a887dd8f3dbdc6d924ffaaab51278d0a05364410117",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "pnnbao-ump/VieNeu-TTS-v3-Turbo",
+   "revision": "61b85e3d937fbbacb387714180e8182823512523",
+   "filename": "onnx/vieneu_decode_step.onnx",
+   "sha256": "bedc379cea61ea5d616312750d95ad3924e055856662d19187a889a5edc24ceb",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "intfloat/multilingual-e5-large-instruct",
+   "revision": "274baa43b0e13e37fafa6428dbc7938e62e5c439",
+   "filename": "onnx/model.onnx",
+   "sha256": "e3aeea5355352d826bd952a9a96fab206c6c72d1a429c8773c9da5ac16e44af5",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "jinaai/jina-embeddings-v3",
+   "revision": "ab036b023d30b4d1138c4c3bfa9f0c445ab455d6",
+   "filename": "onnx/model.onnx",
+   "sha256": "836322cc5d78f0047dbb336d0049b087fd81e164505c347a313cd44a772f34cc",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "DeepBeepMeep/MiniMax-H3",
+   "revision": "1393e9b5638161ed1206bf75cdb57043f75f6526",
+   "filename": "buffalo_l/2d106det.onnx",
+   "sha256": "f001b856447c413801ef5c42091ed0cd516fcd21f2d6b79635b1e733a7109dbf",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "Qdrant/multilingual-e5-large-onnx",
+   "revision": "ac6781cd1cf88b8306a536d7c9d18a5bd57cc14b",
+   "filename": "model.onnx",
+   "sha256": "1c09780c907c8a91a77a6ab1fd231f79e090d2907ca431223703dfebeed3d36c",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "Xenova/whisper-tiny.en",
+   "revision": "79fb389fc764e7c395bd330e9531d9d32ada7049",
+   "filename": "onnx/encoder_model_q4f16.onnx",
+   "sha256": "b834b21e0f0b7ddffa3b80f83b141aeda300db8108111414d67a5e05716ced12",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "openai-community/gpt2-large",
+   "revision": "32b71b12589c2f8d625668d2335a01cac3249519",
+   "filename": "onnx/decoder_model.onnx",
+   "sha256": "6928b9ea9cefb712ddb36264ac8b572f7df0ee5d3d774f45154ca0cd381ccbc2",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "distil-whisper/distil-large-v3",
+   "revision": "8031d2e6ce6631b7fc45629dddfc00271116d981",
+   "filename": "onnx/encoder_model.onnx",
+   "sha256": "f99aafb8c4df7c68693a304efd3b68e7950ce3c7b342f1d5b1633b393e0d1e08",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "DeepBeepMeep/LTX-2",
+   "revision": "1798f80b3340d2f87cffae42f9fa5367d0963d0c",
+   "filename": "sherpa/sherpa-onnx-pyannote-segmentation-3-0/model.onnx",
+   "sha256": "220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "stabilityai/sdxl-turbo",
+   "revision": "71153311d3dbb46851df1931d3ca6e939de83304",
+   "filename": "text_encoder_2/model.onnx",
+   "sha256": "03856bf14b5d23b17eae141648ef98652e0a6d01b37c2fbb3fc0af5e9a1aff34",
+   "family": "hf_onnx",
+   "split": "dev"
+  },
+  {
+   "repo": "audio-cpp/audio.cpp-gguf",
+   "revision": "57de533382ad47d5527e7562d1f80c41f769553b",
+   "filename": "FireRedVAD-GGUF/firered-stream-vad-f32.gguf",
+   "sha256": "c77073c4bebd112a794ec10e71a70e0f74c78ffbe928f4dd79ce17bc19cf8e6a",
+   "family": "hf_gguf",
+   "split": "dev"
+  },
+  {
+   "repo": "ISTA-DASLab/DeepSeek-V4.1-Flash-1017-GSQ-RCO-GGUF",
+   "revision": "65d53bc8be65123e255ff02f3ded958b6dbf54fd",
+   "filename": "DeepSeek-V4.1-Flash-1017-GSQ-RCO-IQ1_M-00001-of-00006.gguf",
+   "sha256": "3e8ddd11441edd4bc19bacaef5dbe38818af2cbdf0820fb70f1d2d851fcc192a",
+   "family": "hf_gguf",
+   "split": "dev"
+  },
+  {
+   "repo": "unsloth/Qwen3.8-Flash-Next-GGUF",
+   "revision": "04dc4f9d39671ed1e790503cda5c8b6670b788cb",
+   "filename": "BF16/Qwen3.8-Flash-Next-BF16-00001-of-00008.gguf",
+   "sha256": "348986b2568af284eb16a0be0ccd17aa4cf0bc823de4a1c9da8e5a24365e3fd9",
+   "family": "hf_gguf",
+   "split": "dev"
+  },
+  {
+   "repo": "peasantsmith/GLM-5.3-Flash-Maya-GGUF",
+   "revision": "a1c2a554ea72a7e8e66cc28b3eaf5036c9313860",
+   "filename": "vision/GLM-5.3-Flash-vocab.gguf",
+   "sha256": "8f53cb1bd2e631c14ef413e3284735d9e53f3c508d07a6f609e705b487105912",
+   "family": "hf_gguf",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/all-MiniLM-L6-v2",
+   "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "c92ea4af3c6bc7b4a0f3b3d61b147c850f4dbdd7c9e7beee0c0c70dc12da289b",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "cross-encoder/ms-marco-MiniLM-L6-v2",
+   "revision": "233902d25c440f23af6f7d6e94d2946bac0bee0a",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "02eaa804b1c63f7a0012b7830dea8578fb54478eefdc98e8cdb21f4e4c4e55dc",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "BAAI/bge-m3",
+   "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+   "filename": "colbert_linear.pt",
+   "sha256": "19bfbae397c2b7524158c919d0e9b19393c5639d098f0a66932c91ed8f5f9abb",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "timm/mobilenetv3_small_100.lamb_in1k",
+   "revision": "76b303ec28c466e9df37f4745dfb7aef20ab87ae",
+   "filename": "pytorch_model.bin",
+   "sha256": "c66054da8dbd3453fecb5c3c842faef8e4e1fcdc71d68208cb577388ae191c5f",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "Bingsu/adetailer",
+   "revision": "53cc19de382014514d9d4038601d261a7faa9b7b",
+   "filename": "deepfashion2_yolov8s-seg.pt",
+   "sha256": "c319c15e86443ea61f70b40620909d737c47ff2a39381536503ac5c54772f8ac",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "pyannote/wespeaker-voxceleb-resnet34-LM",
+   "revision": "837717ddb9ff5507820346191109dc79c958d614",
+   "filename": "pytorch_model.bin",
+   "sha256": "366edf44f4c80889a3eb7a9d7bdf02c4aede3127f7dd15e274dcdb826b143c56",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "cross-encoder/ms-marco-MiniLM-L4-v2",
+   "revision": "777b2f369bc1c2f850df8bd367ed1654bda4497b",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "026119caa48e8080a5dd81b7de4a49050718c807c0fa6f2714e2a150244891b6",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/distiluse-base-multilingual-cased-v1",
+   "revision": "826fee3d516ebb14987355af373f5b69101c7006",
+   "filename": "2_Dense/pytorch_model.bin",
+   "sha256": "55f239314f9dadd743fe3a2af7dc29aa498e42a0eb1b827c28b98f95eb2f6a53",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/paraphrase-MiniLM-L6-v2",
+   "revision": "c9a2bfebc254878aee8c3aca9e6844d5bbb102d1",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "f036c75118e1df8040b4be3d5b7589ae1f1bb0c1f0f5d666b9bd317a2c8014d5",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sshleifer/tiny-gpt2",
+   "revision": "5f91d94bd9cd7190a9f3216ff93cd1dd95f2c7be",
+   "filename": "pytorch_model.bin",
+   "sha256": "b706b24034032bdfe765ded5ab6403d201d295a995b790cb24c74becca5c04e6",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/distiluse-base-multilingual-cased-v2",
+   "revision": "bfe45d0732ca50787611c0fe107ba278c7f3f889",
+   "filename": "2_Dense/pytorch_model.bin",
+   "sha256": "64fe81485f483cee6c54573686e4117a9e6f32e1579022d3621a1487d5bfea58",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "prajjwal1/bert-tiny",
+   "revision": "6f75de8b60a9f8a2fdf7b69cbd86d9e64bcb3837",
+   "filename": "pytorch_model.bin",
+   "sha256": "dab2c2bddcfb48ea430ef63fd76d46d67d704487844d967256a50dd7d7fd0a66",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers-testing/stsb-bert-tiny-safetensors",
+   "revision": "f3cb857cba53019a20df283396bcca179cf051a4",
+   "filename": "pytorch_model.bin",
+   "sha256": "dbce579acedc573c994925d2e400357f5b3a5f6b12e1ba019a5afbd6cb73b8a4",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/LaBSE",
+   "revision": "836121a0533e5664b21c7aacc5d22951f2b8b25b",
+   "filename": "2_Dense/pytorch_model.bin",
+   "sha256": "06fb85120e40adf0ab188c4f0cc7684f702cb2023532947d1b85f325b0a3645c",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/paraphrase-MiniLM-L3-v2",
+   "revision": "4ca70771034acceecb2e72475f72050fcdde4ddc",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "fb8f0df8d31765edefe2f8ed6176839519e74ba3674aeea3e79b127269af4b68",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "peft-internal-testing/tiny-clip-text-2",
+   "revision": "4fbb8d27f0fdda658bc80bbccbd3d749044ace78",
+   "filename": "pytorch_model.bin",
+   "sha256": "01db0e96beff982aa96f23ab54d0809e14cfdf571b991bc7244016a621e6f47f",
+   "family": "hf_pytorch",
+   "split": "dev"
+  },
+  {
+   "repo": "timm/mobilenetv3_small_100.lamb_in1k",
+   "revision": "76b303ec28c466e9df37f4745dfb7aef20ab87ae",
+   "filename": "model.safetensors",
+   "sha256": "46d2c063b18125884c48937afa4c49e18128869e52e8db96df48bf0a4d7ff697",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "NeoQuasar/Kronos-Tokenizer-base",
+   "revision": "0e0117387f39004a9016484a186a908917e22426",
+   "filename": "model.safetensors",
+   "sha256": "59d85f6af76a2c3b8240ea06cb21db4213b4eeca053f246b23e29cf832fc6bee",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "trl-internal-testing/tiny-Qwen2ForCausalLM-2.5",
+   "revision": "ce8d0bf270b28c8fab026ced69fe8aa14b0f0eda",
+   "filename": "model.safetensors",
+   "sha256": "653e6a0513543f691f5926b7deb442fe9a179d82cbcd59dddaf3de109c9f5f70",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "trl-internal-testing/tiny-Qwen3ForCausalLM",
+   "revision": "25bb9b8963688237e94750f6f3e48f1947d3c7a3",
+   "filename": "model.safetensors",
+   "sha256": "8a7c91c0fb565f835624e340b0795867a5882c1135f1c2924d76bd030efd1103",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/distiluse-base-multilingual-cased-v1",
+   "revision": "826fee3d516ebb14987355af373f5b69101c7006",
+   "filename": "2_Dense/model.safetensors",
+   "sha256": "f8893703d8a6b640a8e4f90bbe2017fc0e7a792ad62daf6f723adf618f5d444f",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "remsky/kokoro-inno-clone-tuner",
+   "revision": "1eb15a97331f04252d22056de9fddc25b742b634",
+   "filename": "model.safetensors",
+   "sha256": "71cb8e93544f697043197f27fa7f13f0f9f9161076b092aaff6d0894fec2b0e8",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "DeepBeepMeep/Wan2.1",
+   "revision": "176bbae94db7b26f00e5b698d95d4f578debc51c",
+   "filename": "FlashVSR/FlashVSR_v1.1_posi_prompt_bf16.safetensors",
+   "sha256": "18ef7c04916beb5e90326e273b23163f1e910763955238745e7b2c51ffa4055d",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "ibm-granite/granite-timeseries-tspulse-r1",
+   "revision": "2e64fcdc2a06d3565dfadaf0065c0ab5055f80f2",
+   "filename": "model.safetensors",
+   "sha256": "57fa03b67d1473a7253ac37801b24c391d1fa931395db986743e2f59e556b9ac",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/distiluse-base-multilingual-cased-v2",
+   "revision": "bfe45d0732ca50787611c0fe107ba278c7f3f889",
+   "filename": "2_Dense/model.safetensors",
+   "sha256": "0a21b1ce908e772ebf09f93c20ca09524c32706e9918d9c0169a3f0663b191ed",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers-testing/stsb-bert-tiny-safetensors",
+   "revision": "f3cb857cba53019a20df283396bcca179cf051a4",
+   "filename": "model.safetensors",
+   "sha256": "b57380d8465cb456819716ab92ba12933f8e9142ae5f930ba18ca830e9333af2",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "sentence-transformers/LaBSE",
+   "revision": "836121a0533e5664b21c7aacc5d22951f2b8b25b",
+   "filename": "2_Dense/model.safetensors",
+   "sha256": "f866c945fa2147ce4940c8ead0b4b20af4217e0f4664bd35f41c2a0967c4fe77",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "peft-internal-testing/tiny-clip-text-2",
+   "revision": "4fbb8d27f0fdda658bc80bbccbd3d749044ace78",
+   "filename": "model.safetensors",
+   "sha256": "e8c4ad9476b2eaf60e61e5e92fe3c8c264dc702d02907e395eddca0fe5600b6b",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "DeepBeepMeep/LTX-2",
+   "revision": "1798f80b3340d2f87cffae42f9fa5367d0963d0c",
+   "filename": "LTX-2.5-Licon-MSR-V1_slot_embeddings_bf16.safetensors",
+   "sha256": "ff47c6f2a9a827e57012a1d7ac3d75f1cc3749eae72703c3734264ab79a1a6bb",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "autotrust/JEV-9B",
+   "revision": "7ac669b8fb476ba926491e3d1c39f9330d68dbed",
+   "filename": "head.safetensors",
+   "sha256": "d960a6f5989402c6d08d74d8d435a21a031cc7878f3c4ac274a126c900f627e7",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "Marqo/nsfw-image-detection-384",
+   "revision": "0c26ec22111b83f106d72a55f611ec35962bcb65",
+   "filename": "model.safetensors",
+   "sha256": "6bf2e0f64a1d20169736c2836e3a787b12379fdc08ba87f7d94a7a3d58eeefce",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "Lorbus/Qwen3.6-27B-int4-AutoRound",
+   "revision": "c3aea2d531678621989e5e2db034e32b22536e79",
+   "filename": "model-00009-of-00010.safetensors",
+   "sha256": "e72381d38bbf07df91aa6671d874ee0b00ab54070c53934ba30e9365293c9365",
+   "family": "hf_safetensors",
+   "split": "dev"
+  },
+  {
+   "repo": "delineiro/soflexpoc",
+   "revision": "0ae238135bd80d2dd272e81abae7b20e5a4e7fb2",
+   "filename": "model.pkl",
+   "sha256": "e5910e6d9fdc5fd8f6ed1cceeda5bfb8dac91905e61c0bd01dbf7a6c39b416f6",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "kevinkyi/Homework2_Classical_ML",
+   "revision": "1962a7b70337b77807f4b16dab08d02421b5f83c",
+   "filename": "autogluon_predictor.pkl",
+   "sha256": "15bcd06912fc40043e6b55d8444a15797700af7e5943d26be86816b618312c5d",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "Dilipk/flask-classification-model",
+   "revision": "07502c710272c33c34e395ba42ae59fc323379fa",
+   "filename": "classification_model.joblib",
+   "sha256": "e8b1741fcc9ae945a1e0e20e3d1eb193807ae0d79a2cdc5400284ddac0ad0afe",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "osanseviero/tips",
+   "revision": "26979d12a76ceeb65984998d6e160f20d58fe486",
+   "filename": "clf.pkl",
+   "sha256": "c237b4675b1fa48308cc9fa052ae740f2ae7a4fd9d928e9bdb16e4ebe23d27b8",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "osanseviero/tipsuhtxfu-sex-classification",
+   "revision": "0dbbe3c9f03d8edf7c3c9bba12ccd2a709db3d93",
+   "filename": "clf.pkl",
+   "sha256": "25ee7d295151bc6379c4224109d82cce42d139fa74fbf1a8eb093375f23ec156",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "maderix/titanic_traink4m62li8-survived-classification",
+   "revision": "5ab054b4386ea3e6d97c8011aabc7572cc73ed94",
+   "filename": "clf.pkl",
+   "sha256": "2659e29eec7c7d9dbd9af919499b7b1348541624469d299b0dcde01ec745201f",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "merve/breast_cancernb8gjv4n-diagnosis-classification",
+   "revision": "01beac910ca3ffe58761585a4afe9de9ecf6320d",
+   "filename": "clf.pkl",
+   "sha256": "8d33c26f0798d174af3b2a993dda5e6163bb5f88a057596346e2f7ccf037e701",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "srg/outhimar_64-Close-regression",
+   "revision": "a6ebd255934db77b1b2fe12ba44efd7099789ef5",
+   "filename": "clf.pkl",
+   "sha256": "95fb91fb00ae7cd6186bddd9bcbcd053e77b85782ee2e29af86a8c7e14276cca",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "luizapzbn/titanicht_mp88q-Survived-classification",
+   "revision": "321c2bb3fa47c83c70c6406cd263fb88b42ecc76",
+   "filename": "clf.pkl",
+   "sha256": "f8504d7b2392e3bf009ad8e83cb9a9bb83d6a3de21a4de07928dc7bfd56738e3",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "cacauvicosa/heart1ohr2x9e-target-classification",
+   "revision": "561af7c3a1cf4747ec9881632df0204a24783dc8",
+   "filename": "clf.pkl",
+   "sha256": "9f3c6c33b63fade62505401c83083577c9dc181b8e2a99d429a578896fc3af27",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "Fulccrum/trainii_ac94u-label-classification",
+   "revision": "70ea2035ca437dac8afc32f3cd529630fa99e064",
+   "filename": "clf.pkl",
+   "sha256": "00edddc3bdbb5a18648bc93488667b5beab8068319d2bfff0c305569d1915df5",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "sahilrajpal121/train5a1e8w7-label-classification",
+   "revision": "c1c4d674516b1614e321e87207c0ff23c2284eaa",
+   "filename": "clf.pkl",
+   "sha256": "f73bf57d4bdaf2564d1f120bc651dcf6f838be9c475b7d4f9272bd8431f454a4",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "ieborhan/irisg444_4c0-Species-classification",
+   "revision": "3245c8ee249b9037dca820bfbebd581c0c66d594",
+   "filename": "clf.pkl",
+   "sha256": "08e564dae6a8167a58d42ea451954f2a4af4d48df70b75df2a17275786a05d73",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "osanseviero/hf_hub_example-f7d1d7e5-f207-4eef-99bb-57408d604e2b",
+   "revision": "38e1f229e4bfff705286cb48b64626a514ff271d",
+   "filename": "skops-texalxld.pkl",
+   "sha256": "fc88b2a5a96b2f4338b5f1e367462cbe7a10f08485b29e3dec36af23ae9c8248",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "osanseviero/hf_hub_example-821defb0-1482-4d27-884d-4359bfad704f",
+   "revision": "7d32362034b2e8b08f763a7b3abf86a431695c85",
+   "filename": "skops-k4xq5xio.pkl",
+   "sha256": "98aa1eea2b96852494ec9d57e1d9c54f64a4a6ce3c478ead86b76e902b9ba4de",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "osanseviero/hf_hub_example-023f3150-3eae-45a4-bd3c-7a95639e10e0",
+   "revision": "1f7f270ca0761ec7b39845c379403d87bdfced36",
+   "filename": "skops-9053e41j.pkl",
+   "sha256": "39f761536e4be6ac597cf949e85d6314350911f662a666404d66359c53d778b9",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "scikit-learn/skops-blog-example",
+   "revision": "37e8cd41fc85a12b21c0c504583941a20fd77d47",
+   "filename": "example.pkl",
+   "sha256": "d5c621c51fb18d08891d7e5f1d5a3c86e20293294c480be30a02022a0481413e",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "scikit-learn/tabular-playground",
+   "revision": "6f26afe33de409bddd44eacda440c3e680ca6d82",
+   "filename": "model.pkl",
+   "sha256": "84098fd909f038f50921180fa9fa322a5df1728fe9bbea2bcc971fc88232ea81",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "demo-org/tabular-playground",
+   "revision": "f690634b34c2cf7180a02720a1427652f73eba32",
+   "filename": "model.pkl",
+   "sha256": "72099d3816c44c13b2284469de690419a7326caef2c0401ab91a37e7c8c4348e",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "merve/20newsgroups",
+   "revision": "a27e204a6c26857acb75b976dd06e5b4fdbc3660",
+   "filename": "model.pkl",
+   "sha256": "8fce5d3f7326bb1a00d0047f6b61b34553685919dd4e95b5e005e71e94f7deb5",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "vendorabc/modelhubexample",
+   "revision": "d087d539b6961a2f117c940d2f73709bbe56b6ac",
+   "filename": "skops-3voi5107.pkl",
+   "sha256": "cabe955e69f715742849ab49fddfac2899d674db0802608d66b1d61d9016c718",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "vendorabc/modeltest",
+   "revision": "f621c5388570e075d697c6b7efd54064e68e5369",
+   "filename": "skops-v5dfi0sh.pkl",
+   "sha256": "1967cade2d54b4ab0784741d8015566e9923a0042c4592a602c0ac271a26775c",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "vendorabc/tabular-playground",
+   "revision": "27d09628ff513b6f32574a9c456e6f2a83b7c79d",
+   "filename": "model.pkl",
+   "sha256": "72099d3816c44c13b2284469de690419a7326caef2c0401ab91a37e7c8c4348e",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "freddyaboulton/tabular-playground",
+   "revision": "31733db634deca60fc21f3a30166c3e4dd7e0ac8",
+   "filename": "model.pkl",
+   "sha256": "84098fd909f038f50921180fa9fa322a5df1728fe9bbea2bcc971fc88232ea81",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "merve/test-code-generation",
+   "revision": "aaff0f1dbc2e5458f49e6b2eddc74bad4437a5e2",
+   "filename": "example.pkl",
+   "sha256": "e8e2ae6b8b64f1971521969f227d1067bece42832563e38f29bc5633e1a78fb9",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "kushkul/rf_model_skops",
+   "revision": "940284b12b17a492c990b0fc3fc296efe06f5904",
+   "filename": "rf_model.pkl",
+   "sha256": "0a11231c1d03af07d36f7877a6391c27d6b95421caaeb4df19a2d56118fc82a9",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "scikit-learn/Fish-Weight",
+   "revision": "50b27e5738c00a6c5bcf4988dd24d185f4ccbad9",
+   "filename": "example.pkl",
+   "sha256": "10a9f41e1edb4d43ae237933edd469c930e9a1c1635d7ed2dd2743a88c807db2",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "rajistics/my-awesome-churn-model",
+   "revision": "cc95a8ff5202ee57a58ce18ada29c6d57bfd2939",
+   "filename": "example.pkl",
+   "sha256": "9b1fd5f00d775eecf3241a589cb379275ed962318659e36a8dcdb6ed304897da",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "rajistics/churn-model",
+   "revision": "5f27009da932b39123c14bb8ff69bab9b153fc91",
+   "filename": "churn.pkl",
+   "sha256": "8b11dada9e639d7770537daf493675f1c499516c362a9e233bfee765ab3a5bed",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "tehnlulz/pruned_datavq__ydnj-is_phishing-classification",
+   "revision": "5a19605e8f05bb3adbf99664c2e1368e2cb59fd3",
+   "filename": "clf.pkl",
+   "sha256": "68e34aacbd54562627dca9cff964a432e6a1d06e5bac424069173559c2896672",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "Ramos-Ramos/emb-gam-dino",
+   "revision": "7a6402d06de31ff74a94e299752dd67a0b6f91bb",
+   "filename": "model.pkl",
+   "sha256": "80a8cd9d5b8b5d1b927073342d9ed7e1f74ab82c33e41db6d766a7f370885e05",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "robertbogdon/model_tuning_mindallee8kmcfjz-labels-classification",
+   "revision": "89fc1734bced1e608ed4bcc86f791597936081d1",
+   "filename": "clf.pkl",
+   "sha256": "427d1b32afe6eb0bf85336fb1554f38805b3948771b8cefeae5e1bec11d82799",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "robertbogdon/model_tuning_mindalleeu83oz7r-labels-classification",
+   "revision": "bff6738a49a4a2f8f2ddf83cc4c847519527e88f",
+   "filename": "clf.pkl",
+   "sha256": "654220cfc1cf90878cfcc59c6973482407bcae162385cece329753e7ef8c209a",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "robertbogdon/model_tuning_mindalle9_jsy6zj-labels-classification",
+   "revision": "4fb71b753b0ce9227b673504cb6b74dca2130ea4",
+   "filename": "clf.pkl",
+   "sha256": "9d05a58cbca9b6aa746ead7907c956ae9e594d21d3870648b68e15e1cb00ea02",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "Ramos-Ramos/emb-gam-vit",
+   "revision": "f01cf19c83d3a3ede4516871bcd0ec896030f09d",
+   "filename": "model.pkl",
+   "sha256": "116255247f43696402d042d8adaeca688ef695c510960b593839948168db26d8",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "svnfs/rfc",
+   "revision": "b8ad3b7877c72e69ed2fda6e0f3ac01719ab2c28",
+   "filename": "rfc.pkl",
+   "sha256": "403360318623af669c2e013fc58247d453bd17fc25ae10e03582b9cb65862d11",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "Testys/diabetespmxrsn1x-diabetes-classification",
+   "revision": "551c5f722cb0cc110e18aff8e612cc2bb07e418d",
+   "filename": "clf.pkl",
+   "sha256": "0aa3c1b55abe3f70c7847e682626865932514bc2bf518fb0ce83a8258d26d1ce",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "svnfs/rfc-alias",
+   "revision": "0fc305858f1f844e7ecb039c412fd3290f57e76c",
+   "filename": "rfc.pkl",
+   "sha256": "403360318623af669c2e013fc58247d453bd17fc25ae10e03582b9cb65862d11",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "rajistics/churn-model1",
+   "revision": "b88e14396f0269a9a1acf074b92e1fcce16336a3",
+   "filename": "churn.pkl",
+   "sha256": "131633dd2ffe0fad6097a327285ee513302748e9b3f5b9960f68fdca2e3cb6c9",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "merve/model-broken-config",
+   "revision": "15dbab99c456f3063642d82f26e302a7e1b875e4",
+   "filename": "model.pkl",
+   "sha256": "84098fd909f038f50921180fa9fa322a5df1728fe9bbea2bcc971fc88232ea81",
+   "family": "hf_sklearn",
+   "split": "heldout"
+  },
+  {
+   "repo": "onnx-community/embeddinggemma-300m-ONNX",
+   "revision": "5090578d9565bb06545b4552f76e6bc2c93e4a66",
+   "filename": "onnx/model.onnx",
+   "sha256": "ea91fd315a7c152d427d231746f0f811a1ac93beaba656abfdf2b24e091265e4",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "optimum-intel-internal-testing/tiny-random-GPTNeoXForCausalLM",
+   "revision": "66708a0a55b071f1efa538becca52610ecdbed04",
+   "filename": "onnx/model.onnx",
+   "sha256": "cd0b779d6a5c49feeb176dcda989a6c6f99d78c6d94a5d9e498aec6f64c36a3a",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "oruk/orukeet",
+   "revision": "b59c13a733fce5cf193230d0fa317ee7f145a108",
+   "filename": "onnx/combined-v0.1.0-int8/nemo128.onnx",
+   "sha256": "a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "PaddlePaddle/PP-OCRv6_tiny_det_onnx",
+   "revision": "2ba1506c0380b8f0b03dd142459aac66d4421f6c",
+   "filename": "inference.onnx",
+   "sha256": "193bab7a04fca699a6c82e6abb5b81bdb28177f0abd4062552b04908dafb19f8",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "optimum-intel-internal-testing/tiny-random-CohereForCausalLM",
+   "revision": "01274f88a06d4735521f8d8c79b86b5c7d7f50a3",
+   "filename": "onnx/model.onnx",
+   "sha256": "7fb0d546a95c0ebeadd666a78e4999c46c06ec1d20adc243c547861c35becb7d",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "onnx-community/moonshine-tiny-ONNX",
+   "revision": "a6da1241cd305dcd64eab1edbd615f2bb9aabb95",
+   "filename": "onnx/encoder_model_int8.onnx",
+   "sha256": "2981b85cfd6a4647ec37fe139e268cbc2c8a24102bf1fbb70dedeb7964995be8",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "bigscience/bloom-1b1",
+   "revision": "eb3dd7399312f5f94fd13f41d2f318117d3eb1e4",
+   "filename": "onnx/decoder_model.onnx",
+   "sha256": "34c8b3fb04fb8ec0ed18e12ac9ae9a960d9bbff3441fee90e6f523c4d6ce38ef",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "cunba-ai/istation",
+   "revision": "b404e70143efb3e93359c157a523f771bf0ffe03",
+   "filename": "sound/sherpa/silero_vad.onnx",
+   "sha256": "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6",
+   "family": "hf_onnx",
+   "split": "heldout"
+  },
+  {
+   "repo": "bartowski/MiMo-V2.6-Distill-Qwen-9B-GGUF",
+   "revision": "4371da10c84fb26da3592d4cf312d24aa82b7b65",
+   "filename": "MiMo-V2.6-Distill-Qwen-9B-imatrix.gguf",
+   "sha256": "946b69b405f8b1efb291fe9caacf4207d7d83fc36e9901478b67edb9f95cc735",
+   "family": "hf_gguf",
+   "split": "heldout"
+  },
+  {
+   "repo": "mradermacher/Cyber-Ornith-1.5-9B-OBLITERATED-i1-GGUF",
+   "revision": "5936e88f1885b856b54520c372f2cd41e71819fd",
+   "filename": "Cyber-Ornith-1.5-9B-OBLITERATED.imatrix.gguf",
+   "sha256": "a4a62c95981c2a0b708b3fb4524a3d843a7da99d2a3468626ab4ab065a1c4419",
+   "family": "hf_gguf",
+   "split": "heldout"
+  },
+  {
+   "repo": "pyannote/segmentation-3.0",
+   "revision": "e66f3d3b9eb0873085418a7b813d3b369bf160bb",
+   "filename": "pytorch_model.bin",
+   "sha256": null,
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "pyannote/embedding",
+   "revision": "4db4899737a38b2d618bbd74350915aa10293cb2",
+   "filename": "tfevents.bin",
+   "sha256": null,
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "sentence-transformers/multi-qa-MiniLM-L6-cos-v1",
+   "revision": "b207367332321f8e44f96e224ef15bc607f4dbf0",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "a7ca78e428d963e69b7cb9c948cdc8af1a3e319f0cd3a4882a7f2b49153ec563",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "pyannote/segmentation",
+   "revision": "660b9e20307a2b0cdb400d0f80aadc04a701fc54",
+   "filename": "pytorch_model.bin",
+   "sha256": null,
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "timm/efficientnet_b0.ra_in1k",
+   "revision": "1b5383e5f79cc0f7fc067e372f8f26a5fa73f26a",
+   "filename": "pytorch_model.bin",
+   "sha256": "52487d0cd13681cf2ae61fdae3c913f45c1d4967e69432a2065da4695ae343fd",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "cross-encoder/ms-marco-TinyBERT-L2-v2",
+   "revision": "81d1926f67cb8eee2c2be17ca9f793c7c3bd20cc",
+   "filename": "openvino/openvino_model.bin",
+   "sha256": "3d8e9b82bb01146aad23dc6c274615affb4543b1be8f6a88d003f452b44d7a2f",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "TencentBAC/Conan-embedding-v1",
+   "revision": "bb9749a57d4f02fd71722386f8d0f5a9398d7eeb",
+   "filename": "2_Dense/pytorch_model.bin",
+   "sha256": "60cf9fa06b192d0fff51e14b16ba64b11444689642d7179efd45a6178d1ca1cc",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "meta-llama/Llama-3.1-405B-FP8",
+   "revision": "cb4739810a51170037906b5daa2bb78ed13cd43c",
+   "filename": "original/fp8_scales_0.pt",
+   "sha256": null,
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "cointegrated/rubert-tiny2",
+   "revision": "e8ed3b0c8bbf4fb6984c3de043bf7d2f4e5969ae",
+   "filename": "tinybert-ru-labse-adapter-v2.pt",
+   "sha256": "3322adeaf437ec8005bd042a64f501458abd5ac58a2eb13f09df5ed9ba59a9af",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "julien-c/dummy-unknown",
+   "revision": "60b8d3fe22aebb024b573f1cca224db3126d10f3",
+   "filename": "pytorch_model.bin",
+   "sha256": "4b243c475af8d0a7754e87d7d096c92e5199ec2fe168a2ee7998e3b8e9bcb1d3",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "sentence-transformers/paraphrase-albert-small-v2",
+   "revision": "9d490b476eb5291c7885bb6d4961318740493cf2",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "663fc19fd58902f471adabf2bcca124b75712072a2295a5d826b62fbbd3201e8",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "optimum-intel-internal-testing/tiny-random-LlamaForCausalLM",
+   "revision": "3b2ab888ac472c0a7aa0d4e5975bea0b6dbe101a",
+   "filename": "pytorch_model.bin",
+   "sha256": "ead8d18a1b6d6948761f23fec1647cda5b6af3dbdd23a30769824ab26f4c30b8",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "FluidInference/parakeet-tdt-0.6b-v3-coreml",
+   "revision": "7dd20fe6b1797d35f5e3307e8b1732d9a178edfe",
+   "filename": "Decoder.mlmodelc/weights/weight.bin",
+   "sha256": "48adf0f0d47c406c8253d4f7fef967436a39da14f5a65e66d5a4b407be355d41",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "optimum-intel-internal-testing/tiny-random-gpt2",
+   "revision": "060915e1a0a50f538f007fc2b32a0c6dbbbacf75",
+   "filename": "pytorch_model.bin",
+   "sha256": "4fab47c129967e0db58e8faf8494e4bd04f2ea79bbe287ac2f90c4183c0194be",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "nvidia/segformer-b0-finetuned-ade-512-512",
+   "revision": "489d5cd81a0b59fab9b7ea758d3548ebe99677da",
+   "filename": "pytorch_model.bin",
+   "sha256": "0f4df97633cbedd558ecffa3ad228ace5af37e082678390b45a9d22745787c61",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "kingabzpro/wav2vec2-large-xlsr-53-punjabi",
+   "revision": "cd3f671b063c09d247dc1c550002c2049abd622d",
+   "filename": "language_model/3gram.bin",
+   "sha256": "5dc29e9312be0f490518804e8b308e8836eb6d7b4f63f95f9b0c169d8442aa1d",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "sentence-transformers/msmarco-MiniLM-L6-v3",
+   "revision": "fea93b3df3924e5649a4e322c345f951239d2c13",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "a23cbdb861ded4c9f1c2b90377dcf39a90374adc66ad4f28707aee4b8e963d04",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "google/bert_uncased_L-2_H-128_A-2",
+   "revision": "30b0a37ccaaa32f332884b96992754e246e48c5f",
+   "filename": "pytorch_model.bin",
+   "sha256": "dd152f8450c0579bd271ac0ccb4a88fa4f6a67d8035b7799dbf3a0fb7156d9d0",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "sentence-transformers/multi-qa-MiniLM-L6-dot-v1",
+   "revision": "4151c507ffb0f2fcd311cf431f54b5fc7d097851",
+   "filename": "openvino/openvino_model_qint8_quantized.bin",
+   "sha256": "cc23c5df56b122014c0af898704537135c7467c6946d4cd8fd1779115d2b054a",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "EleutherAI/pythia-14m",
+   "revision": "cf967c0a9a04383db6f7b1108d86b2962634b4ac",
+   "filename": "pytorch_model.bin",
+   "sha256": "81876076d0fed0edd03954452becbe9e488a0977abc01d30188fc399ead4d7fd",
+   "family": "hf_pytorch",
+   "split": "heldout"
+  },
+  {
+   "repo": "trl-internal-testing/tiny-Qwen2ForSequenceClassification-2.5",
+   "revision": "9f98188909b03e8d8d1dd624474b87ae41ee3bd8",
+   "filename": "model.safetensors",
+   "sha256": "8606d886d75066fb74aff3511f5bf040b49ee26252294e2e00f077e98d8ef6fd",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "trl-internal-testing/tiny-Qwen3_5ForConditionalGeneration-NoThink",
+   "revision": "c21e64ab01a61fe5675253768d359262f6a19ab6",
+   "filename": "model.safetensors",
+   "sha256": "2c4dd90ae5baac1f4a999b93aa78fd9c1011cb71d4e24587e498ba3ec8939093",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "timm/mobilenetv4_conv_small.e2400_r224_in1k",
+   "revision": "331fb803779522b685cf942e15f914fb6741c1eb",
+   "filename": "model.safetensors",
+   "sha256": "7a7102ec18f62bbfb555b6fe829bbb5af749516b84174926c29ffdfdfc03aec4",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "nijatzeynalov/wav2vec2-large-mms-1b-azerbaijani-common_voice15.0",
+   "revision": "6ee1f0dbf4eb7373f7370360cbe6d46e27c203f6",
+   "filename": "adapter.azj-script_latin.safetensors",
+   "sha256": "ed785221c836ffed2f00bee13ba5e886218dd2da197335fe5e368b49767b9ea3",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "peft-internal-testing/tiny-random-OPTForCausalLM",
+   "revision": "6dbfc797d40268c2f04755d6dddcb462f6e30d79",
+   "filename": "model.safetensors",
+   "sha256": "a8be3a9e6005cd2d9c2597f5af3b9743e03bf1adf8cdd847dfbc3a759e63ee0b",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "hfmlsoc/ncii-guard-v02",
+   "revision": "c5d127955df429a6ad96a1973ce3ff8e5333d0f0",
+   "filename": "adapter/adapter_model.safetensors",
+   "sha256": "72bcacb8283839e7210fdb4e3812c260de681b640632d5011424521dafcb0e84",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "trl-internal-testing/tiny-Gemma3ForConditionalGeneration",
+   "revision": "c412866df0d2e34e050f9281885892d276f508ad",
+   "filename": "model.safetensors",
+   "sha256": "8dcea5cae9e17484387f9530ff45ea2d59707b323076c126d7ebd3750e27633a",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  },
+  {
+   "repo": "peft-internal-testing/tiny-dummy-qwen2",
+   "revision": "a16fa581b59c35f6ed79c7fd8d39d518e26b0ffd",
+   "filename": "model.safetensors",
+   "sha256": "33a97d50588456f0a7c6c490010c9c60800a4f9fe2e69e420d40539346ca0c26",
+   "family": "hf_safetensors",
+   "split": "heldout"
+  }
+ ]
+}

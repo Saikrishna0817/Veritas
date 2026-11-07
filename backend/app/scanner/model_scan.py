@@ -44,7 +44,7 @@ DANGEROUS_ROOTS = {
     "http", "urllib", "urllib2", "requests", "ftplib", "smtplib", "telnetlib", "asyncio", "multiprocessing",
     "threading", "signal", "pdb", "pip", "zipfile", "tarfile", "commands", "popen2", "platform",
     "pathlib", "glob", "fileinput", "linecache", "timeit", "trace", "cProfile", "profile", "bdb",
-    "sched", "ssl", "select", "mmap", "resource", "gc", "inspect", "types", "operator",
+    "sched", "ssl", "select", "mmap", "resource", "gc", "inspect", "types", "operator", "atexit",
     "pydoc", "lib2to3", "distutils", "setuptools", "sysconfig", "site", "cgi", "cgitb", "wsgiref", "xmlrpc", "poplib",
     "imaplib", "nntplib", "uuid", "sqlite3", "dbm", "ensurepip", "venv", "idlelib", "doctest", "pstats", "pkgutil",
     "modulefinder", "zipimport", "getpass", "curses", "pexpect", "paramiko", "fabric", "invoke",
@@ -84,13 +84,24 @@ SAFE_PAIRS = {
 SAFE_PREFIXES = (
     "sklearn.", "scipy.sparse", "scipy.spatial", "scipy.special", "scipy.stats._distn_infrastructure", "xgboost.", "lightgbm.",
     "pandas.core.series", "pandas.core.frame", "pandas.core.indexes", "pandas.core.internals", "pandas.core.arrays",
-    "pandas.core.generic", "pandas._libs", "numpy.dtypes", "numpy.ma.core", "numpy.random", "numpy.core.records",
+    "pandas.core.generic", "pandas.core.dtypes", "pandas._libs", "numpy.dtypes", "numpy.ma", "numpy.random", "numpy.core.records",
+    "__torch__.", "torch.torch_version",
     "torch.nn.modules.", "torch.nn.functional", "torch.optim.", "_loss",
 )
 SAFE_TORCH_STORAGE = ("FloatStorage", "DoubleStorage", "HalfStorage", "BFloat16Storage", "LongStorage", "IntStorage",
                       "ShortStorage", "CharStorage", "ByteStorage", "BoolStorage", "UntypedStorage", "ComplexFloatStorage")
 
-DANGEROUS_PAIRS = {("torch", "load"), ("numpy", "load"), ("numpy", "fromfile"), ("builtins", "__build_class__"),
+# Pickle protocol 4 resolves dotted names ("os.system") with getattr, and a module often re-exports `os`, `sys` ...
+# so names are checked as well as modules.
+DANGEROUS_NAME_SEGMENTS = {
+    "os", "posix", "nt", "sys", "subprocess", "builtins", "__builtins__", "__builtin__", "importlib", "shutil", "socket",
+    "ctypes", "pickle", "marshal", "runpy", "pty", "system", "popen", "popen2", "popen3", "spawn", "spawnl", "spawnlp",
+    "execv", "execl", "eval", "exec", "compile", "__import__", "__loader__", "__spec__", "__globals__", "__dict__",
+    "__subclasses__", "__class__", "__bases__", "__mro__", "__code__", "__closure__", "__getattribute__", "modules",
+    "check_output", "check_call", "Popen", "getoutput", "load_library", "CDLL", "cdll", "windll",
+}
+DANGEROUS_PAIRS = {("codecs", "open"), ("io", "open"), ("_io", "open"), ("io", "FileIO"), ("_io", "FileIO"), ("io", "open_code"),
+                   ("_io", "open_code"), ("atexit", "register"), ("atexit", "unregister"),("torch", "load"), ("numpy", "load"), ("numpy", "fromfile"), ("builtins", "__build_class__"),
                    ("pandas", "read_pickle"), ("pandas", "read_csv"), ("pandas", "read_parquet"), ("pandas", "eval")}
 
 
@@ -99,6 +110,11 @@ def classify_global(module: str, name: str) -> str:
     root = module.split(".")[0]
     if (module, name) in DANGEROUS_PAIRS:
         return "dangerous"
+    parts = name.split(".")
+    if any(p in DANGEROUS_NAME_SEGMENTS for p in parts):
+        return "dangerous"
+    if len(parts) > 1:      # a dotted attribute path is never a plain class or function reference
+        return "unknown"
     if module in ("builtins", "__builtin__"):
         return "dangerous" if name in DANGEROUS_BUILTINS else "safe" if name in SAFE_BUILTINS else "unknown"
     if root in DANGEROUS_ROOTS or any(module == d or module.startswith(d + ".") for d in DANGEROUS_ROOTS if "." in d):
@@ -124,8 +140,10 @@ class _Mark:
 
 _MARK = _Mark()
 _OPAQUE = ("x",)
-_CONST_OPAQUE = {"NONE", "NEWTRUE", "NEWFALSE", "FLOAT", "BINFLOAT", "BINBYTES", "SHORT_BINBYTES", "BINBYTES8",
-                 "BYTEARRAY8", "EMPTY_SET", "FROZENSET", "NEXT_BUFFER", "BINPERSID_RESULT"}
+_CONST_OPAQUE = {"NONE", "NEWTRUE", "NEWFALSE", "FLOAT", "BINFLOAT", "EMPTY_SET", "FROZENSET", "NEXT_BUFFER"}
+_BYTES_OPS = {"BINBYTES", "SHORT_BINBYTES", "BINBYTES8", "BYTEARRAY8"}
+# Functions that unpickle or load their (bytes) argument: the argument is scanned as a model file of its own.
+_NESTED_LOADERS = {("torch.storage", "_load_from_bytes"), ("torch.serialization", "_load")}
 _STR_OPS = {"SHORT_BINUNICODE", "BINUNICODE", "BINUNICODE8", "UNICODE", "STRING", "BINSTRING", "SHORT_BINSTRING"}
 _INT_OPS = {"INT", "BININT", "BININT1", "BININT2", "LONG", "LONG1", "LONG4"}
 MAX_OPS = 50_000_000
@@ -191,6 +209,8 @@ def _walk(stream: io.BytesIO, findings: list, imports: list, label: str, depth: 
                 stack.append(("s", arg if isinstance(arg, str) else arg.decode("latin1")))
             elif n in _INT_OPS:
                 stack.append(("i", int(arg)))
+            elif n in _BYTES_OPS:
+                stack.append(("b", arg))
             elif n in _CONST_OPAQUE:
                 stack.append(_OPAQUE)
             elif n == "EMPTY_LIST":
@@ -268,6 +288,12 @@ def _walk(stream: io.BytesIO, findings: list, imports: list, label: str, depth: 
             elif n == "REDUCE":
                 args, fn = pop(), pop()
                 calls += 1
+                if fn[:1] == ("g",) and (fn[1], fn[2]) in _NESTED_LOADERS and depth < 4:
+                    for a in (args[1] if args[0] == "t" else []):
+                        if a[0] == "b":
+                            nested = scan_bytes(a[1], "nested")
+                            findings.extend({**f, "detail": f"{label} -> {f['detail']}"} for f in nested["findings"])
+                            imports.extend(tuple(i) for i in nested["imports"])
                 stack.append(("call", fn, args))
             elif n == "BUILD":
                 state = pop()
@@ -453,7 +479,7 @@ def _pb_fields(b: bytes):
         yield field, wire, value
 
 
-_STANDARD_ONNX_DOMAINS = {"", "ai.onnx", "ai.onnx.ml", "ai.onnx.preview.training"}
+_STANDARD_ONNX_DOMAINS = {"", "ai.onnx", "ai.onnx.ml", "ai.onnx.preview.training", "com.microsoft", "com.microsoft.nchwc", "com.ms.internal.nhwc"}  # onnxruntime built-ins
 
 
 def scan_onnx(data: bytes) -> list[dict]:
