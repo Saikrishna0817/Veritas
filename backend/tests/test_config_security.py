@@ -33,8 +33,10 @@ def test_legacy_default_user_is_purged_and_env_credentials_do_not_bypass_db():
     from app.models import database as db
 
     conn = db._get_conn()
+    db.init_db()
+    conn.execute("DELETE FROM users WHERE username = 'user' OR id = 'user-regular-001'")
     conn.execute(
-        "INSERT OR REPLACE INTO users (id, username, password_hash, role, created_at) VALUES (?,?,?,?,?)",
+        "INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?,?,?,?,?)",
         ("user-regular-001", "user", hash_password("user123"), "user", "2026-01-01T00:00:00+00:00"),
     )
     conn.commit()
