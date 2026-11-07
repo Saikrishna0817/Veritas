@@ -47,6 +47,37 @@ jobs:
       - run: npm run lint
       - run: npm run build
 
+  e2e:
+    name: Browser e2e (Playwright)
+    runs-on: ubuntu-latest
+    env:
+      VERITAS_JWT_SECRET: ci-only-secret-0123456789abcdef0123456789abcdef
+      VERITAS_ADMIN_USERNAME: e2e-admin
+      VERITAS_ADMIN_PASSWORD: e2e-admin-password-1
+      E2E_USER: e2e-admin
+      E2E_PASS: e2e-admin-password-1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.12", cache: pip }
+      - uses: actions/setup-node@v7
+        with: { node-version: "22", cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: pip install -r backend/requirements.txt
+      - run: npm ci
+        working-directory: frontend
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Start API and frontend
+        run: |
+          (cd backend && python -m uvicorn app.main:app --port 8001 > ../api.log 2>&1 &)
+          (cd frontend && npm run dev > ../web.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf localhost:8001/health >/dev/null && curl -sf localhost:5173 >/dev/null && exit 0; sleep 2; done
+          cat api.log web.log; exit 1
+      - run: npx playwright test
+        working-directory: e2e
+      - if: failure()
+        run: cat api.log web.log
+
   security:
     runs-on: ubuntu-latest
     steps:

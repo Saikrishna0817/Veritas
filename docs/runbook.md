@@ -17,6 +17,20 @@ Put TLS/CDN (Cloudflare, Caddy) in front; the API and Postgres/Redis ports are n
 - Rollback: check out the previous tag and `up -d --build`. Migrations only add tables, columns and indexes, so the previous
   version runs on the newer schema. A destructive migration needs its own plan; never ship one without a tested restore first.
 
+## Staging
+
+Staging is the same compose file under another project name: separate network, Postgres volume and upload volume, and a
+different published port. No override file is needed (`docker compose config` shows `veritas-staging_pgdata` etc.).
+
+```bash
+cp .env .env.staging        # then change WEB_PORT=5174, VERITAS_PUBLIC_URL, CORS_ALLOW_ORIGINS, a different JWT secret and DB password
+docker compose -p veritas-staging --env-file .env.staging up -d --build
+```
+
+Point a second hostname (for example `staging.your.domain`) at port 5174 in Cloudflare/Caddy. Use test SMTP and Turnstile
+keys there. Deploy a tag to staging first, run `e2e/` against it
+(`BASE_URL=https://staging.your.domain E2E_USER=... E2E_PASS=... npx playwright test`), then deploy production.
+
 ## Backups and restore
 - `scripts/backup.sh` writes `backups/veritas-<utc>.dump` (pg_dump custom format), keeps the newest 14, optionally uploads to S3/R2.
 - `scripts/restore-drill.sh [dump]` restores into a scratch database and compares row counts. Run it monthly and after changing

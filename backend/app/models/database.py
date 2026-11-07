@@ -421,6 +421,23 @@ def delete_user(user_id: str) -> bool:
     return cursor.rowcount > 0
 
 
+def delete_account(user_id: str) -> Dict[str, int]:
+    """Erase the user and everything keyed to them, audit events included (right to erasure)."""
+    counts = delete_owner_data(user_id)
+    conn = _get_conn()
+    for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("jobs", "owner_id"),
+                       ("audit_events", "actor_id"), ("users", "id")):
+        counts[table] = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,)).rowcount
+    conn.execute("INSERT INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",
+                 (user_id, datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+    return counts
+
+
+def is_deleted_account(user_id: str) -> bool:
+    return _get_conn().execute("SELECT 1 FROM deleted_accounts WHERE user_id = ?", (user_id,)).fetchone() is not None
+
+
 def delete_result(result_id: str, owner_id: str) -> bool:
     conn = _get_conn()
     clause, args = _scope(owner_id)

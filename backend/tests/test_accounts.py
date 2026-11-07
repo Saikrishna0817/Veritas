@@ -108,6 +108,20 @@ def test_api_keys_authenticate_can_be_revoked_and_are_stored_hashed():
     assert c.get("/api/v1/auth/me", headers=key).status_code == 401
 
 
+def test_delete_account_needs_password_and_erases_everything():
+    c, body = _login("goneguy", "gone@example.com")
+    bearer = {"Authorization": f"Bearer {body['access_token']}"}
+    c.cookies.clear()
+    raw = c.post("/api/v1/account/api-keys", json={"name": "ci"}, headers=bearer).json()["key"]
+    assert c.post("/api/v1/account/delete", json={"password": "wrong-password-1"}, headers=bearer).status_code == 403
+    assert c.get("/api/v1/auth/me", headers=bearer).status_code == 200                         # a wrong password deletes nothing
+    done = c.post("/api/v1/account/delete", json={"password": PW}, headers=bearer)
+    assert done.status_code == 200 and done.json()["deleted"]["users"] == 1 and done.json()["deleted"]["api_keys"] == 1
+    assert c.get("/api/v1/auth/me", headers=bearer).status_code == 401
+    assert c.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {raw}"}).status_code == 401
+    assert c.post("/api/v1/auth/token", json={"username": "goneguy", "password": PW}).status_code == 401
+
+
 def test_websocket_cookie_session_rejects_foreign_origin():
     import pytest
     from starlette.websockets import WebSocketDisconnect

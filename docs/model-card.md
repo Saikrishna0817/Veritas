@@ -1,41 +1,78 @@
-# Veritas detection model card
+# Veritas model card
 
-## Scope
+Last updated 2026-11-07. Covers the two things Veritas does: **training-data checks** (`veritas2`) and
+**model-file scanning**. Numbers come from `docs/benchmark-v2-findings.md` and `docs/scanner-benchmark.md`;
+raw results are in `backend/research/results/`.
 
-Veritas v2.2 produces experimental, batch-level risk signals for structured
-numeric CSV data. It is not a certified security product, a compliance
-certification mechanism, or evidence that an individual row/model is poisoned.
+## What it is for
 
-## Benchmark v1 results
+- **Training-data check.** You give Veritas a labelled tabular CSV (and ideally a trusted reference set).
+  It ranks the incoming rows by how likely their label is wrong or their features have been tampered with,
+  and gives one batch-level verdict.
+- **Model-file scan.** You give it a pickle, joblib, PyTorch, NumPy, safetensors, GGUF, ONNX or zip file.
+  It reports whether loading the file could run code. The file is read as bytes and never loaded.
 
-`backend/research/results/2026-09-02-benchmark-v1-eval-r3.json` is detector fix
-and calibration revision 3. It follows the revision-2 harness correction: its
-ground truth remains benchmark-owned, and its reference partition remains
-independent of the upload path's row-order split.
+It is a triage aid: "review these rows first", "do not load this file". It is not a certification, not proof of an
+attack, and not a compliance (NIST AI RMF, EU AI Act) claim.
 
-Revision 3 scores Layer 3 only on incoming rows after fitting it to the clean
-reference set. It also removes the unsupported extra 0.02 Layer-3 gate margin:
-the Step 1 benchmark measured 0.00 clean Layer-3 flags and a 0.06 incoming
-boiling-frog flag rate, which the former gate suppressed by 80%. The corrected
-boiling-frog Layer-3 score is 0.0333 and its combined score is 0.0523; neither
-reaches the 0.15 LOW_RISK verdict threshold. Accordingly, the final benchmark
-still reports precision, recall and F1 of 0.00 for every incident-level layer
-and for the combined pipeline. The final clean-batch false-positive rate is
-0.00.
+## Training-data check (`veritas2`)
 
-The pre-registered revision-3 policy holds existing thresholds and weights
-fixed, rejects any configuration with clean-batch false-positive rate above
-2%, and reports F1 without post-hoc threshold selection. It meets that safety
-constraint, but it does **not** establish effective incident detection: label
-flip, backdoor, clean-label, gradient poisoning, and boiling frog all have zero
-incident-level recall at this operating point. Layer 3 retains row-level signal
-for backdoor (precision 1.00, recall 0.20), gradient poisoning (precision 1.00,
-recall 0.083), and boiling frog (precision 1.00, recall 0.48), which is not yet
-strong enough for the batch aggregate.
+**Method.** (1) *Label check*: a gradient-boosted classifier is trained on the clean reference; incoming rows are
+ranked by cleanlab's label-quality score. (2) *Shift check*: a classifier two-sample test asks whether a model can tell
+incoming rows from held-out clean rows; it joins the ranking only when its own tail test is strong (GATE = 3.0).
+(3) Evidence becomes an exact hypergeometric p-value against held-out clean rows; the shift evidence is penalised by
+log10(4). Verdict cut-offs: p <= 0.05 LOW_RISK, 0.01 SUSPICIOUS, 1e-4 CONFIRMED.
 
-## Limitations
+**Evaluation.** Benchmark v2: 18 real OpenML datasets (6 dev, 12 held-out test), six injected attacks, four poison
+rates, five seeds, plus clean batches. Detector design and tuning used the dev datasets only. CIFAR-10N (real human
+label mistakes, nothing injected) is a second held-out track.
 
-The benchmark is synthetic, contains one incident batch per attack, and does
-not establish performance on real-world data, models, images, audio or video.
-NIST AI RMF is a voluntary risk-management framework; this report is not a
-claim of NIST or EU AI Act compliance.
+| Held-out result | old Veritas | veritas2 | cleanlab | two-sample test |
+|---|---|---|---|---|
+| row AUPRC at 5% poison (random = 0.05) | 0.11 | **0.69** | 0.54 | 0.49 |
+| batch detection rate at 5% false alarms | 0.33 | **0.78** | 0.55 | 0.14 |
+
+By poison rate (batch detection at 5% false alarms): 1% about 0.15, 3% 0.65, 5% 0.75, 10% 0.89. On real CIFAR-10N
+label noise `veritas2` matches cleanlab (row AUPRC 0.45 to 0.57 vs 0.46 to 0.58); it does not beat it.
+
+**Calibration.** On held-out clean batches 7.1% reached LOW_RISK (nominal 5%, n = 240), 0.4% reached SUSPICIOUS and
+none reached CONFIRMED.
+
+**Dependency check.** After the numpy 2.5 / pandas 3.1 upgrade the 12,000 per-batch results were identical to the
+earlier run (see findings doc).
+
+## Model-file scanner
+
+Abstract pickle machine over the opcode stream (no import, no execution), deny list plus safe list plus
+deny-by-default for unknown globals, nested-loader and dotted-name handling, per-format parsers, and a sandboxed
+subprocess (`python -I`, resource limits) for the production path.
+
+Verdicts: `DANGEROUS`, `REVIEW`, `NO_CODE_EXECUTION_FOUND`, `SAFE_FORMAT`.
+
+Benchmark: 710 generated malicious files and 221 benign files (156 pinned Hugging Face files), compared with
+picklescan 1.0.5 and modelscan 0.8.8. On the held-out split, first run: Veritas flagged 73% DANGEROUS (83% including
+REVIEW) with 0 of 74 benign files DANGEROUS, picklescan 20%, modelscan 16%. The scanner was fixed after that run, so the
+post-fix 339/339 is no longer a held-out number.
+
+## Known limits
+
+- **Small contamination is hard.** At 1% poison (about 12 rows in 1,200) every method catches roughly 15% of batches.
+  Reliable batch verdicts need about 5% contamination or more; below that, use the ranked row list.
+- **Weakest attack:** covariate shift (row AUPRC about 0.40).
+- **Data types:** structured numeric/categorical tables with a label column. Not images, audio, video or text
+  (except as pre-computed embeddings), and not validated beyond 200,000 rows.
+- **You must supply a trusted reference.** With no reference file or split column, Veritas treats the first 70% of rows
+  in file order as trusted and warns you. If the reference is itself poisoned, the check is meaningless.
+- **Real-noise evidence is one dataset family** (CIFAR-10 embeddings).
+- **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are
+  in it. Third-party-class pickles (for example `dabl`, `autogluon`) come back REVIEW (22% of held-out Hub files),
+  because loading them runs that library. A gadget inside a safe-listed library is caught only if the deny list or a
+  dangerous name catches it. A different red team would find different gaps.
+- **A clean scan is not a guarantee.** `NO_CODE_EXECUTION_FOUND` means no known pattern was found; load models from
+  untrusted sources in a sandbox anyway.
+
+## Data handling
+
+Uploaded files wait in blob storage only until the worker has analysed them, then are deleted. Results and history are
+kept for `VERITAS_RETENTION_DAYS` (default 30) and are visible only to the owning account; an account can delete all
+of its data at any time. See `docs/legal/privacy-policy.md` (draft).

@@ -79,6 +79,9 @@ def decode_access_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired access token") from exc
     if not all(claims.get(key) for key in ("sub", "name", "role")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token claims")
+    from app.models import database as db
+    if db.is_deleted_account(claims["sub"]):        # an erased account's token must stop working before it expires
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists", headers={"WWW-Authenticate": "Bearer"})
     return {"id": claims["sub"], "name": claims["name"], "role": claims["role"]}
 
 
