@@ -41,7 +41,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str) -> tuple[dict[str, Any], s
     attack_class = deps.classifier.classify(detection_result["layer_results"], incoming_samples)
 
     # Tag the rows Layer 3 flagged as suspected
-    flagged = set(detection_result["layer_results"]["layer3_ensemble"].get("flagged_indices_incoming", []))
+    flagged = set(detection_result["layer_results"]["row_flags"].get("flagged_indices_incoming", []))
     for i, s in enumerate(incoming_samples):
         if i in flagged:
             s["poison_status"] = "suspected"

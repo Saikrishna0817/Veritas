@@ -118,7 +118,6 @@ export const api = {
         }),
 
     // Federated
-    getFederatedClients: () => apiFetch('/federated/clients'),
 
     // Reports
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),

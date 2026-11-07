@@ -18,7 +18,6 @@ import { useAuth } from './hooks/useAuth';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ForensicsPage = lazy(() => import('./pages/ForensicsPage'));
-const FederatedPage = lazy(() => import('./pages/FederatedPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const UploadPage = lazy(() => import('./pages/UploadPage'));
 const ModelScanPage = lazy(() => import('./pages/ModelScanPage'));
@@ -185,7 +184,6 @@ function AppShell() {
           <Route path="/model-scan" element={<PageErrorBoundary name="Model Scanner"><ModelScanPage /></PageErrorBoundary>} />
           <Route path="/real-datasets" element={<PageErrorBoundary name="Real Datasets"><RealDatasetsPage /></PageErrorBoundary>} />
           <Route path="/forensics" element={<PageErrorBoundary name="Poison Forensics"><ForensicsPage /></PageErrorBoundary>} />
-          <Route path="/federated" element={<PageErrorBoundary name="Federated Trust"><FederatedPage /></PageErrorBoundary>} />
           <Route path="/blue-team" element={<PageErrorBoundary name="Blue Team SOC"><BlueTeamPage /></PageErrorBoundary>} />
           <Route path="/reports" element={<PageErrorBoundary name="Evidence Reports"><ReportsPage /></PageErrorBoundary>} />
           <Route path="/history" element={<PageErrorBoundary name="Analysis History"><HistoryPage /></PageErrorBoundary>} />

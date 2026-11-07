@@ -1,12 +1,6 @@
 const LAYER_LABELS = {
   label_check: 'Label Check',
   shift_check: 'Distribution-Shift Check',
-  statistical: 'L1 Statistical Shift',
-  spectral: 'L2 Spectral Analysis',
-  ensemble: 'L3 Ensemble Anomaly',
-  causal: 'L4 Causal Proof',
-  federated: 'L5 Federated Trust',
-  shap_drift: 'SHAP Drift',
 };
 
 export default function LayerScoresGrid({ layerScores }) {

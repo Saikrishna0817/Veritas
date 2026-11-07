@@ -150,8 +150,8 @@ class HumanInTheLoopQueue:
             # Rows an approval would quarantine; fall back to a sample if nothing is flagged.
             "sample_ids": (flagged or [s["id"] for s in samples[:5]])[: self.MAX_CASE_IDS],
             "evidence_summary": {
-                "kl_divergence": evidence.get("layer1_statistical", {}).get("kl_divergence", 0),
-                "causal_effect": evidence.get("layer4_causal", {}).get("causal_effect", 0),
+                "label_evidence": evidence.get("label_check", {}).get("evidence", 0),
+                "shift_evidence": evidence.get("shift_check", {}).get("evidence", 0),
                 "attack_type": evidence.get("attack_classification", {}).get("attack_type", "unknown")
             },
             "status": "pending",

@@ -104,23 +104,6 @@ async def get_model_scan_result(scan_id: str):
     return result
 
 
-@router.get("/federated/clients")
-async def get_federated_clients():
-    """Synthetic federated-learning illustration only — not live FL traffic."""
-    from app.detection.layer5_federated import FederatedTrustAnalyzer, generate_demo_clients
-
-    clients = generate_demo_clients()
-    analyzer = FederatedTrustAnalyzer()
-    payload = analyzer.analyze_clients(clients)
-    payload["synthetic"] = True
-    payload["source"] = "demo"
-    payload["notice"] = (
-        "These clients are generated locally for Layer-5 illustration. "
-        "They are not live federated-learning traffic."
-    )
-    return payload
-
-
 @router.get("/trust/score")
 async def get_trust_score():
     """Trust scores from latest real analysis, or honest empty state (no fake Grade A)."""
@@ -143,12 +126,10 @@ async def get_trust_score():
                 "grade": None,
             },
             "updated_at": now,
-            "debug": {"causal_effect": 0.0},
             "notice": "No analysis yet. Upload a CSV or analyse a real dataset.",
         }
 
     suspicion = r.get("overall_suspicion_score", 0.0) or 0.0
-    causal = ((r.get("layer_results") or {}).get("layer4_causal") or {}).get("causal_effect", 0.0)
     data_source = r.get("source", "unknown")
 
     poison_risk = round(suspicion * 100, 1)
@@ -183,5 +164,4 @@ async def get_trust_score():
         },
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "data_source": data_source,
-        "debug": {"causal_effect": causal},
     }

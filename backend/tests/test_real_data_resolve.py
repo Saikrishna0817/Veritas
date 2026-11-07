@@ -84,11 +84,3 @@ def test_trust_score_empty_is_not_grade_a(isolated_db):
     assert payload["data_source"] == "none"
     assert payload["has_analysis"] is False
     assert payload["model_safety"]["grade"] is None
-
-
-def test_federated_clients_are_labelled_synthetic():
-    from app.api.routes.models import get_federated_clients
-
-    payload = asyncio.run(get_federated_clients())
-    assert payload["synthetic"] is True
-    assert payload["source"] == "demo"

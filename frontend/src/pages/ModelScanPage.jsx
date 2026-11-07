@@ -30,9 +30,7 @@ function ScoreBar({ label, score, color = 'var(--red-primary)' }) {
 }
 
 const LAYER_LABELS = {
-    statistical: 'L1 Statistical Shift', spectral: 'L2 Spectral Analysis',
-    ensemble: 'L3 Ensemble Anomaly', causal: 'L4 Causal Proof',
-    federated: 'L5 Federated Trust', shap_drift: 'SHAP Drift',
+    label_check: 'Label Check', shift_check: 'Distribution-Shift Check',
 };
 
 function ResultPanel({ result, onReset }) {

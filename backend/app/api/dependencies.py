@@ -178,7 +178,6 @@ async def broadcast_demo_events(manager, result: dict) -> None:
     )
 
     if result.get("verdict") and result.get("verdict") != "CLEAN":
-        layer4 = (result.get("layer_results") or {}).get("layer4_causal") or {}
         blast = result.get("blast_radius") or {}
         attack_class = result.get("attack_classification") or {}
         pattern = result.get("injection_pattern") or {}
@@ -188,7 +187,6 @@ async def broadcast_demo_events(manager, result: dict) -> None:
             {
                 "attack_type": attack_class.get("attack_type"),
                 "confidence": attack_class.get("confidence"),
-                "causal_effect": layer4.get("causal_effect", 0),
                 "narrative": (pattern.get("narrative") or "")[:200],
                 "blast_radius": {
                     "n_batches": blast.get("n_batches_affected"),

@@ -62,22 +62,6 @@ def c2st(d):
     return p[len(d["X_cal"]):], float(roc_auc_score(t, p))
 
 
-def veritas(d):
-    """The shipping pipeline: rows = Layer-3 flags, batch = overall suspicion."""
-    from app.detection.pipeline import DetectionPipeline
-
-    X_ref, X_inc = d["X_ref_raw"], d["X_inc_raw"]
-    lo = X_ref.min(axis=0)
-    span = X_ref.max(axis=0) - lo
-    span[span == 0] = 1.0
-    pipeline = DetectionPipeline(random_state=0, engine="legacy")
-    pipeline.fit_baseline((X_ref - lo) / span, d["y_ref"])
-    result = pipeline.analyze((X_inc - lo) / span, d["y_inc"])
-    rows = np.zeros(len(X_inc))
-    rows[result["details"]["layer3"]["flagged_indices_incoming"]] = 1.0
-    return rows, float(result["overall_suspicion"])
-
-
 # ── Veritas v2 ensemble ──────────────────────────────────────────────────────
 # Each component yields scores for the held-out clean rows (``cal``) and the incoming rows.
 # A row's evidence from a component is its empirical p-value against ``cal``; the ensemble
@@ -193,7 +177,6 @@ def make_exact(gate, names=("label", "shift"), shift_penalty=0.0):
 
 
 DETECTORS = {
-    "veritas": veritas,
     "cleanlab_hgb": _label_detector(lambda: HistGradientBoostingClassifier(random_state=0), _cleanlab_score),
     "knn_label": _label_detector(lambda: KNeighborsClassifier(n_neighbors=10), _self_confidence),
     "isolation_forest": _outlier_detector(lambda: IsolationForest(random_state=0),

@@ -2,7 +2,7 @@
 
 | Benchmark | Data | Entry point |
 |---|---|---|
-| v1 (`manifest.json`) | 1 synthetic dataset, one batch per attack. Kept for history; too small to rank detectors | `python -m research.evaluate` |
+| v1 (`manifest.json`) | 1 synthetic dataset, one batch per attack. Kept for history; too small to rank detectors | (harness removed with the five-layer pipeline; see git tag `legacy-five-layer-pipeline`) |
 | v2 (`manifest-v2.json`) | 18 real OpenML datasets (6 dev, 12 held-out test), 6 attacks × 4 poison rates × 5 seeds, plus clean batches | `python -m research.bench_v2` |
 
 ## Running v2

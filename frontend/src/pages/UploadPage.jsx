@@ -136,7 +136,7 @@ export default function UploadPage() {
                   <li className="relative pl-12">
                     <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-borderHairline rounded-full ring-4 ring-bgPanel" />
                     <h4 className="font-bold text-textPrimary mb-1">3. Run 5 Detection Layers</h4>
-                    <p className="text-textMuted text-sm">Executes Statistical, Spectral, Ensemble, Causal, and Federated validation layers.</p>
+                    <p className="text-textMuted text-sm">Runs a label check and a distribution-shift check against your reference rows.</p>
                   </li>
                 </ol>
               </div>
@@ -210,7 +210,7 @@ export default function UploadPage() {
                     />
                   </div>
                   <div className="flex gap-2 mt-4 flex-wrap">
-                    {['Schema Detection', 'L1 Statistical', 'L2 Spectral', 'L3 Ensemble', 'L4 Causal', 'L5 Federated'].map((s, i) => (
+                    {['Schema Detection', 'Reference Split', 'Label Check', 'Shift Check', 'Verdict'].map((s, i) => (
                       <span
                         key={s}
                         className={`text-[11px] font-mono px-3 py-1.5 rounded-full border transition-all duration-500

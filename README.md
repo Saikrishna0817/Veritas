@@ -40,12 +40,7 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
 ```
 ├── backend/
 │   └── app/
-│       ├── detection/          # 5-layer detection pipeline
-│       │   ├── layer1_statistical.py   # KL Divergence, Wasserstein, Mahalanobis
-│       │   ├── layer2_spectral.py      # SVD spectral gap + KMeans backdoor detection
-│       │   ├── layer3_ensemble.py      # IsolationForest + SVM + LOF + DBSCAN voting
-│       │   ├── layer4_causal.py        # Counterfactual causal proof engine
-│       │   └── layer5_federated.py     # Cosine similarity + EMA trust scoring
+│       ├── detection/          # Veritas v2: label check + gated shift check (veritas2.py), pipeline.py adapter
 │       ├── forensics/          # Attack reconstruction + narratives
 │       ├── defense/            # Auto-defense + HITL + Red Team
 │       ├── ingestion/          # CSV + Model (.pkl) parsing

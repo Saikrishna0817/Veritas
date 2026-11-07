@@ -24,9 +24,7 @@ const ATTACK_COLORS = {
 };
 
 const LAYER_LABELS = {
-    statistical: 'L1 Statistical', spectral: 'L2 Spectral',
-    ensemble: 'L3 Ensemble', causal: 'L4 Causal',
-    federated: 'L5 Federated', shap_drift: 'SHAP Drift',
+    label_check: 'Label Check', shift_check: 'Distribution-Shift Check',
 };
 
 function ScoreBar({ label, score, color = '#6366f1' }) {

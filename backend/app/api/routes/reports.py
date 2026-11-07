@@ -167,7 +167,7 @@ async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only
     """Quarantine rows the latest dataset analysis flagged (capped at 5% of the batch)."""
     r = _get_best_result("auto")
     info = r.get("dataset_info") or {}
-    layer3 = (r.get("layer_results") or {}).get("layer3_ensemble") or {}
+    layer3 = (r.get("layer_results") or {}).get("row_flags") or {}
     split = info.get("reference_split")
     flagged = layer3.get("flagged_indices_incoming")
     if split is None or flagged is None:
@@ -246,7 +246,6 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
             "verdict": r.get("verdict"),
             "attack_type": (r.get("attack_classification") or {}).get("attack_type", "unknown"),
             "confidence": (r.get("attack_classification") or {}).get("confidence", 0),
-            "causal_effect": ((r.get("layer_results") or {}).get("layer4_causal") or {}).get("causal_effect", 0),
             "sophistication_score": (r.get("sophistication") or {}).get("sophistication_score", 0),
             "blast_radius_summary": {
                 "batches": (r.get("blast_radius") or {}).get("n_batches_affected", 0),

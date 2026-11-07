@@ -47,65 +47,20 @@ class AttackTypeClassifier:
         """Classify attack type from evidence bundle."""
         scores = {attack: 0.0 for attack in ATTACK_TYPES}
 
-        l1 = evidence.get("layer1_statistical", {})
-        l2 = evidence.get("layer2_spectral", {})
-        l3 = evidence.get("layer3_ensemble", {})
-        l4 = evidence.get("layer4_causal", {})
-        l5 = evidence.get("layer5_federated", {})
-        shap = evidence.get("shap_drift", {})
-
         # Veritas v2 checks: a label alarm is direct evidence of wrong labels. A shift alarm says the
-        # incoming rows are distinguishable from clean ones, which backdoors and collisions both cause.
+        # incoming rows are distinguishable from clean ones, which backdoors and collisions both cause
+        # and the two checks cannot tell apart.
         if evidence.get("label_check", {}).get("alarm"):
             scores["label_flip"] += 0.6
         if evidence.get("shift_check", {}).get("alarm"):
             scores["backdoor"] += 0.25
             scores["clean_label"] += 0.25
-
-        # Label flip indicators
-        if l1.get("kl_divergence", 0) > 1.5:
-            scores["label_flip"] += 0.3
-        if l3.get("flagged_ratio", 0) > 0.05:
-            scores["label_flip"] += 0.2
-        # Check label distribution
         labels = [s["label"] for s in samples if s.get("label", -1) >= 0]
-        if labels:
-            label_entropy = _entropy(labels)
-            if label_entropy < 0.5:
-                scores["label_flip"] += 0.3
+        if labels and _entropy(labels) < 0.5:
+            scores["label_flip"] += 0.3   # one label dominates the batch
 
-        # Backdoor indicators
-        if l2.get("backdoor_detected", False):
-            scores["backdoor"] += 0.5
-        if l2.get("spectral_gap", 0) > 3.0:
-            scores["backdoor"] += 0.3
-        if l2.get("minority_cluster_ratio", 1) < 0.1:
-            scores["backdoor"] += 0.2
-
-        # Clean label indicators: high Mahalanobis (feature outliers) but no spectral cluster
-        if l1.get("mahalanobis", 0) > 4.0 and not l2.get("backdoor_detected", False):
-            scores["clean_label"] += 0.4
-        if l4.get("causal_effect", 0) > 0.08 and not l2.get("backdoor_detected", False):
-            scores["clean_label"] += 0.3
-        if l3.get("flagged_ratio", 0) > 0.03 and l1.get("kl_divergence", 0) < 1.0:
-            scores["clean_label"] += 0.2  # anomalies without label shift
-
-        # Gradient poisoning indicators
-        if l5.get("n_quarantined", 0) > 0:
-            scores["gradient_poisoning"] += 0.5
-        if l5.get("avg_trust", 1) < 0.4:
-            scores["gradient_poisoning"] += 0.3
-        if l1.get("mahalanobis", 0) > 3.0 and l2.get("spectral_gap", 0) > 2.0:
-            scores["gradient_poisoning"] += 0.2
-
-        # Boiling frog indicators
-        if shap.get("cumulative_drift", 0) > 0.2:
-            scores["boiling_frog"] += 0.4
-        if shap.get("drift_score", 0) > 0.1:
-            scores["boiling_frog"] += 0.2
-        # Check temporal spread of poison
-        poison_times = [s["ingested_at"] for s in samples if s.get("poison_status") in ("confirmed", "suspected")]
-        if len(poison_times) > 5:
+        # Poison spread over time (many suspected rows) hints at slow injection.
+        if len([s for s in samples if s.get("poison_status") in ("confirmed", "suspected")]) > 5:
             scores["boiling_frog"] += 0.2
 
         # Do not force a precise attack label when the rules have no material
@@ -192,8 +147,6 @@ class InjectionPatternReconstructor:
         primary_source = list(sources)[0] if sources else "unknown"
 
         # Causal effect
-        causal_effect = evidence.get("layer4_causal", {}).get("causal_effect", 0)
-        acc_impact = round(abs(causal_effect) * 100, 1)
 
         # Generate narrative
         attack_type = attack_classification.get("attack_type", "unknown")
@@ -221,12 +174,10 @@ WHEN:
 INTERPRETATION LIMITS:
 • This reconstruction is based on rows flagged by heuristic detectors.
 • It does not establish attacker identity, source attribution, or real-world harm.
-• Proxy-model effect observed in this analysis: {acc_impact}% accuracy difference.
 
 SOURCE FINGERPRINT:
 • Client ID:    {primary_client}
-• Source:       {primary_source}
-• Trust Score:  {round(evidence.get('layer5_federated', {}).get('avg_trust', 0.5) * 100, 0):.0f}/100"""
+• Source:       {primary_source}"""
 
         return {
             "narrative": narrative,
@@ -254,8 +205,8 @@ class SophisticationScorer:
         factors = {}
 
         # Evasion layers
-        n_layers_evaded = 6 - evidence.get("n_layers_alarmed", 0)
-        factors["evasion_layers"] = round(n_layers_evaded / 6, 2)
+        n_layers_evaded = 2 - evidence.get("n_layers_alarmed", 0)
+        factors["evasion_layers"] = round(n_layers_evaded / 2, 2)
         score += factors["evasion_layers"] * 3
 
         # Temporal precision (gradual = more sophisticated)

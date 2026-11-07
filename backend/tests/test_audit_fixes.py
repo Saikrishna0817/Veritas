@@ -154,7 +154,7 @@ def _fake_dataset_result(n=100, flagged=range(10), split=70, dataset_id="ds-fake
     return {
         "source": "upload", "n_samples": n, "overall_suspicion_score": 0.9,
         "dataset_info": {"dataset_id": dataset_id, "reference_split": split},
-        "layer_results": {"layer3_ensemble": {"flagged_indices_incoming": list(flagged)}},
+        "layer_results": {"row_flags": {"flagged_indices_incoming": list(flagged)}},
     }
 
 
@@ -202,38 +202,8 @@ def test_rate_limiter_forgets_idle_keys():
     assert list(limiter._events) == ["last"]
 
 
-def test_causal_layer_subsamples_large_inputs():
-    from app.detection.layer4_causal import MAX_ROWS, CausalProofEngine
-
-    rng = np.random.RandomState(0)
-    n = MAX_ROWS + 500
-    X = rng.rand(n, 4)
-    y = (X[:, 0] > 0.5).astype(int)
-    flagged = list(range(0, n, 25))
-    started = time.perf_counter()
-    result = CausalProofEngine().run(X, y, flagged)
-    assert result["subsampled_from"] == n and result["n_rows_used"] == MAX_ROWS
-    assert time.perf_counter() - started < 60
-
-
 def test_short_or_overlong_passwords_are_rejected_for_new_users():
     admin = _auth("root", "root", "admin")
     for pw in ("short", "x" * 80):
         r = client.post("/api/v1/users", json={"username": "newbie", "password": pw}, headers=admin)
         assert r.status_code == 422
-
-
-def test_bootstrap_cv_does_not_leak_duplicate_rows_across_folds():
-    from sklearn.model_selection import cross_val_score
-    from sklearn.neighbors import KNeighborsClassifier
-
-    from app.detection.layer4_causal import CausalProofEngine
-
-    rng = np.random.RandomState(0)
-    X, y = rng.rand(1500, 40), rng.randint(0, 2, 1500)  # labels are pure noise
-    ball = rng.choice(1500, 1500, replace=True)  # bootstrap resample: ~37% duplicates
-    knn = KNeighborsClassifier(1)
-    leaky = cross_val_score(knn, X[ball], y[ball], cv=3).mean()
-    grouped = CausalProofEngine()._grouped_cv_accuracy(knn, X[ball], y[ball], ball)
-    assert leaky > 0.65  # plain K-fold "learns" noise through duplicates
-    assert 0.4 < grouped < 0.6  # grouped CV correctly reports chance level
