@@ -17,22 +17,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.neighbors import KNeighborsClassifier
 
-TAIL_QUANTILE = 0.99
-
-
-def tail_test(cal_scores: np.ndarray, inc_scores: np.ndarray, q: float = TAIL_QUANTILE) -> float:
-    threshold = np.quantile(cal_scores, q)
-    exceed = int((inc_scores > threshold).sum())
-    p = binom.sf(exceed - 1, len(inc_scores), 1 - q)
-    return float(-np.log10(max(p, 1e-300)))
-
-
-def _probs(model, X: np.ndarray, n_classes: int) -> np.ndarray:
-    """predict_proba padded to all classes (a class may be missing from the fit set)."""
-    P = np.full((len(X), n_classes), 1e-6)
-    P[:, model.classes_] = model.predict_proba(X)
-    return P / P.sum(axis=1, keepdims=True)
-
+from app.detection.veritas2 import (_probs, detect as _v2_detect, label_component as _label_component,
+                                    neg_log_p as _neg_log_p, shift_component as _shift_component, tail_test)
 
 def _label_detector(make_model, score_fn):
     def detect(d):
@@ -84,7 +70,7 @@ def veritas(d):
     lo = X_ref.min(axis=0)
     span = X_ref.max(axis=0) - lo
     span[span == 0] = 1.0
-    pipeline = DetectionPipeline(random_state=0)
+    pipeline = DetectionPipeline(random_state=0, engine="legacy")
     pipeline.fit_baseline((X_ref - lo) / span, d["y_ref"])
     result = pipeline.analyze((X_inc - lo) / span, d["y_inc"])
     rows = np.zeros(len(X_inc))
@@ -98,21 +84,6 @@ def veritas(d):
 # keeps the strongest evidence over components. The batch statistic is the strongest tail
 # test over components. Only the components that win on the dev datasets are kept.
 
-def _label_component(d):
-    model = HistGradientBoostingClassifier(random_state=0).fit(d["X_fit"], d["y_fit"])
-    return (_cleanlab_score(d["y_cal"], _probs(model, d["X_cal"], d["n_classes"])),
-            _cleanlab_score(d["y_inc"], _probs(model, d["X_inc"], d["n_classes"])))
-
-
-def _shift_component(d):
-    """Classifier two-sample test: out-of-fold 'looks like the incoming batch' probability."""
-    Z = np.vstack([d["X_cal"], d["X_inc"]])
-    t = np.r_[np.zeros(len(d["X_cal"])), np.ones(len(d["X_inc"]))]
-    p = cross_val_predict(HistGradientBoostingClassifier(random_state=0), Z, t,
-                          cv=StratifiedKFold(5, shuffle=True, random_state=0), method="predict_proba")[:, 1]
-    return p[: len(d["X_cal"])], p[len(d["X_cal"]):]
-
-
 def _ecod_component(d):
     model = _ecod().fit(d["X_fit"])
     return model.decision_function(d["X_cal"]), model.decision_function(d["X_inc"])
@@ -125,14 +96,6 @@ def _iforest_component(d):
 
 COMPONENTS = {"label": _label_component, "shift": _shift_component,
               "ecod": _ecod_component, "iforest": _iforest_component}
-
-
-def _neg_log_p(cal: np.ndarray, inc: np.ndarray) -> np.ndarray:
-    """-log10 of the share of clean rows scoring at least as high (smoothed so it is finite)."""
-    cal = np.sort(cal)
-    ge = len(cal) - np.searchsorted(cal, inc, side="left")
-    # Rows beyond every clean row would all tie; the raw-score rank (worth < 0.001) orders them.
-    return -np.log10((ge + 1) / (len(cal) + 1)) + 1e-3 * rankdata(inc) / len(inc)
 
 
 def make_ensemble(names: tuple[str, ...], combine=np.max):
@@ -163,6 +126,12 @@ def make_gated_ensemble(names: tuple[str, ...], gate: float):
     return detect
 
 
+def veritas2(d):
+    """The shipped detector (app.detection.veritas2), so the benchmark scores the code users run."""
+    out = _v2_detect(d)
+    return out["row_scores"], out["batch_evidence"]
+
+
 DETECTORS = {
     "veritas": veritas,
     "cleanlab_hgb": _label_detector(lambda: HistGradientBoostingClassifier(random_state=0), _cleanlab_score),
@@ -179,7 +148,7 @@ DETECTORS = {
     "v2_gate4": make_gated_ensemble(("label", "shift", "ecod", "iforest"), 4.0),
     "v2_gate8": make_gated_ensemble(("label", "shift", "ecod", "iforest"), 8.0),
     # FROZEN 2026-11-06 after dev-only tuning (gate 3/4/6 tied; middle value kept). Do not retune on test.
-    "veritas2": make_gated_ensemble(("label", "shift"), 4.0),
+    "veritas2": veritas2,
     "v2_ls_gate3": make_gated_ensemble(("label", "shift"), 3.0),
     "v2_ls_gate4": make_gated_ensemble(("label", "shift"), 4.0),
     "v2_ls_gate6": make_gated_ensemble(("label", "shift"), 6.0),

@@ -15,6 +15,7 @@ try:
     from .layer4_causal       import CausalProofEngine
     from .layer5_federated    import FederatedTrustAnalyzer
     from .shap_drift          import SHAPDriftMonitor
+    from .veritas2            import Veritas2, SUSPICIOUS_AT, verdict_for
 except ImportError:
     from layer1_statistical import StatisticalShiftDetector
     from layer2_spectral     import SpectralActivationAnalyzer
@@ -22,6 +23,7 @@ except ImportError:
     from layer4_causal       import CausalProofEngine
     from layer5_federated    import FederatedTrustAnalyzer
     from shap_drift          import SHAPDriftMonitor
+    from veritas2            import Veritas2, SUSPICIOUS_AT, verdict_for
 
 
 # ── Layer weights (RECT 9: rebalanced) ────────────────────────────────────────
@@ -63,7 +65,12 @@ class DetectionPipeline:
       - Blend+spectral co-fire allows CONFIRMED without causal proof (RECT 10)
     """
 
-    def __init__(self, random_state: int = 42, federated_mode: bool = False):
+    def __init__(self, random_state: int = 42, federated_mode: bool = False, engine: str = "v2"):
+        # "v2" (default): label check + gated shift check, ~2-5 s per batch, measured in docs/benchmark-v2-findings.md.
+        # "legacy": the original five layers; kept for benchmark comparison, at chance on label noise and ~40-130 s per batch.
+        if engine not in ("v2", "legacy"):
+            raise ValueError(f"unknown engine {engine!r}")
+        self.engine          = engine
         self.l1              = StatisticalShiftDetector()
         self.l2              = SpectralActivationAnalyzer(random_state=random_state)
         self.l3              = EnsembleAnomalyDetector(random_state=random_state)
@@ -89,8 +96,11 @@ class DetectionPipeline:
 
         self.X_reference = X
         self.y_reference = y
-        self.l1.fit_baseline(X, y_reference=y)
-        self.l3.fit(X)
+        if self.engine == "legacy":
+            self.l1.fit_baseline(X, y_reference=y)
+            self.l3.fit(X)
+        else:
+            self.v2 = Veritas2(self.random_state).fit(X, y)
         self._baseline_fitted = True
 
     def analyze(
@@ -107,6 +117,9 @@ class DetectionPipeline:
                 "DetectionPipeline.analyze() called before fit_baseline(). "
                 "Call pipeline.fit_baseline(X_clean, y_clean) first."
             )
+
+        if self.engine == "v2":
+            return self._analyze_v2(X, y)
 
         # Build full dataset
         if self.X_reference is not None and len(self.X_reference) > 0:
@@ -205,6 +218,28 @@ class DetectionPipeline:
                 "layer5": r5,
                 "shap_drift": r_shap,
             },
+        }
+
+    def _analyze_v2(self, X: np.ndarray, y: np.ndarray) -> dict:
+        r = self.v2.analyze(X, y)
+        flagged = r["flagged_indices"]
+        label_ev, shift_ev = r["evidence"].get("label", 0.0), r["evidence"]["shift"]
+        # Same keys the forensics/defense/report code reads; old layers that no longer run are empty.
+        details = {
+            "engine": "v2",
+            "label_check": {"evidence": label_ev, "alarm": label_ev >= SUSPICIOUS_AT, "ran": "label" in r["evidence"]},
+            "shift_check": {"evidence": shift_ev, "alarm": shift_ev >= SUSPICIOUS_AT, "in_row_ranking": r["shift_in_ranking"]},
+            "layer3": {"flagged_indices": [len(self.X_reference) + i for i in flagged], "flagged_indices_incoming": flagged,
+                       "flagged_ratio": len(flagged) / max(len(X), 1), "row_scores": [round(float(v), 3) for v in r["row_scores"]],
+                       "suspicion_score": r["suspicion"]},
+            "warnings": r["warnings"],
+        }
+        return {
+            "verdict": r["verdict"], "overall_suspicion": r["suspicion"], "degradation_score": 0.0,
+            "causal_proof_valid": False, "blend_spectral_confirmed": False,
+            "layer_scores": {"label_check": verdict_for(label_ev)[1], "shift_check": verdict_for(shift_ev)[1]},  # 0-1 for the UI
+            "layer_weights": {}, "details": details,
+            "thresholds": {"confirmed": THRESHOLD_CONFIRMED, "suspicious": THRESHOLD_SUSPICIOUS, "low_risk": THRESHOLD_LOW_RISK},
         }
 
     def _analyze_shap_drift(self, X_incoming: np.ndarray, y_incoming: np.ndarray) -> dict:
@@ -319,8 +354,23 @@ class DetectionPipeline:
         return self._normalise_result(result, samples, X[split:])
 
     @staticmethod
+    def _normalise_v2(result: dict, details: dict, X_inc: np.ndarray) -> dict:
+        label, shift = details["label_check"], details["shift_check"]
+        overall = result["overall_suspicion"]
+        return {
+            "overall_suspicion_score": overall, "overall_suspicion": overall, "verdict": result["verdict"],
+            "layer_results": {"label_check": label, "shift_check": shift, "layer3_ensemble": details["layer3"]},
+            "layer_scores": result["layer_scores"], "n_layers_alarmed": int(label["alarm"]) + int(shift["alarm"]),
+            "n_samples": len(X_inc), "requires_human_review": THRESHOLD_SUSPICIOUS <= overall < THRESHOLD_CONFIRMED,
+            "degradation_score": 0.0, "causal_proof_valid": False, "blend_spectral_confirmed": False,
+            "thresholds": result["thresholds"], "engine": "v2", "warnings": details["warnings"],
+        }
+
+    @staticmethod
     def _normalise_result(result: dict, samples: list, X_inc: np.ndarray) -> dict:
         details = result.get("details", {})
+        if details.get("engine") == "v2":
+            return DetectionPipeline._normalise_v2(result, details, X_inc)
 
         layer_results = {
             "layer1_statistical" : details.get("layer1", {}),

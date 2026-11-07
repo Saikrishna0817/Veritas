@@ -1,4 +1,6 @@
 const LAYER_LABELS = {
+  label_check: 'Label Check',
+  shift_check: 'Distribution-Shift Check',
   statistical: 'L1 Statistical Shift',
   spectral: 'L2 Spectral Analysis',
   ensemble: 'L3 Ensemble Anomaly',
@@ -21,7 +23,7 @@ export default function LayerScoresGrid({ layerScores }) {
       }}
     >
       <div style={{ fontWeight: 700, color: '#f1f5f9', marginBottom: 16, fontSize: 14 }}>
-        🔬 5-Layer Detection Scores
+        🔬 Detection Scores
       </div>
       <div
         style={{

@@ -83,7 +83,7 @@ def evaluate_scenario(attack_name: str | None, manifest: dict[str, Any] | None =
     scale_min = np.minimum(x_ref.min(axis=0), x_incoming.min(axis=0))
     scale_span = np.maximum(x_ref.max(axis=0), x_incoming.max(axis=0)) - scale_min
     scale_span[scale_span == 0] = 1.0
-    pipeline = DetectionPipeline(random_state=seed)
+    pipeline = DetectionPipeline(random_state=seed, engine="legacy")  # v1 benchmark scores the original layers
     pipeline.fit_baseline((x_ref - scale_min) / scale_span, y_ref)
     result = pipeline.analyze((x_incoming - scale_min) / scale_span, y_incoming)
     scores = result["layer_scores"]

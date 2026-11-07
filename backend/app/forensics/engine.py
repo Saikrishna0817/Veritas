@@ -54,6 +54,14 @@ class AttackTypeClassifier:
         l5 = evidence.get("layer5_federated", {})
         shap = evidence.get("shap_drift", {})
 
+        # Veritas v2 checks: a label alarm is direct evidence of wrong labels. A shift alarm says the
+        # incoming rows are distinguishable from clean ones, which backdoors and collisions both cause.
+        if evidence.get("label_check", {}).get("alarm"):
+            scores["label_flip"] += 0.6
+        if evidence.get("shift_check", {}).get("alarm"):
+            scores["backdoor"] += 0.25
+            scores["clean_label"] += 0.25
+
         # Label flip indicators
         if l1.get("kl_divergence", 0) > 1.5:
             scores["label_flip"] += 0.3

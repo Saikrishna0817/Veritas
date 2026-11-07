@@ -32,7 +32,7 @@ def trace_upload_scenario(attack_name: str = "boiling_frog") -> dict:
     records = [{**{f"feature_{index}": value for index, value in enumerate(sample["feature_vector"])}, "label": sample["label"]}
                for sample in samples[:reference_n] + incoming]
     ingested = CSVIngestionEngine().ingest(pd.DataFrame(records).to_csv(index=False).encode(), f"benchmark_{attack_name}.csv")
-    result = DetectionPipeline(random_state=manifest["random_seed"]).run_on_upload(ingested)
+    result = DetectionPipeline(random_state=manifest["random_seed"], engine="legacy").run_on_upload(ingested)
     layer3 = result["layer_results"]["layer3_ensemble"]
     flagged = set(layer3["flagged_indices"])
     return {"attack_type": attack_name, "reference_split": ingested["reference_split"],
