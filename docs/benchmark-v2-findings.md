@@ -278,3 +278,7 @@ Not verified / not done:
 - OAuth (GitHub/Google) sign-in, accessibility pass, a published OpenAPI/CLI package, a staging environment, and legal pages (Terms, Privacy) are not done.
 - The Playwright suite is not in CI yet; the load test is not scheduled.
 - One API process: WebSocket events and a few caches are per-process; result pages must poll jobs when workers run elsewhere.
+
+## Dependency bump check (numpy 2.5.4, pandas 3.1.0)
+
+Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges. All 12,000 per-batch detector outputs are identical to `final-r2` (bit-for-bit apart from timings), so the bumps did not move any score. `fetch_openml`'s default ARFF parser breaks on categorical columns under pandas 3.1, so the harness now falls back to `parser="liac-arff"`. Result: `backend/research/results/2026-11-07-benchmark-v2-deps-bump-numpy25-pandas31.*`. scikit-learn stays at 1.8.0 (its 1.9 bump fails tests and is not merged).

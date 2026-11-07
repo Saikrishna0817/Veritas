@@ -51,10 +51,18 @@ def load_manifest(profile: str = "full") -> dict:
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
+def _openml(data_id: int):
+    """fetch_openml's default ARFF parser breaks on categorical columns under pandas 3.1; liac-arff does not."""
+    try:
+        return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="auto")
+    except TypeError:
+        return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="liac-arff")
+
+
 @lru_cache(maxsize=None)
 def load_dataset(data_id: int, max_rows: int, seed: int) -> tuple[np.ndarray, np.ndarray, str]:
     """Numeric matrix + integer labels. Categoricals become codes, NaNs the median."""
-    bunch = fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="auto")
+    bunch = _openml(data_id)
     X = bunch.data.copy()
     for col in X.columns:
         if not pd.api.types.is_numeric_dtype(X[col]):
@@ -307,7 +315,7 @@ def main() -> None:
     m = load_manifest(args.profile)
     for datasets in m["datasets"].values():  # download once, before workers race for the cache
         for ds in datasets:
-            fetch_openml(data_id=ds["data_id"], data_home=str(CACHE), as_frame=True, parser="auto")
+            _openml(ds["data_id"])
     if args.splits:
         m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
     specs = [{**spec, "only": args.only} for spec in batch_specs(m)]
