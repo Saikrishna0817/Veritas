@@ -1,150 +1,73 @@
 """
-SQLite Persistence Layer — AI Trust Forensics Platform v2.2
-Stores all analysis results so they survive server restarts.
-Thread-safe, uses WAL mode for concurrent reads.
+Persistence layer — AI Trust Forensics Platform.
+
+SQLite for development, tests and single-box installs; PostgreSQL in production (set VERITAS_DATABASE_URL).
+Queries use ``?`` placeholders and standard SQL; app.models.engine adapts them per dialect. The schema comes from
+the versioned files in app/models/migrations (app.models.migrate).
+
+Reads of user-owned rows take an explicit owner so a forgotten filter is a TypeError, not a leak. Rows saved before
+owner_id existed have owner NULL and are visible only with ALL_OWNERS (admins).
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from app.core.config import settings
 
-# DB lives next to the backend package
+from app.core.config import settings
+from app.models.engine import Database
+
+# SQLite file next to the backend package unless configured; PostgreSQL when VERITAS_DATABASE_URL is set.
 DB_PATH = Path(settings.sqlite_path) if settings.sqlite_path else Path(__file__).parent.parent.parent / "forensics_results.db"
+_url: str = settings.database_url or f"sqlite:///{DB_PATH}"
 
 _local = threading.local()
 
 
-def _get_conn() -> sqlite3.Connection:
-    """Return a thread-local connection (SQLite is not thread-safe across threads)."""
-    if not hasattr(_local, "conn") or _local.conn is None:
-        conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        _local.conn = conn
-    return _local.conn
+def configure(url: str) -> None:
+    """Point this process at another database (tests, tools). Drops this thread's connection."""
+    global _url
+    _url = url
+    reset_connection()
 
 
-def init_db():
-    """Create tables if they don't exist."""
+def current_url() -> str:
+    return _url
+
+
+def reset_connection() -> None:
+    conn = getattr(_local, "conn", None)
+    if conn is not None:
+        conn.close()
+    _local.conn = None
+
+
+def connection() -> Database:
+    """This thread's connection, reconnecting if the server dropped it."""
+    conn = getattr(_local, "conn", None)
+    if conn is None or conn.closed or conn.url != _url:
+        if conn is not None:
+            conn.close()
+        conn = _local.conn = Database(_url)
+    return conn
+
+
+_get_conn = connection      # historical name used throughout this module and in tests
+
+
+def init_db() -> None:
+    """Bring the schema up to date and make sure the configured administrator exists."""
+    from app.models.migrate import migrate
     conn = _get_conn()
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS analysis_results (
-            id          TEXT PRIMARY KEY,
-            source      TEXT NOT NULL,          -- 'demo' | 'upload' | 'model_scan'
-            filename    TEXT,
-            verdict     TEXT,
-            score       REAL,
-            attack_type TEXT,
-            detection_mode TEXT,
-            n_samples   INTEGER,
-            elapsed_ms  REAL,
-            full_json   TEXT NOT NULL,
-            created_at  TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_source ON analysis_results(source);
-        CREATE INDEX IF NOT EXISTS idx_created ON analysis_results(created_at DESC);
-
-        CREATE TABLE IF NOT EXISTS model_scans (
-            id              TEXT PRIMARY KEY,
-            model_filename  TEXT NOT NULL,
-            dataset_filename TEXT,
-            model_type      TEXT,
-            verdict         TEXT,
-            score           REAL,
-            attack_type     TEXT,
-            n_samples       INTEGER,
-            full_json       TEXT NOT NULL,
-            created_at      TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_model_created ON model_scans(created_at DESC);
-
-        CREATE TABLE IF NOT EXISTS audit_events (
-            id           TEXT PRIMARY KEY,
-            actor_id     TEXT NOT NULL,
-            action       TEXT NOT NULL,
-            resource_type TEXT NOT NULL,
-            resource_id  TEXT,
-            details_json TEXT NOT NULL,
-            created_at   TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_events(created_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_events(actor_id, created_at DESC);
-
-        CREATE TABLE IF NOT EXISTS users (
-            id              TEXT PRIMARY KEY,
-            username        TEXT NOT NULL UNIQUE,
-            password_hash   TEXT NOT NULL,
-            role            TEXT NOT NULL,
-            created_at      TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-
-        CREATE TABLE IF NOT EXISTS defense_actions (
-            action_id        TEXT PRIMARY KEY,
-            action           TEXT NOT NULL,
-            samples_affected INTEGER,
-            suspicion_score  REAL,
-            reason           TEXT,
-            details_json     TEXT NOT NULL,
-            created_at       TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_defense_created ON defense_actions(created_at DESC);
-
-        CREATE TABLE IF NOT EXISTS hitl_cases (
-            case_id          TEXT PRIMARY KEY,
-            suspicion_score  REAL,
-            n_samples        INTEGER,
-            status           TEXT NOT NULL,
-            details_json     TEXT NOT NULL,
-            created_at       TEXT NOT NULL,
-            deadline         TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_hitl_created ON hitl_cases(created_at DESC);
-
-        CREATE TABLE IF NOT EXISTS hitl_decisions (
-            id               TEXT PRIMARY KEY,
-            case_id          TEXT NOT NULL,
-            decision         TEXT NOT NULL,
-            reviewer         TEXT NOT NULL,
-            decided_at       TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_hitl_decided ON hitl_decisions(decided_at DESC);
-    """
-    )
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS usage_daily (
-            owner_id TEXT NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0,
-            PRIMARY KEY (owner_id, day, kind))"""
-    )
-    for table in ("analysis_results", "model_scans", "defense_actions", "hitl_cases"):
-        _add_owner_column(conn, table)
-    conn.commit()
+    migrate(conn)
     _ensure_bootstrap_admin(conn)
 
 
-# Reads take an explicit owner so a forgotten filter is a TypeError, not a leak. Rows saved before owner_id existed
-# have owner NULL and are visible only with ALL_OWNERS (admins).
 ALL_OWNERS = "*"
-
-
-def _add_owner_column(conn, table: str) -> None:
-    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
-    if "owner_id" not in cols:
-        conn.execute(f"ALTER TABLE {table} ADD COLUMN owner_id TEXT")
-    conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_owner ON {table}(owner_id)")
 
 
 def _scope(owner_id: str) -> tuple[str, tuple]:
@@ -158,10 +81,14 @@ def save_result(result: Dict[str, Any], source: str, filename: str = None, owner
     conn = _get_conn()
     conn.execute(
         """
-        INSERT OR REPLACE INTO analysis_results
+        INSERT INTO analysis_results
             (id, source, filename, verdict, score, attack_type, detection_mode,
              n_samples, elapsed_ms, full_json, created_at, owner_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO UPDATE SET source=excluded.source, filename=excluded.filename, verdict=excluded.verdict,
+            score=excluded.score, attack_type=excluded.attack_type, detection_mode=excluded.detection_mode,
+            n_samples=excluded.n_samples, elapsed_ms=excluded.elapsed_ms, full_json=excluded.full_json,
+            created_at=excluded.created_at, owner_id=excluded.owner_id
     """,
         (
             rid,
@@ -188,10 +115,13 @@ def save_model_scan(scan: Dict[str, Any], owner_id: str | None = None) -> str:
     conn = _get_conn()
     conn.execute(
         """
-        INSERT OR REPLACE INTO model_scans
+        INSERT INTO model_scans
             (id, model_filename, dataset_filename, model_type, verdict, score,
              attack_type, n_samples, full_json, created_at, owner_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO UPDATE SET model_filename=excluded.model_filename, dataset_filename=excluded.dataset_filename,
+            model_type=excluded.model_type, verdict=excluded.verdict, score=excluded.score, attack_type=excluded.attack_type,
+            n_samples=excluded.n_samples, full_json=excluded.full_json, created_at=excluded.created_at, owner_id=excluded.owner_id
     """,
         (
             rid,
@@ -268,10 +198,10 @@ def get_stats(owner_id: str) -> Dict:
     """Aggregate statistics over the owner's stored results."""
     conn = _get_conn()
     clause, args = _scope(owner_id)
-    total = conn.execute(f"SELECT COUNT(*) FROM analysis_results WHERE 1=1{clause}", args).fetchone()[0]
+    total = conn.execute(f"SELECT COUNT(*) AS n FROM analysis_results WHERE 1=1{clause}", args).fetchone()["n"]
     by_source = conn.execute(f"SELECT source, COUNT(*) as n FROM analysis_results WHERE 1=1{clause} GROUP BY source", args).fetchall()
     by_verdict = conn.execute(f"SELECT verdict, COUNT(*) as n FROM analysis_results WHERE 1=1{clause} GROUP BY verdict", args).fetchall()
-    model_scans = conn.execute(f"SELECT COUNT(*) FROM model_scans WHERE 1=1{clause}", args).fetchone()[0]
+    model_scans = conn.execute(f"SELECT COUNT(*) AS n FROM model_scans WHERE 1=1{clause}", args).fetchone()["n"]
     return {
         "total_analyses": total,
         "model_scans": model_scans,
@@ -328,7 +258,7 @@ def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]
     return events
 
 
-def _ensure_bootstrap_admin(conn: sqlite3.Connection) -> None:
+def _ensure_bootstrap_admin(conn: Database) -> None:
     """Seed the env-configured administrator if missing; purge the legacy default user."""
     from app.core.security import hash_password, verify_password
 
@@ -406,9 +336,12 @@ def save_defense_action(action: Dict[str, Any]) -> None:
     conn = _get_conn()
     conn.execute(
         """
-        INSERT OR REPLACE INTO defense_actions
+        INSERT INTO defense_actions
         (action_id, action, samples_affected, suspicion_score, reason, details_json, created_at, owner_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (action_id) DO UPDATE SET action=excluded.action, samples_affected=excluded.samples_affected,
+            suspicion_score=excluded.suspicion_score, reason=excluded.reason, details_json=excluded.details_json,
+            created_at=excluded.created_at, owner_id=excluded.owner_id
         """,
         (
             action.get("action_id", str(uuid.uuid4())),
@@ -437,9 +370,12 @@ def save_hitl_case(case: Dict[str, Any]) -> None:
     conn = _get_conn()
     conn.execute(
         """
-        INSERT OR REPLACE INTO hitl_cases
+        INSERT INTO hitl_cases
         (case_id, suspicion_score, n_samples, status, details_json, created_at, deadline, owner_id)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (case_id) DO UPDATE SET suspicion_score=excluded.suspicion_score, n_samples=excluded.n_samples,
+            status=excluded.status, details_json=excluded.details_json, created_at=excluded.created_at,
+            deadline=excluded.deadline, owner_id=excluded.owner_id
         """,
         (
             case["case_id"],
@@ -502,26 +438,22 @@ def get_hitl_decisions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
 
 def charge_usage(owner_id: str, kind: str, amount: int, limit: int) -> tuple[bool, int]:
     """Add ``amount`` to today's counter if that keeps it within ``limit`` (0 = unlimited).
-    Returns (allowed, used_today). The check and the increment are one transaction."""
+    Returns (allowed, used_today). One conditional upsert, so concurrent requests cannot overshoot the limit."""
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     conn = _get_conn()
-    conn.execute("BEGIN IMMEDIATE")
-    try:
-        row = conn.execute("SELECT amount FROM usage_daily WHERE owner_id=? AND day=? AND kind=?", (owner_id, day, kind)).fetchone()
-        used = row["amount"] if row else 0
-        if limit and used + amount > limit:
-            conn.execute("ROLLBACK")
-            return False, used
-        conn.execute(
-            """INSERT INTO usage_daily (owner_id, day, kind, amount) VALUES (?, ?, ?, ?)
-               ON CONFLICT(owner_id, day, kind) DO UPDATE SET amount = amount + excluded.amount""",
-            (owner_id, day, kind, amount),
-        )
-        conn.execute("COMMIT")
-        return True, used + amount
-    except Exception:
-        conn.execute("ROLLBACK")
-        raise
+    if limit and amount > limit:
+        return False, get_usage(owner_id).get(kind, 0)
+    row = conn.execute(
+        """INSERT INTO usage_daily (owner_id, day, kind, amount) VALUES (?, ?, ?, ?)
+           ON CONFLICT (owner_id, day, kind) DO UPDATE SET amount = usage_daily.amount + excluded.amount
+           WHERE ? = 0 OR usage_daily.amount + excluded.amount <= ?
+           RETURNING amount""",
+        (owner_id, day, kind, amount, limit, limit),
+    ).fetchone()
+    conn.commit()
+    if row is None:
+        return False, get_usage(owner_id).get(kind, 0)
+    return True, row["amount"]
 
 
 def get_usage(owner_id: str) -> Dict[str, int]:

@@ -25,6 +25,8 @@ class Settings:
     api_prefix: str = "/api/v1"
     ws_path: str = "/ws/v1/detection-stream"
     sqlite_path: str = os.getenv("FORENSICS_SQLITE_PATH", "")
+    # postgresql://user:pass@host/db for production; empty means the SQLite file above.
+    database_url: str = os.getenv("VERITAS_DATABASE_URL", "")
     # No defaults for secrets: unset means authentication fails closed and
     # validate_security_settings() stops the server at startup.
     jwt_secret: str = os.getenv("VERITAS_JWT_SECRET", "")

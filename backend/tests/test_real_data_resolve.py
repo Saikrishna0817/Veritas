@@ -25,25 +25,11 @@ def _sample_result(source: str, score: float = 0.42) -> dict:
 def isolated_db(tmp_path):
     from app.models import database as db
 
-    db_path = tmp_path / "test_forensics.db"
-    old_path = db.DB_PATH
-    db.DB_PATH = db_path
-    if hasattr(db._local, "conn"):
-        try:
-            if db._local.conn is not None:
-                db._local.conn.close()
-        except Exception:
-            pass
-        db._local.conn = None
+    old_url = db.current_url()
+    db.configure(f"sqlite:///{tmp_path / 'test_forensics.db'}")
     db.init_db()
     yield db
-    try:
-        if hasattr(db._local, "conn") and db._local.conn is not None:
-            db._local.conn.close()
-    except Exception:
-        pass
-    db._local.conn = None
-    db.DB_PATH = old_path
+    db.configure(old_url)
 
 
 def test_get_latest_real_empty(isolated_db):
