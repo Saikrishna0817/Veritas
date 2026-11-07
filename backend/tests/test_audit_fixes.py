@@ -181,7 +181,9 @@ def test_manual_quarantine_acts_on_the_analysed_dataset_not_demo_rows():
 # ── Jobs / limits / causal layer ─────────────────────────────────────────────
 
 def test_jobs_are_visible_only_to_their_owner_or_admin():
-    job_id = job_store.submit("t", lambda: {"ok": True}, owner_id="owner-1")
+    from app.jobs.queue import TASKS
+    TASKS["t"] = lambda payload, owner: {"ok": True}
+    job_id = job_store.submit("t", {}, owner_id="owner-1")
     for _ in range(50):
         if job_store.get(job_id)["status"] == "completed":
             break

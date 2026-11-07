@@ -593,3 +593,33 @@ def purge_older_than(days: int) -> Dict[str, int]:
         counts[table] = conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (cutoff,)).rowcount
     conn.commit()
     return counts
+
+
+# ── Background jobs ───────────────────────────────────────────────────────────
+
+def create_job(job_id: str, job_type: str, owner_id: str, payload: Dict[str, Any]) -> None:
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO jobs (job_id, job_type, owner_id, status, payload_json, created_at) VALUES (?, ?, ?, 'queued', ?, ?)",
+        (job_id, job_type, owner_id, json.dumps(payload), datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+
+
+def update_job(job_id: str, **fields: Any) -> None:
+    allowed = {"status", "result_json", "error", "started_at", "completed_at"}
+    cols = [k for k in fields if k in allowed]
+    conn = _get_conn()
+    conn.execute(f"UPDATE jobs SET {', '.join(c + ' = ?' for c in cols)} WHERE job_id = ?", (*[fields[c] for c in cols], job_id))
+    conn.commit()
+
+
+def get_job(job_id: str) -> Optional[Dict[str, Any]]:
+    row = _get_conn().execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
+    if not row:
+        return None
+    job = dict(row)
+    job["payload"] = json.loads(job.pop("payload_json") or "{}")
+    result = job.pop("result_json")
+    job["result"] = json.loads(result) if result else None
+    return job

@@ -34,6 +34,11 @@ class Settings:
     jwt_expiry_minutes: int = int(os.getenv("VERITAS_JWT_EXPIRY_MINUTES", "60"))
     admin_username: str = os.getenv("VERITAS_ADMIN_USERNAME", "")
     admin_password: str = os.getenv("VERITAS_ADMIN_PASSWORD", "")
+    # Shared state for rate limits and the job queue; empty keeps everything in-process (development, tests).
+    redis_url: str = os.getenv("VERITAS_REDIS_URL", "")
+    # Where uploads wait for the worker: file:///path (default, a local directory) or s3://bucket (S3, Cloudflare R2, MinIO).
+    storage_url: str = os.getenv("VERITAS_STORAGE_URL", "")
+    s3_endpoint: str = os.getenv("VERITAS_S3_ENDPOINT", "")
     # Public base URL used in emailed links, and outgoing mail (any SMTP provider: Resend, Brevo, ...). Without
     # smtp_host, messages are logged and kept in an in-memory outbox (development and tests only).
     public_url: str = os.getenv("VERITAS_PUBLIC_URL", "http://localhost:5173")

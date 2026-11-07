@@ -1,71 +1,70 @@
-"""In-process job queue for CPU-heavy analysis tasks."""
-
+"""Durable background jobs. Status lives in the ``jobs`` table, so any API process can answer a poll and a restart
+loses nothing. Execution is either in-process (a thread pool; development, tests, single box) or on a separate
+worker through Redis (RQ) when VERITAS_REDIS_URL is set: run ``python -m app.jobs.worker`` next to the API."""
 from __future__ import annotations
 
-import threading
+import json
+import logging
 import uuid
-from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any, Callable
 
-MAX_JOBS = 50  # oldest finished jobs are evicted beyond this; results can be large
+from app.core.config import settings
+from app.models import database as db
+
+logger = logging.getLogger(__name__)
+QUEUE_NAME = "veritas"
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-class JobStore:
-    """Track background jobs and their results in memory (process-local)."""
+# job_type -> function(payload, owner_id) -> JSON-serialisable result. Registered by app.jobs.tasks.
+TASKS: dict[str, Callable[[dict, str], Any]] = {}
 
+
+def execute(job_id: str) -> None:
+    """Run one job to completion and record the outcome. Called by the worker or the in-process pool."""
+    job = db.get_job(job_id)
+    if job is None or job["status"] != "queued":
+        return
+    db.update_job(job_id, status="running", started_at=_now())
+    try:
+        result = TASKS[job["job_type"]](job["payload"], job["owner_id"])
+        db.update_job(job_id, status="completed", result_json=json.dumps(result, default=str), completed_at=_now())
+    except Exception as exc:  # noqa: BLE001 — job boundary must record failures
+        logger.exception("job %s (%s) failed", job_id, job["job_type"])
+        db.update_job(job_id, status="failed", error=str(exc)[:500], completed_at=_now())
+
+
+class JobQueue:
     def __init__(self, max_workers: int = 2) -> None:
-        self._jobs: OrderedDict[str, dict[str, Any]] = OrderedDict()
-        self._lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="analysis-job")
+        self._rq = None
 
-    def submit(self, job_type: str, fn: Callable[[], Any], owner_id: str) -> str:
+    def _redis_queue(self):
+        if self._rq is None:
+            import redis
+            from rq import Queue
+            self._rq = Queue(QUEUE_NAME, connection=redis.Redis.from_url(settings.redis_url), default_timeout=1800)
+        return self._rq
+
+    def submit(self, job_type: str, payload: dict, owner_id: str) -> str:
         job_id = str(uuid.uuid4())
-        with self._lock:
-            self._jobs[job_id] = {
-                "job_id": job_id,
-                "job_type": job_type,
-                "owner_id": owner_id,
-                "status": "queued",
-                "created_at": _now(),
-                "started_at": None,
-                "completed_at": None,
-                "result": None,
-                "error": None,
-            }
-            self._evict()
-
-        def _update(**fields: Any) -> None:
-            with self._lock:
-                if job_id in self._jobs:
-                    self._jobs[job_id].update(fields)
-
-        def _run() -> None:
-            _update(status="running", started_at=_now())
-            try:
-                _update(status="completed", result=fn(), completed_at=_now())
-            except Exception as exc:  # noqa: BLE001 — job boundary must capture failures
-                _update(status="failed", error=str(exc), completed_at=_now())
-
-        self._executor.submit(_run)
+        db.create_job(job_id, job_type, owner_id, payload)
+        if settings.redis_url:
+            self._redis_queue().enqueue("app.jobs.queue.execute", job_id, job_timeout=1800, result_ttl=0)
+        else:
+            self._executor.submit(execute, job_id)
         return job_id
 
-    def _evict(self) -> None:
-        """Drop oldest finished jobs while over the cap (caller holds the lock)."""
-        for job_id in [j for j, v in self._jobs.items() if v["status"] in ("completed", "failed")]:
-            if len(self._jobs) <= MAX_JOBS:
-                break
-            del self._jobs[job_id]
-
     def get(self, job_id: str) -> dict[str, Any] | None:
-        with self._lock:
-            job = self._jobs.get(job_id)
-            return dict(job) if job else None
+        job = db.get_job(job_id)
+        if job:
+            job.pop("payload", None)       # storage keys are internal
+        return job
 
 
-job_store = JobStore()
+job_store = JobQueue()

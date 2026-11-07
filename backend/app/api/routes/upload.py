@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse
 from app.api import dependencies as deps
 from app.api.analysis_helpers import _orchestrate_csv, run_csv_analysis
 from app.core import quota
+from app.core.storage import new_key, storage
 from app.core.security import is_safe_filename, require_user
+from app.jobs import tasks  # noqa: F401  (registers job bodies for the in-process pool)
 from app.jobs.queue import job_store
 
 logger = logging.getLogger(__name__)
@@ -83,21 +85,16 @@ async def analyze_uploaded_csv(
         split.update(split_column=split_column or None, split_cutoff=split_cutoff or None)
 
     if background:
-        def _job() -> dict:
-            result, dataset_id = _orchestrate_csv(content, filename, user["id"], split)
-            result["source"] = "upload"
-            result["owner_id"] = user["id"]
-            result = deps.to_serializable(result)
-            deps.upload_result_cache[dataset_id] = result
-            deps.upload_result_cache[deps.latest_key(user["id"])] = result
-            deps.db.save_result(result, "upload", filename, owner_id=user["id"])
-            deps.db.log_audit_event(
-                user["id"], "analysis.uploaded", "dataset", dataset_id,
-                {"filename": filename, "n_samples": result.get("n_samples"), "verdict": result.get("verdict")},
-            )
-            return result
-
-        job_id = job_store.submit("csv_upload", _job, owner_id=user["id"])
+        # The upload waits in blob storage for a worker; the API process does no analysis and holds no bytes.
+        store = storage()
+        payload = {"key": new_key(user["id"]), "filename": filename}
+        store.put(payload["key"], content)
+        if "reference_bytes" in split:
+            payload["reference_key"] = new_key(user["id"])
+            store.put(payload["reference_key"], split["reference_bytes"])
+        if split.get("split_column"):
+            payload.update(split_column=split["split_column"], split_cutoff=split["split_cutoff"])
+        job_id = job_store.submit("csv_upload", payload, owner_id=user["id"])
         return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:

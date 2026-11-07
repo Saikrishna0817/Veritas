@@ -11,16 +11,16 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core import mailer
 from app.core.config import settings
-from app.core.rate_limit import SlidingWindowRateLimiter
+from app.core.rate_limit import make_limiter
 from app.core.security import (authenticate_user, clear_session_cookies, create_access_token, hash_password, require_user,
                                set_session_cookies)
 from app.models import database as db
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-login_rate_limiter = SlidingWindowRateLimiter(limit=5, window_seconds=60)
-signup_rate_limiter = SlidingWindowRateLimiter(limit=5, window_seconds=3600)
-mail_rate_limiter = SlidingWindowRateLimiter(limit=5, window_seconds=3600)
+login_rate_limiter = make_limiter("login", 5, 60)
+signup_rate_limiter = make_limiter("signup", 5, 3600)
+mail_rate_limiter = make_limiter("mail", 5, 3600)
 
 VERIFY_TTL_MIN, RESET_TTL_MIN = 24 * 60, 60
 

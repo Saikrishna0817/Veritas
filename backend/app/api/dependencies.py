@@ -31,7 +31,7 @@ from app.forensics.engine import (
 from app.ingestion.csv_engine import CSVIngestionEngine
 from app.ingestion.model_engine import ModelScanEngine
 from app.utils.serialization import to_serializable
-from app.core.rate_limit import SlidingWindowRateLimiter
+from app.core.rate_limit import make_limiter
 
 # ── Database init ─────────────────────────────────────────────────────────────
 db.init_db()
@@ -158,7 +158,7 @@ def resolve_latest_result(owner_id: str, prefer: str = "auto") -> dict | None:
 # Used by upload, model scan, real-dataset analysis, demo run, and red-team.
 # Process-local by design for the single-instance prototype; production
 # deployments should enforce the same policy at the gateway/shared store.
-analysis_rate_limiter = SlidingWindowRateLimiter(limit=10, window_seconds=60)
+analysis_rate_limiter = make_limiter("analysis", 10, 60)
 
 
 # ── WebSocket broadcast helper ────────────────────────────────────────────────

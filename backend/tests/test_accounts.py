@@ -119,3 +119,24 @@ def test_websocket_cookie_session_rejects_foreign_origin():
     with pytest.raises(WebSocketDisconnect):
         with c.websocket_connect("/ws/v1/detection-stream", headers={"origin": "https://evil.example", **cookie}) as ws:
             ws.receive_json()
+
+
+def test_redis_rate_limiter_is_shared_between_instances():
+    import os
+    import uuid
+    url = os.environ.get("VERITAS_TEST_REDIS_URL")
+    if not url:
+        pytest.skip("set VERITAS_TEST_REDIS_URL to run against a Redis server")
+    from app.core.rate_limit import RedisRateLimiter
+    name = "t" + uuid.uuid4().hex[:8]
+    a, b = RedisRateLimiter(url, name, 3, 60), RedisRateLimiter(url, name, 3, 60)   # two "processes"
+    assert [a.allow("k"), b.allow("k"), a.allow("k"), b.allow("k")] == [True, True, True, False]
+    assert a.allow("other")
+    a.clear()
+    assert b.allow("k")
+
+
+def test_redis_limiter_degrades_to_local_when_redis_is_down():
+    from app.core.rate_limit import RedisRateLimiter
+    lim = RedisRateLimiter("redis://127.0.0.1:1", "down", 2, 60)
+    assert [lim.allow("k"), lim.allow("k"), lim.allow("k")] == [True, True, False]

@@ -9,13 +9,16 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
 from app.api.analysis_helpers import run_model_analysis
 from app.api.routes.upload import read_upload_limited
 from app.core import quota
+from app.core.storage import new_key, storage
+from app.jobs import tasks  # noqa: F401
+from app.jobs.queue import job_store
 from app.core.security import is_safe_filename, require_user
 
 logger = logging.getLogger(__name__)
@@ -32,6 +35,7 @@ async def scan_model(
     background_tasks: BackgroundTasks,
     request: Request,
     model_file: UploadFile = File(...),
+    background: bool = Query(False, description="Return 202 + job_id immediately; poll GET /jobs/{job_id}"),
     user: dict = Depends(require_user),
 ):
     """Statically scan a model file for anything that can run code when it is loaded. The file is never executed."""
@@ -49,6 +53,13 @@ async def scan_model(
     model_bytes = await read_upload_limited(model_file, MAX_SCAN_SIZE)
     model_filename = model_file.filename
     quota.charge_scan(user, len(model_bytes))
+
+    if background:
+        store = storage()
+        key = new_key(user["id"], "model")
+        store.put(key, model_bytes)
+        job_id = job_store.submit("model_scan", {"key": key, "filename": model_filename}, owner_id=user["id"])
+        return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
         full_result = await run_model_analysis(model_bytes, model_filename)
