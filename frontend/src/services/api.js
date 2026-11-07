@@ -2,15 +2,20 @@
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
-function authHeaders() {
-    const token = localStorage.getItem('veritas_access_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+// Browser sessions are an httpOnly cookie the page cannot read, so there is no token to store (nothing for an
+// injected script to steal). State-changing calls echo the CSRF cookie in a header; the server compares the two.
+function csrfToken() {
+    const match = document.cookie.match(/(?:^|; )veritas_csrf=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+function authHeaders(method = 'GET') {
+    return method === 'GET' || method === 'HEAD' ? {} : { 'X-CSRF-Token': csrfToken() };
 }
 
 // An expired or revoked token makes every call fail with 401. Drop it and send the
 // user to the right sign-in page instead of leaving each page to show a raw error.
 function handleUnauthorized() {
-    localStorage.removeItem('veritas_access_token');
     const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
     if (window.location.pathname !== loginPath) window.location.assign(loginPath);
 }
@@ -24,21 +29,22 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
     const res = await fetch(`${BASE_URL}${path}`, {
+        credentials: 'same-origin',
         ...options,
-        headers: { 'Content-Type': 'application/json', ...(skipAuth ? {} : authHeaders()), ...headers },
+        headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
     });
     await failIfNotOk(res, 'API error', skipAuth);
     return res.json();
 }
 
 async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', headers: authHeaders(), body: formData });
+    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await fetch(`${BASE_URL}${path}`, { headers: authHeaders() });
+    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' });
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
@@ -49,11 +55,9 @@ async function downloadFile(path, filename) {
 }
 
 export function createWebSocket(onMessage) {
-    const token = localStorage.getItem('veritas_access_token');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // The browser sends the session cookie with the handshake; the server also checks the Origin header.
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws/v1/detection-stream`);
-    // The token goes in the first frame, not the URL, so it stays out of access logs.
-    ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }));
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
@@ -74,7 +78,18 @@ export const api = {
         body: JSON.stringify({ username, password, required_role: requiredRole }),
     }),
 
-    me: () => apiFetch('/auth/me'),
+    me: () => apiFetch('/auth/me', { skipAuth: true }),
+    logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
+    signup: (username, email, password) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password }) }),
+    verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
+    resendVerification: (email) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    requestPasswordReset: (email) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
+    getUsage: () => apiFetch('/account/usage'),
+    deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
+    listApiKeys: () => apiFetch('/account/api-keys'),
+    createApiKey: (name) => apiFetch('/account/api-keys', { method: 'POST', body: JSON.stringify({ name }) }),
+    revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),
 
     // User management (Admin only)
     getUsers: () => apiFetch('/users'),

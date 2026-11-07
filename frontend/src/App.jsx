@@ -26,6 +26,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const BlueTeamPage = lazy(() => import('./pages/BlueTeamPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
+const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
 
 const PageFallback = () => (
   <div className="p-8 text-textMuted font-mono text-sm">Loading…</div>
@@ -205,6 +206,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
+        <Route path="/signup" element={<AccountFlowPage mode="signup" />} />
+        <Route path="/verify-email" element={<AccountFlowPage mode="verify" />} />
+        <Route path="/forgot-password" element={<AccountFlowPage mode="forgot" />} />
+        <Route path="/reset-password" element={<AccountFlowPage mode="reset" />} />
         <Route
           path="/*"
           element={

@@ -288,6 +288,10 @@ export default function LoginPage() {
 
         {/* Switch to Admin Login Link */}
         <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12 }}>
+            <Link to="/signup" style={{ color: 'var(--text-secondary)' }}>Create account</Link>
+            <Link to="/forgot-password" style={{ color: 'var(--text-secondary)' }}>Forgot password?</Link>
+          </div>
           <Link
             to="/admin/login"
             style={{
