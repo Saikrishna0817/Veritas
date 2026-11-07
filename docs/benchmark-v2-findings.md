@@ -234,3 +234,18 @@ decompression bomb, torch zip and legacy torch, sklearn model, safetensors, ONNX
 the roadmap's exit bar: it has not been run against a public corpus of malicious models or a benign model-hub sample, and
 has not been compared with modelscan/picklescan. Known gaps: HDF5/Keras, TensorFlow SavedModel, nested archives, pickles that
 build their call chain without any dangerous import (the unknown-import rule covers custom classes only).
+
+# Phase 4: scanner benchmark and first hardening slice
+
+- **Scanner benchmark:** see `docs/scanner-benchmark.md`. It found a real hole (dotted attribute paths through allowed libraries,
+  0/35 files caught on the first held-out run) and benign joblib files that the first parser rejected; both are fixed and covered by tests.
+- **Tenant isolation (roadmap Phase 3):** results, model scans, defense actions and review cases carry `owner_id`; every read takes an
+  explicit owner (`ALL_OWNERS` for admins), so a forgotten filter is a `TypeError`. The global `latest` caches, live websocket events,
+  history, reports, forensics, trust score, review queue and job lookups are per user. `tests/test_tenant_isolation.py` runs two users
+  through all of that; the roadmap gate "two test users can't see each other's data" now has an automated test.
+- **Quotas and data control:** daily per-user analyses, rows and scan-MB limits (admins exempt, `VERITAS_QUOTA_*`), `GET /account/usage`,
+  `DELETE /account/data` (delete-my-data) and a startup retention purge (`VERITAS_RETENTION_DAYS`, default 30).
+- **Still open in Phase 3:** Postgres + migrations (SQLite still), object storage for uploads, a real job queue and separate workers,
+  self-serve sign-up/email verification/password reset, JWT in an httpOnly cookie with CSRF, Redis-backed rate limit (the limiter and
+  the quotas' atomicity are single-process/SQLite), API keys and CLI, Playwright e2e and load tests. Pre-existing legacy rows with no owner
+  are visible only to admins.
