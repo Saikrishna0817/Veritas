@@ -25,6 +25,11 @@ def _now() -> str:
 TASKS: dict[str, Callable[[dict, str], Any]] = {}
 
 
+def _count(job_type: str, status: str) -> None:
+    from app.core.observability import JOBS
+    JOBS.labels(job_type, status).inc()
+
+
 def execute(job_id: str) -> None:
     """Run one job to completion and record the outcome. Called by the worker or the in-process pool."""
     job = db.get_job(job_id)
@@ -33,9 +38,11 @@ def execute(job_id: str) -> None:
     db.update_job(job_id, status="running", started_at=_now())
     try:
         result = TASKS[job["job_type"]](job["payload"], job["owner_id"])
+        _count(job["job_type"], "completed")
         db.update_job(job_id, status="completed", result_json=json.dumps(result, default=str), completed_at=_now())
     except Exception as exc:  # noqa: BLE001 — job boundary must record failures
         logger.exception("job %s (%s) failed", job_id, job["job_type"])
+        _count(job["job_type"], "failed")
         db.update_job(job_id, status="failed", error=str(exc)[:500], completed_at=_now())
 
 

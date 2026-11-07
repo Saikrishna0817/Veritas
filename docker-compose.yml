@@ -1,36 +1,89 @@
+# Full stack: Postgres, Redis, API, analysis worker, web (nginx). `docker compose up --build`
+# Copy .env.example to .env first. For a public host put TLS (Cloudflare, Caddy, ...) in front and set
+# VERITAS_COOKIE_SECURE=true, CORS_ALLOW_ORIGINS=https://your.domain and VERITAS_PUBLIC_URL=https://your.domain.
+x-backend-env: &backend-env
+  PYTHONUNBUFFERED: "1"
+  VERITAS_DATABASE_URL: postgresql://veritas:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/veritas
+  VERITAS_REDIS_URL: redis://redis:6379/0
+  VERITAS_STORAGE_URL: ${VERITAS_STORAGE_URL:-file:///uploads}
+  VERITAS_S3_ENDPOINT: ${VERITAS_S3_ENDPOINT:-}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-http://localhost:5173}
+  VERITAS_PUBLIC_URL: ${VERITAS_PUBLIC_URL:-http://localhost:5173}
+  VERITAS_COOKIE_SECURE: ${VERITAS_COOKIE_SECURE:-false}
+  VERITAS_JWT_SECRET: ${VERITAS_JWT_SECRET:?Set VERITAS_JWT_SECRET in .env}
+  VERITAS_ADMIN_USERNAME: ${VERITAS_ADMIN_USERNAME:?Set VERITAS_ADMIN_USERNAME in .env}
+  VERITAS_ADMIN_PASSWORD: ${VERITAS_ADMIN_PASSWORD:?Set VERITAS_ADMIN_PASSWORD in .env}
+  VERITAS_SMTP_HOST: ${VERITAS_SMTP_HOST:-}
+  VERITAS_SMTP_PORT: ${VERITAS_SMTP_PORT:-587}
+  VERITAS_SMTP_USER: ${VERITAS_SMTP_USER:-}
+  VERITAS_SMTP_PASSWORD: ${VERITAS_SMTP_PASSWORD:-}
+  VERITAS_MAIL_FROM: ${VERITAS_MAIL_FROM:-Veritas <no-reply@localhost>}
+  VERITAS_TURNSTILE_SECRET: ${VERITAS_TURNSTILE_SECRET:-}
+  VERITAS_METRICS_TOKEN: ${VERITAS_METRICS_TOKEN:-}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+
 services:
-  backend:
-    build:
-      context: ./backend
+  postgres:
+    image: postgres:16-alpine
     restart: unless-stopped
-    # Not published: only the frontend (nginx) container may reach the API, so
-    # forwarded client-IP headers can be trusted.
-    expose:
-      - "8001"
     environment:
-      - PYTHONUNBUFFERED=1
-      - FORENSICS_SQLITE_PATH=/data/forensics_results.db
-      - CORS_ALLOW_ORIGINS=http://localhost:5173
-      - VERITAS_JWT_SECRET=${VERITAS_JWT_SECRET:?Set VERITAS_JWT_SECRET in .env}
-      - VERITAS_ADMIN_USERNAME=${VERITAS_ADMIN_USERNAME:?Set VERITAS_ADMIN_USERNAME in .env}
-      - VERITAS_ADMIN_PASSWORD=${VERITAS_ADMIN_PASSWORD:?Set VERITAS_ADMIN_PASSWORD in .env}
+      POSTGRES_USER: veritas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: veritas
     volumes:
-      - veritas_data:/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veritas -d veritas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]   # queue + rate limits only; results live in Postgres
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    expose: ["8001"]          # not published: only nginx may reach the API, so forwarded client-IP headers can be trusted
+    environment: *backend-env
+    volumes:
+      - uploads:/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
 
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.jobs.worker"]
+    environment: *backend-env
+    volumes:
+      - uploads:/uploads
+    depends_on:
+      backend: { condition: service_healthy }   # the API container applies migrations first
+
   frontend:
-    build:
-      context: ./frontend
+    build: ./frontend
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "${WEB_PORT:-5173}:5173"
     depends_on:
-      backend:
-        condition: service_healthy
+      backend: { condition: service_healthy }
 
 volumes:
-  veritas_data:
+  pgdata:
+  uploads:

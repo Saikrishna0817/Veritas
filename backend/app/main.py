@@ -13,6 +13,7 @@ validate_security_settings()
 
 from app.api.router import api_router, ws_router  # noqa: E402
 from app.api.routes.websocket import ConnectionManager  # noqa: E402
+from app.core import observability
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestIDMiddleware, SecurityHeadersMiddleware
 
@@ -38,6 +39,8 @@ async def lifespan(app: FastAPI):
     logger.info("AI Trust Forensics Platform shutting down")
 
 
+observability.init_sentry()
+
 app = FastAPI(
     title="AI Trust Forensics Platform",
     description="Analyst-support platform for investigating risk signals consistent with adversarial data poisoning.",
@@ -59,14 +62,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_allow_origins),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-CSRF-Token"],
     expose_headers=["X-Request-ID"],
 )
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(ws_router)
+
+observability.install(app)
 
 # Store WebSocket manager on app state so routes can broadcast events
 app.state.ws_manager = manager

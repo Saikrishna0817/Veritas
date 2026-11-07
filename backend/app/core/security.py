@@ -9,7 +9,8 @@ import hmac
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 import bcrypt
 
 from app.core.config import settings
@@ -83,7 +84,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
 def token_expiry(token: str) -> float:
     """Unix expiry time of an already-verified token."""
-    return float(jwt.get_unverified_claims(token)["exp"])
+    return float(jwt.decode(token, options={"verify_signature": False})["exp"])
 
 
 SESSION_COOKIE = "veritas_session"      # httpOnly: the JWT, never readable by page scripts

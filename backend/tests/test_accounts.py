@@ -140,3 +140,13 @@ def test_redis_limiter_degrades_to_local_when_redis_is_down():
     from app.core.rate_limit import RedisRateLimiter
     lim = RedisRateLimiter("redis://127.0.0.1:1", "down", 2, 60)
     assert [lim.allow("k"), lim.allow("k"), lim.allow("k")] == [True, True, False]
+
+
+def test_metrics_endpoint_is_hidden_without_a_token_and_exposes_route_templates(monkeypatch):
+    c = _client()
+    c.get("/health")
+    assert c.get("/metrics").status_code == 404
+    monkeypatch.setenv("VERITAS_METRICS_TOKEN", "scrape-secret-123")
+    assert c.get("/metrics", headers={"Authorization": "Bearer nope"}).status_code == 404
+    body = c.get("/metrics", headers={"Authorization": "Bearer scrape-secret-123"}).text
+    assert 'veritas_http_requests_total{method="GET",route="/health",status="200"}' in body
