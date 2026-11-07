@@ -49,7 +49,8 @@ SAFE_GLOBALS = {
     ("sklearn._loss.loss", "HalfBinomialLoss"), ("sklearn._loss.loss", "HalfSquaredError"),
     ("sklearn._loss.link", "IdentityLink"), ("sklearn._loss.link", "LogitLink"),
     ("sklearn._loss.link", "Interval"),
-    ("_loss", "CyHalfBinomialLoss"), ("_loss", "CyHalfSquaredError"),
+    ("_loss", "CyHalfBinomialLoss"), ("_loss", "CyHalfSquaredError"),                      # scikit-learn <= 1.8
+    ("sklearn._loss._loss", "CyHalfBinomialLoss"), ("sklearn._loss._loss", "CyHalfSquaredError"),   # scikit-learn >= 1.9
     ("sklearn.linear_model._sgd_fast", "Hinge"),
     ("sklearn.metrics._dist_metrics", "newObj"),
     ("sklearn.metrics._dist_metrics", "EuclideanDistance64"), ("sklearn.metrics._dist_metrics", "EuclideanDistance32"),
