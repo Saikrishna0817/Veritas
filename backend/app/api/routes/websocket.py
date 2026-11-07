@@ -19,19 +19,23 @@ AUTH_TIMEOUT_SECS = 5
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
+        self._owners: dict[int, str] = {}
 
-    def connect(self, websocket: WebSocket):
-        """Register an already-accepted, authenticated socket."""
+    def connect(self, websocket: WebSocket, owner_id: str):
+        """Register an already-accepted, authenticated socket for one user."""
         self.active_connections.append(websocket)
+        self._owners[id(websocket)] = owner_id
 
     def disconnect(self, websocket: WebSocket):
+        self._owners.pop(id(websocket), None)
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
-    async def broadcast(self, event: str, data: dict):
+    async def broadcast(self, event: str, data: dict, owner_id: str):
+        """Send only to the sockets of ``owner_id``: events carry that user's own analysis results."""
         message = json.dumps({"event": event, "data": data})
         dead = []
-        for connection in list(self.active_connections):
+        for connection in [c for c in list(self.active_connections) if self._owners.get(id(c)) == owner_id]:
             try:
                 await connection.send_text(message)
             except Exception:
@@ -75,7 +79,7 @@ async def detection_stream(websocket: WebSocket):
 
     expires_at = token_expiry(token)
     manager: ConnectionManager = websocket.app.state.ws_manager
-    manager.connect(websocket)
+    manager.connect(websocket, decode_access_token(token)["id"])
     try:
         while True:
             remaining = expires_at - time.time()

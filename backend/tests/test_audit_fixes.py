@@ -112,23 +112,23 @@ def test_websocket_rejects_query_string_token():
 
 def test_quarantine_state_is_persisted_and_scoped_per_dataset():
     samples = [{"id": f"row_{i}", "poison_status": "suspected"} for i in range(40)]
-    a = deps.defense._quarantine(samples, 0.9, scope="scope-A")
+    a = deps.defense._quarantine(samples, 0.9, scope="scope-A", owner_id="u1")
     assert a["samples_affected"] == 2  # 5% of 40
-    assert {f"scope-A:{i}" for i in a["sample_ids"]} <= deps.defense.quarantined_ids
+    assert {f"scope-A:{i}" for i in a["sample_ids"]} <= deps.defense.quarantined_ids("u1")
     # Same ids in a different dataset are independent.
-    b = deps.defense._quarantine(samples, 0.9, scope="scope-B")
+    b = deps.defense._quarantine(samples, 0.9, scope="scope-B", owner_id="u1")
     assert b["sample_ids"] == a["sample_ids"]
     # A fresh engine instance sees the same persisted state (no in-memory state).
     from app.defense.engine import StabilityAwareAutoDefense
 
-    assert StabilityAwareAutoDefense().quarantined_ids == deps.defense.quarantined_ids
+    assert StabilityAwareAutoDefense().quarantined_ids("u1") == deps.defense.quarantined_ids("u1")
 
 
 def test_cooldown_is_per_dataset():
     samples = [{"id": f"row_{i}", "poison_status": "suspected"} for i in range(40)]
-    first = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-A")
-    again = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-A")
-    other = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-B")
+    first = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-A", owner_id="u1")
+    again = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-A", owner_id="u1")
+    other = deps.defense.decide_action(samples, 0.95, "CONFIRMED_POISONED", scope="cool-B", owner_id="u1")
     assert first["action"] == "quarantine"
     assert again["action"] == "cooldown"
     assert other["action"] == "quarantine"
@@ -136,7 +136,7 @@ def test_cooldown_is_per_dataset():
 
 def test_hitl_decision_uses_token_identity_and_acts_on_approval():
     samples = [{"id": f"row_{i}", "poison_status": "suspected" if i < 3 else "unknown"} for i in range(50)]
-    case = deps.hitl.enqueue(samples, {}, 0.5, scope="hitl-ds")
+    case = deps.hitl.enqueue(samples, {}, 0.5, scope="hitl-ds", owner_id="u1")
     body = {"case_id": case["case_id"], "decision": "approve_quarantine", "reviewer": "someone-else"}
 
     r = client.post("/api/v1/defense/hitl/decide", json=body, headers=_auth(name="alice"))
@@ -144,7 +144,7 @@ def test_hitl_decision_uses_token_identity_and_acts_on_approval():
     out = r.json()
     assert out["reviewer"] == "alice"  # client-supplied reviewer ignored
     assert out["defense_action"]["samples_affected"] == 3
-    assert "hitl-ds:row_0" in deps.defense.quarantined_ids
+    assert "hitl-ds:row_0" in deps.defense.quarantined_ids("u1")
 
     # Already resolved -> 404, not 200 with an error body.
     assert client.post("/api/v1/defense/hitl/decide", json=body, headers=_auth()).status_code == 404
@@ -159,8 +159,9 @@ def _fake_dataset_result(n=100, flagged=range(10), split=70, dataset_id="ds-fake
 
 
 def test_manual_quarantine_acts_on_the_analysed_dataset_not_demo_rows():
-    previous = deps.upload_result_cache.get("latest")
-    deps.upload_result_cache["latest"] = _fake_dataset_result()
+    key = deps.latest_key("admin")
+    previous = deps.upload_result_cache.get(key)
+    deps.upload_result_cache[key] = _fake_dataset_result()
     try:
         r = client.post("/api/v1/defense/quarantine", headers=_auth("admin", "root", "admin"))
         assert r.status_code == 200
@@ -169,12 +170,12 @@ def test_manual_quarantine_acts_on_the_analysed_dataset_not_demo_rows():
         assert action["samples_affected"] == 5  # capped at 5% of 100 incoming rows
         assert all(i.startswith("row_7") for i in action["sample_ids"])  # split=70 -> row_70..
 
-        deps.upload_result_cache["latest"] = {"source": "upload", "overall_suspicion_score": 0.9}
+        deps.upload_result_cache[key] = {"source": "upload", "overall_suspicion_score": 0.9}
         r = client.post("/api/v1/defense/quarantine", headers=_auth("admin", "root", "admin"))
         assert r.status_code == 409
     finally:
         if previous is not None:
-            deps.upload_result_cache["latest"] = previous
+            deps.upload_result_cache[key] = previous
 
 
 # ── Jobs / limits / causal layer ─────────────────────────────────────────────

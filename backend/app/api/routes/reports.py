@@ -30,13 +30,13 @@ class HITLDecisionRequest(BaseModel):
 
 # ── Helper: resolve the best available result ─────────────────────────────────
 
-def _get_best_result(prefer: str = "auto") -> dict:
+def _get_best_result(user: dict, prefer: str = "auto") -> dict:
     """Resolve analysis without inventing synthetic data.
 
     prefer: auto | real | upload | real_dataset | demo
     Raises HTTPException 404 with a clear empty-state message if nothing exists.
     """
-    result = deps.resolve_latest_result(prefer=prefer)
+    result = deps.resolve_latest_result(user["id"], prefer=prefer)
     if result is not None:
         return result
 
@@ -64,12 +64,14 @@ def _get_best_result(prefer: str = "auto") -> dict:
 async def get_analysis_history(
     source: Optional[str] = Query(None, pattern="^(demo|upload|real_dataset|model_scan)$"),
     limit: int = Query(50, ge=1, le=200),
+    user: dict = Depends(require_user),
 ):
-    """Return combined history from analysis_results + model_scans tables."""
-    rows = deps.db.get_history(source=source, limit=limit)
+    """The caller's history (every user's for an admin): analysis_results + model_scans."""
+    owner = deps.owner_scope(user)
+    rows = deps.db.get_history(owner, source=source, limit=limit)
     model_rows = []
     if source in (None, "model_scan"):
-        model_rows = deps.db.get_model_scan_history(limit=limit)
+        model_rows = deps.db.get_model_scan_history(owner, limit=limit)
         for r in model_rows:
             r["source"] = "model_scan"
             r["filename"] = r.get("model_filename")
@@ -79,7 +81,7 @@ async def get_analysis_history(
     combined.sort(key=lambda x: x.get("created_at", ""), reverse=True)
     combined = combined[:limit]
 
-    stats = deps.db.get_stats()
+    stats = deps.db.get_stats(owner)
     return {"results": combined, "stats": stats}
 
 
@@ -95,10 +97,11 @@ async def get_my_audit_events(
 
 
 @router.get("/history/{result_id}")
-async def get_historical_result(result_id: str):
-    result = deps.db.get_result(result_id)
+async def get_historical_result(result_id: str, user: dict = Depends(require_user)):
+    owner = deps.owner_scope(user)
+    result = deps.db.get_result(result_id, owner)
     if not result:
-        result = deps.db.get_model_scan(result_id)
+        result = deps.db.get_model_scan(result_id, owner)
     if not result:
         raise HTTPException(status_code=404, detail="Result not found in database.")
     return result
@@ -107,7 +110,7 @@ async def get_historical_result(result_id: str):
 @router.delete("/history/{result_id}")
 async def delete_historical_result(result_id: str, admin: dict = Depends(require_admin)):
     """Delete a historical dataset or model scan analysis record (Admin only)."""
-    success = deps.db.delete_result(result_id)
+    success = deps.db.delete_result(result_id, deps.db.ALL_OWNERS)
     if not success:
         raise HTTPException(status_code=404, detail="Result record not found.")
     deps.db.log_audit_event(
@@ -125,8 +128,8 @@ async def delete_historical_result(result_id: str, admin: dict = Depends(require
 
 
 @router.get("/forensics/latest")
-async def get_latest_forensics(source: str = Query("auto", description="auto|demo|upload")):
-    r = _get_best_result(source)
+async def get_latest_forensics(source: str = Query("auto", description="auto|demo|upload"), user: dict = Depends(require_user)):
+    r = _get_best_result(user, source)
     return {
         "attack_classification": r.get("attack_classification"),
         "injection_pattern": r.get("injection_pattern"),
@@ -139,8 +142,8 @@ async def get_latest_forensics(source: str = Query("auto", description="auto|dem
 
 
 @router.get("/forensics/narrative")
-async def get_attack_narrative(source: str = Query("auto", description="auto|demo|upload")):
-    r = _get_best_result(source)
+async def get_attack_narrative(source: str = Query("auto", description="auto|demo|upload"), user: dict = Depends(require_user)):
+    r = _get_best_result(user, source)
     pattern = r.get("injection_pattern") or {}
     return {"narrative": pattern.get("narrative", "No narrative available."), "source": r.get("source", "demo")}
 
@@ -152,8 +155,8 @@ async def get_attack_timeline():
 
 
 @router.get("/blast-radius/latest")
-async def get_blast_radius(source: str = Query("auto", description="auto|demo|upload")):
-    r = _get_best_result(source)
+async def get_blast_radius(source: str = Query("auto", description="auto|demo|upload"), user: dict = Depends(require_user)):
+    r = _get_best_result(user, source)
     return r.get("blast_radius") or {}
 
 
@@ -163,7 +166,7 @@ async def get_blast_radius(source: str = Query("auto", description="auto|demo|up
 @router.post("/defense/quarantine")
 async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only quarantine trigger
     """Quarantine rows the latest dataset analysis flagged (capped at 5% of the batch)."""
-    r = _get_best_result("auto")
+    r = _get_best_result(user, "auto")
     info = r.get("dataset_info") or {}
     layer3 = (r.get("layer_results") or {}).get("row_flags") or {}
     split = info.get("reference_split")
@@ -179,7 +182,7 @@ async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only
         {"id": f"row_{split + i}", "poison_status": "suspected" if i in flagged_set else "unknown"}
         for i in range(r.get("n_samples", 0))
     ]
-    action = deps.defense._quarantine(rows, r["overall_suspicion_score"], scope=scope)
+    action = deps.defense._quarantine(rows, r["overall_suspicion_score"], scope=scope, owner_id=user["id"])
     deps.db.log_audit_event(
         user["id"], "defense.quarantine", "dataset", scope,
         {"samples_affected": action["samples_affected"], "action_id": action["action_id"]},
@@ -188,13 +191,13 @@ async def trigger_quarantine(user: dict = Depends(require_admin)):  # Admin-only
 
 
 @router.get("/defense/status")
-async def get_defense_status():
-    return deps.defense.get_status()
+async def get_defense_status(user: dict = Depends(require_user)):
+    return deps.defense.get_status(user["id"])
 
 
 @router.get("/defense/hitl/pending")
-async def get_pending_reviews():
-    return {"cases": deps.hitl.get_pending()}
+async def get_pending_reviews(user: dict = Depends(require_user)):
+    return {"cases": deps.hitl.get_pending(user["id"])}
 
 
 @router.post("/defense/hitl/decide")
@@ -203,7 +206,7 @@ async def submit_review_decision(
     user: dict = Depends(require_user),  # M2: auth required
 ):
     # The reviewer is the authenticated user, never a client-supplied name.
-    record = deps.hitl.decide(body.case_id, body.decision, reviewer=user["name"])
+    record = deps.hitl.decide(body.case_id, body.decision, reviewer=user["name"], owner_id=user["id"])
     if record is None:
         raise HTTPException(status_code=404, detail="Case not found or already resolved.")
     case = record.pop("case")
@@ -212,6 +215,7 @@ async def submit_review_decision(
             case.get("sample_ids", []),
             case.get("scope", ""),
             reason=f"HITL case {body.case_id} approved by {user['name']}",
+            owner_id=user["id"],
         )
     deps.db.log_audit_event(
         user["id"], "hitl.decided", "hitl_case", body.case_id, {"decision": body.decision}
@@ -223,7 +227,7 @@ async def submit_review_decision(
 
 
 @router.post("/reports/generate")
-async def generate_report(source: str = Query("auto", description="auto|demo|upload|real_dataset")):
+async def generate_report(source: str = Query("auto", description="auto|demo|upload|real_dataset"), user: dict = Depends(require_user)):
     """
     Generate a forensic evidence report.
     source=auto  → use the most recent result (upload wins over demo)
@@ -231,7 +235,7 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
     source=upload → use the latest uploaded CSV result
     """
     prefer = "real" if source == "auto" else source
-    r = _get_best_result(prefer)
+    r = _get_best_result(user, prefer)
 
     report = {
         "report_id": str(uuid.uuid4()),
@@ -253,7 +257,7 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
         "evidence_bundle": r.get("layer_results"),
         "layer_scores": r.get("layer_scores"),
         "attack_narrative": (r.get("injection_pattern") or {}).get("narrative", ""),
-        "defense_actions": deps.defense.defense_log,
+        "defense_actions": deps.defense.defense_log(user["id"]),
         "limitations": {
             "status": "experimental_analyst_support",
             "notice": (
@@ -275,13 +279,13 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
 
 
 @router.get("/blueteam/status")
-async def get_blueteam_status():
-    defense_status = deps.defense.get_status()
-    pending_cases = deps.hitl.get_pending()
+async def get_blueteam_status(user: dict = Depends(require_user)):
+    defense_status = deps.defense.get_status(user["id"])
+    pending_cases = deps.hitl.get_pending(user["id"])
     threat_level = "NOMINAL"
     verdict = "CLEAN"
     suspicion = 0.0
-    result = deps.resolve_latest_result(prefer="auto")
+    result = deps.resolve_latest_result(user["id"], prefer="auto")
     if result:
         verdict = result.get("verdict", "CLEAN")
         suspicion = result.get("overall_suspicion_score", 0)
@@ -307,9 +311,9 @@ async def get_blueteam_status():
 
 
 @router.get("/blueteam/incidents")
-async def get_blueteam_incidents():
-    log = list(reversed(deps.defense.defense_log))
-    hitl_decisions = list(reversed(deps.hitl.decisions))
+async def get_blueteam_incidents(user: dict = Depends(require_user)):
+    log = list(reversed(deps.defense.defense_log(user["id"])))
+    hitl_decisions = list(reversed(deps.hitl.decisions(user["id"])))
 
     incidents = []
     for action in log:

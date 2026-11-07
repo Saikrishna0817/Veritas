@@ -106,8 +106,17 @@ class _LRUCache:
 demo_result_cache: _LRUCache = _LRUCache(maxsize=20)
 upload_result_cache: _LRUCache = _LRUCache(maxsize=50)
 
-def resolve_latest_result(prefer: str = "auto") -> dict | None:
-    """Best available analysis without generating synthetic data.
+def owner_scope(user: dict) -> str:
+    """Whose rows a list/read endpoint may show: everyone's for an admin, otherwise only the caller's."""
+    return db.ALL_OWNERS if user.get("role") == "admin" else user["id"]
+
+
+def latest_key(owner_id: str) -> str:
+    return f"latest:{owner_id}"
+
+
+def resolve_latest_result(owner_id: str, prefer: str = "auto") -> dict | None:
+    """The owner's best available analysis, without generating synthetic data. Never another user's.
 
     prefer:
       auto         → real first; demo only as last resort
@@ -117,38 +126,29 @@ def resolve_latest_result(prefer: str = "auto") -> dict | None:
       demo         → demo only
     """
     prefer = (prefer or "auto").lower()
+    key = latest_key(owner_id)
 
     if prefer == "demo":
-        cached = demo_result_cache.get("latest")
-        if cached:
-            return cached
-        return db.get_latest(source="demo")
+        return demo_result_cache.get(key) or db.get_latest(owner_id, source="demo")
 
     if prefer == "upload":
-        cached = upload_result_cache.get("latest")
-        if cached:
-            return cached
-        return db.get_latest(source="upload")
+        return upload_result_cache.get(key) or db.get_latest(owner_id, source="upload")
 
     if prefer == "real_dataset":
-        return db.get_latest(source="real_dataset")
+        return db.get_latest(owner_id, source="real_dataset")
 
-    upload_cached = upload_result_cache.get("latest")
+    upload_cached = upload_result_cache.get(key)
     if upload_cached:
         return upload_cached
 
-    real = db.get_latest_real()
+    real = db.get_latest_real(owner_id)
     if real:
         return real
 
     if prefer == "real":
         return None
 
-    demo_cached = demo_result_cache.get("latest")
-    if demo_cached:
-        return demo_cached
-
-    return db.get_latest()
+    return demo_result_cache.get(key) or db.get_latest(owner_id)
 
 
 # ── Rate limiters ─────────────────────────────────────────────────────────────
@@ -161,7 +161,7 @@ analysis_rate_limiter = SlidingWindowRateLimiter(limit=10, window_seconds=60)
 
 # ── WebSocket broadcast helper ────────────────────────────────────────────────
 
-async def broadcast_demo_events(manager, result: dict) -> None:
+async def broadcast_demo_events(manager, result: dict, owner_id: str) -> None:
     """Broadcast detection events to all connected WebSocket clients."""
     await manager.broadcast(
         "sample_analyzed",
@@ -170,6 +170,7 @@ async def broadcast_demo_events(manager, result: dict) -> None:
             "suspicion_score": result.get("overall_suspicion_score"),
             "layer_scores": result.get("layer_scores"),
         },
+        owner_id=owner_id,
     )
 
     if result.get("verdict") and result.get("verdict") != "CLEAN":
@@ -189,6 +190,7 @@ async def broadcast_demo_events(manager, result: dict) -> None:
                     "impact_pct": blast.get("prediction_impact_pct"),
                 },
             },
+            owner_id=owner_id,
         )
 
     defense_action = result.get("defense_action") or {}
@@ -200,6 +202,7 @@ async def broadcast_demo_events(manager, result: dict) -> None:
                 "samples_affected": defense_action.get("samples_affected"),
                 "model_stable": defense_action.get("model_stable", True),
             },
+            owner_id=owner_id,
         )
 
     if result.get("hitl_case"):
@@ -210,4 +213,5 @@ async def broadcast_demo_events(manager, result: dict) -> None:
                 "suspicion_score": result["hitl_case"].get("suspicion_score"),
                 "deadline": result["hitl_case"].get("deadline"),
             },
+            owner_id=owner_id,
         )

@@ -62,7 +62,7 @@ async def run_demo(
         pattern = deps.reconstructor.reconstruct(all_samples, attack_class, result["layer_results"])
         blast = deps.blast_mapper.map(all_samples, result["layer_results"])
         defense_action = deps.defense.decide_action(
-            all_samples, result["overall_suspicion_score"], result["verdict"], scope="demo"
+            all_samples, result["overall_suspicion_score"], result["verdict"], scope="demo", owner_id=user["id"]
         )
         hitl_case = None
         if result.get("requires_human_review"):
@@ -71,6 +71,7 @@ async def run_demo(
                 {**result["layer_results"], "attack_classification": attack_class},
                 result["overall_suspicion_score"],
                 scope="demo",
+                owner_id=user["id"],
             )
         full = {
             **result,
@@ -86,10 +87,11 @@ async def run_demo(
     loop = asyncio.get_running_loop()
     full_result = await loop.run_in_executor(deps.get_thread_pool(), _run)
 
-    deps.demo_result_cache["latest"] = full_result
-    background_tasks.add_task(deps.db.save_result, full_result, "demo", "demo_dataset")
+    full_result["owner_id"] = user["id"]
+    deps.demo_result_cache[deps.latest_key(user["id"])] = full_result
+    background_tasks.add_task(deps.db.save_result, full_result, "demo", "demo_dataset", user["id"])
     ws_manager = request.app.state.ws_manager
-    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result)
+    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result, user["id"])
     return JSONResponse(content=full_result)
 
 
@@ -149,14 +151,14 @@ async def analyze_dataset(
 
     loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(deps.get_thread_pool(), _run)
-    deps.demo_result_cache["detection"] = result
+    deps.demo_result_cache[f"detection:{user['id']}"] = result
     return JSONResponse(content=result)
 
 
 @router.get("/detect/results/latest")
-async def get_latest_results():
-    """Prefer real analysis; demo only as last resort."""
-    r = deps.resolve_latest_result(prefer="auto")
+async def get_latest_results(user: dict = Depends(require_user)):
+    """The caller's latest analysis: real first, demo only as last resort."""
+    r = deps.resolve_latest_result(user["id"], prefer="auto")
     if not r:
         raise HTTPException(
             status_code=404,
@@ -214,6 +216,7 @@ async def analyze_real_dataset(
         full_result, dataset_id = await run_csv_analysis(
             data["csv_bytes"],
             data["filename"],
+            user["id"],
             source="real_dataset",
             extra={
                 "real_dataset_name": name,
@@ -230,9 +233,9 @@ async def analyze_real_dataset(
         )
 
     # Make result available to forensics, reports, and trust-score endpoints
-    deps.upload_result_cache["latest"] = full_result
+    deps.upload_result_cache[deps.latest_key(user["id"])] = full_result
 
-    background_tasks.add_task(deps.db.save_result, full_result, "real_dataset", data["filename"])
+    background_tasks.add_task(deps.db.save_result, full_result, "real_dataset", data["filename"], user["id"])
     ws_manager = request.app.state.ws_manager
-    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result)
+    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result, user["id"])
     return JSONResponse(content=full_result)

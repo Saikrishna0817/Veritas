@@ -124,20 +124,39 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_hitl_decided ON hitl_decisions(decided_at DESC);
     """
     )
+    for table in ("analysis_results", "model_scans", "defense_actions", "hitl_cases"):
+        _add_owner_column(conn, table)
     conn.commit()
     _ensure_bootstrap_admin(conn)
 
 
-def save_result(result: Dict[str, Any], source: str, filename: str = None) -> str:
+# Reads take an explicit owner so a forgotten filter is a TypeError, not a leak. Rows saved before owner_id existed
+# have owner NULL and are visible only with ALL_OWNERS (admins).
+ALL_OWNERS = "*"
+
+
+def _add_owner_column(conn, table: str) -> None:
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if "owner_id" not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN owner_id TEXT")
+    conn.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_owner ON {table}(owner_id)")
+
+
+def _scope(owner_id: str) -> tuple[str, tuple]:
+    """(' AND owner_id = ?', (owner,)) or ('', ()) for ALL_OWNERS."""
+    return ("", ()) if owner_id == ALL_OWNERS else (" AND owner_id = ?", (owner_id,))
+
+
+def save_result(result: Dict[str, Any], source: str, filename: str = None, owner_id: str | None = None) -> str:
     """Persist an analysis result. Returns the stored ID."""
-    rid = result.get("job_id") or result.get("dataset_id") or str(uuid.uuid4())
+    rid = result.get("job_id") or result.get("dataset_id") or (result.get("dataset_info") or {}).get("dataset_id") or str(uuid.uuid4())
     conn = _get_conn()
     conn.execute(
         """
         INSERT OR REPLACE INTO analysis_results
             (id, source, filename, verdict, score, attack_type, detection_mode,
-             n_samples, elapsed_ms, full_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             n_samples, elapsed_ms, full_json, created_at, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             rid,
@@ -149,15 +168,16 @@ def save_result(result: Dict[str, Any], source: str, filename: str = None) -> st
             result.get("detection_mode"),
             result.get("n_samples"),
             result.get("elapsed_ms"),
-            json.dumps(result),
+            json.dumps({**result, "owner_id": owner_id}),
             datetime.now(timezone.utc).isoformat(),
+            owner_id,
         ),
     )
     conn.commit()
     return rid
 
 
-def save_model_scan(scan: Dict[str, Any]) -> str:
+def save_model_scan(scan: Dict[str, Any], owner_id: str | None = None) -> str:
     """Persist a model scan result."""
     rid = scan.get("scan_id") or str(uuid.uuid4())
     conn = _get_conn()
@@ -165,8 +185,8 @@ def save_model_scan(scan: Dict[str, Any]) -> str:
         """
         INSERT OR REPLACE INTO model_scans
             (id, model_filename, dataset_filename, model_type, verdict, score,
-             attack_type, n_samples, full_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             attack_type, n_samples, full_json, created_at, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             rid,
@@ -177,100 +197,76 @@ def save_model_scan(scan: Dict[str, Any]) -> str:
             scan.get("overall_suspicion_score"),
             scan.get("attack_classification", {}).get("attack_type"),
             scan.get("n_samples"),
-            json.dumps(scan),
+            json.dumps({**scan, "owner_id": owner_id}),
             datetime.now(timezone.utc).isoformat(),
+            owner_id,
         ),
     )
     conn.commit()
     return rid
 
 
-def get_result(rid: str) -> Optional[Dict]:
-    """Fetch a single result by ID."""
-    conn = _get_conn()
-    row = conn.execute("SELECT full_json FROM analysis_results WHERE id = ?", (rid,)).fetchone()
+def get_result(rid: str, owner_id: str) -> Optional[Dict]:
+    """Fetch a single result by ID, only if ``owner_id`` owns it (or is ALL_OWNERS)."""
+    clause, args = _scope(owner_id)
+    row = _get_conn().execute(f"SELECT full_json FROM analysis_results WHERE id = ?{clause}", (rid, *args)).fetchone()
     return json.loads(row["full_json"]) if row else None
 
 
-def get_latest(source: str = None) -> Optional[Dict]:
-    """Fetch the most recent result, optionally filtered by source."""
-    conn = _get_conn()
+def get_latest(owner_id: str, source: str = None) -> Optional[Dict]:
+    """Fetch the owner's most recent result, optionally filtered by source."""
+    clause, args = _scope(owner_id)
     if source:
-        row = conn.execute(
-            "SELECT full_json FROM analysis_results WHERE source=? ORDER BY created_at DESC LIMIT 1",
-            (source,),
-        ).fetchone()
+        row = _get_conn().execute(
+            f"SELECT full_json FROM analysis_results WHERE source=?{clause} ORDER BY created_at DESC LIMIT 1", (source, *args)).fetchone()
     else:
-        row = conn.execute("SELECT full_json FROM analysis_results ORDER BY created_at DESC LIMIT 1").fetchone()
+        row = _get_conn().execute(
+            f"SELECT full_json FROM analysis_results WHERE 1=1{clause} ORDER BY created_at DESC LIMIT 1", args).fetchone()
     return json.loads(row["full_json"]) if row else None
 
 
-def get_latest_real() -> Optional[Dict]:
-    """Most recent non-demo analysis (upload or real_dataset)."""
-    conn = _get_conn()
-    row = conn.execute(
-        """
-        SELECT full_json FROM analysis_results
-        WHERE source IN ('upload', 'real_dataset')
-        ORDER BY created_at DESC LIMIT 1
-        """
+def get_latest_real(owner_id: str) -> Optional[Dict]:
+    """Owner's most recent non-demo analysis (upload or real_dataset)."""
+    clause, args = _scope(owner_id)
+    row = _get_conn().execute(
+        f"SELECT full_json FROM analysis_results WHERE source IN ('upload', 'real_dataset'){clause} ORDER BY created_at DESC LIMIT 1", args
     ).fetchone()
     return json.loads(row["full_json"]) if row else None
 
 
-def get_history(source: str = None, limit: int = 20) -> List[Dict]:
-    """Fetch recent results as lightweight summary rows."""
-    conn = _get_conn()
-    if source:
-        rows = conn.execute(
-            """
-            SELECT id, source, filename, verdict, score, attack_type,
-                   detection_mode, n_samples, elapsed_ms, created_at
-            FROM analysis_results WHERE source=?
-            ORDER BY created_at DESC LIMIT ?
-        """,
-            (source, limit),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            """
-            SELECT id, source, filename, verdict, score, attack_type,
-                   detection_mode, n_samples, elapsed_ms, created_at
-            FROM analysis_results ORDER BY created_at DESC LIMIT ?
-        """,
-            (limit,),
-        ).fetchall()
+def get_history(owner_id: str, source: str = None, limit: int = 20) -> List[Dict]:
+    """Recent results as lightweight summary rows."""
+    clause, args = _scope(owner_id)
+    where, params = ("source=?" + clause, (source, *args)) if source else ("1=1" + clause, args)
+    rows = _get_conn().execute(
+        f"""SELECT id, source, filename, verdict, score, attack_type, detection_mode, n_samples, elapsed_ms, created_at, owner_id
+            FROM analysis_results WHERE {where} ORDER BY created_at DESC LIMIT ?""", (*params, limit)).fetchall()
     return [dict(r) for r in rows]
 
 
-def get_model_scan_history(limit: int = 20) -> List[Dict]:
-    """Fetch recent model scan summaries."""
-    conn = _get_conn()
-    rows = conn.execute(
-        """
-        SELECT id, model_filename, dataset_filename, model_type, verdict,
-               score, attack_type, n_samples, created_at
-        FROM model_scans ORDER BY created_at DESC LIMIT ?
-    """,
-        (limit,),
-    ).fetchall()
+def get_model_scan_history(owner_id: str, limit: int = 20) -> List[Dict]:
+    """Recent model scan summaries."""
+    clause, args = _scope(owner_id)
+    rows = _get_conn().execute(
+        f"""SELECT id, model_filename, dataset_filename, model_type, verdict, score, attack_type, n_samples, created_at, owner_id
+            FROM model_scans WHERE 1=1{clause} ORDER BY created_at DESC LIMIT ?""", (*args, limit)).fetchall()
     return [dict(r) for r in rows]
 
 
-def get_model_scan(rid: str) -> Optional[Dict]:
-    """Fetch a single model scan by ID."""
-    conn = _get_conn()
-    row = conn.execute("SELECT full_json FROM model_scans WHERE id = ?", (rid,)).fetchone()
+def get_model_scan(rid: str, owner_id: str) -> Optional[Dict]:
+    clause, args = _scope(owner_id)
+    row = _get_conn().execute(f"SELECT full_json FROM model_scans WHERE id = ?{clause}", (rid, *args)).fetchone()
     return json.loads(row["full_json"]) if row else None
 
 
-def get_stats() -> Dict:
-    """Return aggregate statistics across all stored results."""
+def get_stats(owner_id: str) -> Dict:
+    """Aggregate statistics over the owner's stored results."""
     conn = _get_conn()
-    total = conn.execute("SELECT COUNT(*) FROM analysis_results").fetchone()[0]
-    by_source = conn.execute("SELECT source, COUNT(*) as n FROM analysis_results GROUP BY source").fetchall()
-    by_verdict = conn.execute("SELECT verdict, COUNT(*) as n FROM analysis_results GROUP BY verdict").fetchall()
-    model_scans = conn.execute("SELECT COUNT(*) FROM model_scans").fetchone()[0]
+    clause, args = _scope(owner_id)
+    total = conn.execute(f"SELECT COUNT(*) FROM analysis_results WHERE 1=1{clause}", args).fetchone()[0]
+    by_source = conn.execute(f"SELECT source, COUNT(*) as n FROM analysis_results WHERE 1=1{clause} GROUP BY source", args).fetchall()
+    by_verdict = conn.execute(f"SELECT verdict, COUNT(*) as n FROM analysis_results WHERE 1=1{clause} GROUP BY verdict", args).fetchall()
+    model_scans = conn.execute(f"SELECT COUNT(*) FROM model_scans WHERE 1=1{clause}", args).fetchone()[0]
     return {
         "total_analyses": total,
         "model_scans": model_scans,
@@ -388,10 +384,11 @@ def delete_user(user_id: str) -> bool:
     return cursor.rowcount > 0
 
 
-def delete_result(result_id: str) -> bool:
+def delete_result(result_id: str, owner_id: str) -> bool:
     conn = _get_conn()
-    cur1 = conn.execute("DELETE FROM analysis_results WHERE id = ?", (result_id,))
-    cur2 = conn.execute("DELETE FROM model_scans WHERE id = ?", (result_id,))
+    clause, args = _scope(owner_id)
+    cur1 = conn.execute(f"DELETE FROM analysis_results WHERE id = ?{clause}", (result_id, *args))
+    cur2 = conn.execute(f"DELETE FROM model_scans WHERE id = ?{clause}", (result_id, *args))
     conn.commit()
     return (cur1.rowcount + cur2.rowcount) > 0
 
@@ -405,8 +402,8 @@ def save_defense_action(action: Dict[str, Any]) -> None:
     conn.execute(
         """
         INSERT OR REPLACE INTO defense_actions
-        (action_id, action, samples_affected, suspicion_score, reason, details_json, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (action_id, action, samples_affected, suspicion_score, reason, details_json, created_at, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             action.get("action_id", str(uuid.uuid4())),
@@ -416,16 +413,17 @@ def save_defense_action(action: Dict[str, Any]) -> None:
             action.get("reason", ""),
             json.dumps(action),
             action.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            action.get("owner_id"),
         ),
     )
     conn.commit()
 
 
-def get_defense_actions(limit: int = 50) -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    rows = conn.execute(
-        "SELECT details_json FROM defense_actions ORDER BY created_at DESC LIMIT ?",
-        (max(1, min(limit, 200)),),
+def get_defense_actions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    clause, args = _scope(owner_id)
+    rows = _get_conn().execute(
+        f"SELECT details_json FROM defense_actions WHERE 1=1{clause} ORDER BY created_at DESC LIMIT ?",
+        (*args, max(1, min(limit, 200))),
     ).fetchall()
     return [json.loads(row["details_json"]) for row in rows]
 
@@ -435,8 +433,8 @@ def save_hitl_case(case: Dict[str, Any]) -> None:
     conn.execute(
         """
         INSERT OR REPLACE INTO hitl_cases
-        (case_id, suspicion_score, n_samples, status, details_json, created_at, deadline)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        (case_id, suspicion_score, n_samples, status, details_json, created_at, deadline, owner_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             case["case_id"],
@@ -446,15 +444,16 @@ def save_hitl_case(case: Dict[str, Any]) -> None:
             json.dumps(case),
             case.get("created_at", datetime.now(timezone.utc).isoformat()),
             case.get("deadline", ""),
+            case.get("owner_id"),
         ),
     )
     conn.commit()
 
 
-def get_pending_hitl_cases() -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    rows = conn.execute(
-        "SELECT details_json FROM hitl_cases WHERE status = 'pending' ORDER BY created_at DESC"
+def get_pending_hitl_cases(owner_id: str) -> List[Dict[str, Any]]:
+    clause, args = _scope(owner_id)
+    rows = _get_conn().execute(
+        f"SELECT details_json FROM hitl_cases WHERE status = 'pending'{clause} ORDER BY created_at DESC", args
     ).fetchall()
     return [json.loads(row["details_json"]) for row in rows]
 
@@ -483,10 +482,12 @@ def save_hitl_decision(decision: Dict[str, Any]) -> None:
     conn.commit()
 
 
-def get_hitl_decisions(limit: int = 50) -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    rows = conn.execute(
-        "SELECT case_id, decision, reviewer, decided_at FROM hitl_decisions ORDER BY decided_at DESC LIMIT ?",
-        (max(1, min(limit, 200)),),
+def get_hitl_decisions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    clause, args = _scope(owner_id)
+    rows = _get_conn().execute(
+        f"""SELECT d.case_id, d.decision, d.reviewer, d.decided_at FROM hitl_decisions d
+            JOIN hitl_cases c ON c.case_id = d.case_id WHERE 1=1{clause.replace('owner_id', 'c.owner_id')}
+            ORDER BY d.decided_at DESC LIMIT ?""",
+        (*args, max(1, min(limit, 200))),
     ).fetchall()
     return [dict(row) for row in rows]

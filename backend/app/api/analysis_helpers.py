@@ -23,7 +23,7 @@ from app.scanner.model_scan import scan_sandboxed
 logger = logging.getLogger(__name__)
 
 
-def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None) -> tuple[dict[str, Any], str]:
+def _orchestrate_csv(csv_bytes: bytes, filename: str, owner_id: str, split: dict | None = None) -> tuple[dict[str, Any], str]:
     """Run the full CSV ingestion + detection + forensics pipeline (blocking).
 
     Returns (full_result_dict, dataset_id).
@@ -56,6 +56,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None)
         detection_result["overall_suspicion_score"],
         detection_result["verdict"],
         scope=scope,
+        owner_id=owner_id,
     )
     hitl_case = None
     if detection_result.get("requires_human_review"):
@@ -64,6 +65,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None)
             {**detection_result["layer_results"], "attack_classification": attack_class},
             detection_result["overall_suspicion_score"],
             scope=scope,
+            owner_id=owner_id,
         )
 
     full_result: dict[str, Any] = {
@@ -95,6 +97,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, split: dict | None = None)
 async def run_csv_analysis(
     csv_bytes: bytes,
     filename: str,
+    owner_id: str,
     source: str = "upload",
     extra: dict | None = None,
     split: dict | None = None,
@@ -102,9 +105,10 @@ async def run_csv_analysis(
     """Async wrapper: runs _orchestrate_csv in the shared thread pool."""
     loop = asyncio.get_running_loop()
     full_result, dataset_id = await loop.run_in_executor(
-        deps.get_thread_pool(), _orchestrate_csv, csv_bytes, filename, split
+        deps.get_thread_pool(), _orchestrate_csv, csv_bytes, filename, owner_id, split
     )
     full_result["source"] = source
+    full_result["owner_id"] = owner_id
     if extra:
         full_result.update(extra)
     return deps.to_serializable(full_result), dataset_id

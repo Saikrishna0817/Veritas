@@ -45,7 +45,12 @@ DANGEROUS_ROOTS = {
     "threading", "signal", "pdb", "pip", "zipfile", "tarfile", "commands", "popen2", "platform",
     "pathlib", "glob", "fileinput", "linecache", "timeit", "trace", "cProfile", "profile", "bdb",
     "sched", "ssl", "select", "mmap", "resource", "gc", "inspect", "types", "operator",
-    "torch.hub", "torch.jit", "torch.utils", "torch.distributed", "torch.multiprocessing", "numpy.testing",
+    "pydoc", "lib2to3", "distutils", "setuptools", "sysconfig", "site", "cgi", "cgitb", "wsgiref", "xmlrpc", "poplib",
+    "imaplib", "nntplib", "uuid", "sqlite3", "dbm", "ensurepip", "venv", "idlelib", "doctest", "pstats", "pkgutil",
+    "modulefinder", "zipimport", "getpass", "curses", "pexpect", "paramiko", "fabric", "invoke",
+    "torch.hub", "torch.jit", "torch.utils", "torch.distributed", "torch.multiprocessing", "torch.testing", "numpy.testing",
+    "numpy.lib.npyio", "numpy.lib._npyio_impl", "numpy.ctypeslib", "sklearn.utils._testing", "sklearn.datasets",
+    "scipy._lib._testutils", "scipy.io", "pandas.core.computation", "pandas.io", "pandas.util", "pandas.testing",
     "numpy.f2py", "numpy.distutils", "joblib.parallel", "keras.src.utils", "tensorflow.python.ops.gen_io_ops",
 }
 DANGEROUS_BUILTINS = {
@@ -77,13 +82,16 @@ SAFE_PAIRS = {
     ("torch.nn.parameter", "Parameter"), ("torch.storage", "_load_from_bytes"),
 }
 SAFE_PREFIXES = (
-    "sklearn.", "scipy.sparse", "scipy.spatial", "xgboost.", "lightgbm.", "pandas.core.", "numpy.dtypes",
-    "torch.nn.modules.", "torch.nn.functional", "torch.optim.", "_loss", "sklearn",
+    "sklearn.", "scipy.sparse", "scipy.spatial", "scipy.special", "scipy.stats._distn_infrastructure", "xgboost.", "lightgbm.",
+    "pandas.core.series", "pandas.core.frame", "pandas.core.indexes", "pandas.core.internals", "pandas.core.arrays",
+    "pandas.core.generic", "pandas._libs", "numpy.dtypes", "numpy.ma.core", "numpy.random", "numpy.core.records",
+    "torch.nn.modules.", "torch.nn.functional", "torch.optim.", "_loss",
 )
 SAFE_TORCH_STORAGE = ("FloatStorage", "DoubleStorage", "HalfStorage", "BFloat16Storage", "LongStorage", "IntStorage",
                       "ShortStorage", "CharStorage", "ByteStorage", "BoolStorage", "UntypedStorage", "ComplexFloatStorage")
 
-DANGEROUS_PAIRS = {("torch", "load"), ("numpy", "load"), ("numpy", "fromfile"), ("builtins", "__build_class__")}
+DANGEROUS_PAIRS = {("torch", "load"), ("numpy", "load"), ("numpy", "fromfile"), ("builtins", "__build_class__"),
+                   ("pandas", "read_pickle"), ("pandas", "read_csv"), ("pandas", "read_parquet"), ("pandas", "eval")}
 
 
 def classify_global(module: str, name: str) -> str:
@@ -99,7 +107,7 @@ def classify_global(module: str, name: str) -> str:
         return "safe"
     if module == "torch" and name in SAFE_TORCH_STORAGE:
         return "safe"
-    if any(module.startswith(p) or module == p.rstrip(".") for p in SAFE_PREFIXES):
+    if any(module.startswith(p) or module == p.rstrip(".") for p in SAFE_PREFIXES) and module.split(".")[0] != "pandas_":
         return "safe"
     return "unknown"
 
@@ -110,52 +118,218 @@ def _finding(severity: str, kind: str, detail: str, **extra) -> dict:
 
 # ── Pickle ──────────────────────────────────────────────────────────────────────────────────────
 
-_STRING_OPS = {"SHORT_BINUNICODE", "BINUNICODE", "BINUNICODE8", "UNICODE", "STRING", "BINSTRING", "SHORT_BINSTRING"}
-_CALL_OPS = {"REDUCE", "NEWOBJ", "NEWOBJ_EX", "OBJ", "INST", "BUILD"}
-_EXT_OPS = {"EXT1", "EXT2", "EXT4"}
+class _Mark:
+    pass
 
 
-def scan_pickle_stream(stream: io.BytesIO) -> tuple[list[dict], list[tuple[str, str]], int]:
-    """Walk one pickle (up to its STOP) and return (findings, imports, number_of_call_opcodes)."""
-    findings: list[dict] = []
-    imports: list[tuple[str, str]] = []
-    calls = 0
-    memo: dict[int, str] = {}
-    recent: list[str | None] = []          # last pushed values, strings only (None for anything else)
-    last_str: str | None = None
-    for op, arg, pos in pickletools.genops(stream):
-        name = op.name
-        if name in _STRING_OPS:
-            recent.append(arg if isinstance(arg, str) else arg.decode("latin1") if isinstance(arg, bytes) else None)
-        elif name in ("MEMOIZE",):
-            memo[len(memo)] = recent[-1] if recent else None
-        elif name in ("PUT", "BINPUT", "LONG_BINPUT"):
-            memo[arg] = recent[-1] if recent else None
-        elif name in ("GET", "BINGET", "LONG_BINGET"):
-            recent.append(memo.get(arg))
-        elif name in ("GLOBAL", "INST"):
-            module, _, attr = str(arg).partition(" ")
-            imports.append((module, attr))
-            recent.append(None)
-            if name == "INST":
+_MARK = _Mark()
+_OPAQUE = ("x",)
+_CONST_OPAQUE = {"NONE", "NEWTRUE", "NEWFALSE", "FLOAT", "BINFLOAT", "BINBYTES", "SHORT_BINBYTES", "BINBYTES8",
+                 "BYTEARRAY8", "EMPTY_SET", "FROZENSET", "NEXT_BUFFER", "BINPERSID_RESULT"}
+_STR_OPS = {"SHORT_BINUNICODE", "BINUNICODE", "BINUNICODE8", "UNICODE", "STRING", "BINSTRING", "SHORT_BINSTRING"}
+_INT_OPS = {"INT", "BININT", "BININT1", "BININT2", "LONG", "LONG1", "LONG4"}
+MAX_OPS = 50_000_000
+
+
+def _itemsize(typestr: str) -> int | None:
+    t = typestr.lstrip("<>=|")
+    digits = "".join(c for c in t[1:] if c.isdigit())
+    if not t or not digits:
+        return None
+    n = int(digits)
+    return n * 4 if t[0] == "U" else n
+
+
+def _walk(stream: io.BytesIO, findings: list, imports: list, label: str, depth: int = 0) -> tuple[int, int, Exception | None]:
+    """Run one pickle stream on an abstract machine: nothing is imported, called or built. Returns
+    (opcodes_executed, call_opcodes, error). Imports and findings are appended as they are seen, so a payload
+    that precedes garbage is still reported."""
+    stack: list = []
+    memo: dict = {}
+    ops = calls = 0
+
+    def pop():
+        if not stack:
+            raise ValueError("stack underflow")
+        return stack.pop()
+
+    def popmark():
+        items = []
+        while True:
+            x = pop()
+            if x is _MARK:
+                return items[::-1]
+            items.append(x)
+
+    def top():
+        if not stack:
+            raise ValueError("stack underflow")
+        return stack[-1]
+
+    try:
+        for op, arg, pos in pickletools.genops(stream):
+            ops += 1
+            if ops > MAX_OPS:
+                raise ValueError("too many opcodes")
+            n = op.name
+            if n in ("PROTO", "FRAME", "READONLY_BUFFER"):
+                pass
+            elif n == "STOP":
+                break
+            elif n == "MARK":
+                stack.append(_MARK)
+            elif n == "POP":
+                if top() is _MARK:
+                    popmark()
+                else:
+                    pop()
+            elif n == "POP_MARK":
+                popmark()
+            elif n == "DUP":
+                stack.append(top())
+            elif n in _STR_OPS:
+                stack.append(("s", arg if isinstance(arg, str) else arg.decode("latin1")))
+            elif n in _INT_OPS:
+                stack.append(("i", int(arg)))
+            elif n in _CONST_OPAQUE:
+                stack.append(_OPAQUE)
+            elif n == "EMPTY_LIST":
+                stack.append(("l", []))
+            elif n == "EMPTY_TUPLE":
+                stack.append(("t", []))
+            elif n == "EMPTY_DICT":
+                stack.append(("d", {}))
+            elif n == "LIST":
+                stack.append(("l", popmark()))
+            elif n == "TUPLE":
+                stack.append(("t", popmark()))
+            elif n in ("TUPLE1", "TUPLE2", "TUPLE3"):
+                k = int(n[-1])
+                items = [pop() for _ in range(k)][::-1]
+                stack.append(("t", items))
+            elif n == "DICT":
+                items = popmark()
+                stack.append(("d", {i[1]: v for i, v in zip(items[::2], items[1::2]) if i[0] == "s"}))
+            elif n == "APPEND":
+                v = pop()
+                t = top()
+                if t[0] == "l":
+                    t[1].append(v)
+            elif n == "APPENDS":
+                items = popmark()
+                t = top()
+                if t[0] == "l":
+                    t[1].extend(items)
+            elif n == "SETITEM":
+                v, k = pop(), pop()
+                t = top()
+                if t[0] == "d" and k[0] == "s":
+                    t[1][k[1]] = v
+            elif n == "SETITEMS":
+                items = popmark()
+                t = top()
+                if t[0] == "d":
+                    for k, v in zip(items[::2], items[1::2]):
+                        if k[0] == "s":
+                            t[1][k[1]] = v
+            elif n == "ADDITEMS":
+                popmark()
+            elif n in ("GLOBAL", "INST"):
+                module, _, attr = str(arg).partition(" ")
+                imports.append((module, attr))
+                if n == "INST":
+                    popmark()
+                    calls += 1
+                    stack.append(("inst", ("g", module, attr)))
+                else:
+                    stack.append(("g", module, attr))
+            elif n == "STACK_GLOBAL":
+                name, module = pop(), pop()
+                if module[0] == "s" and name[0] == "s":
+                    imports.append((module[1], name[1]))
+                    stack.append(("g", module[1], name[1]))
+                else:
+                    findings.append(_finding("high", "unresolved_import", f"{label}: STACK_GLOBAL whose module or name is not a plain string", offset=pos))
+                    stack.append(_OPAQUE)
+            elif n == "OBJ":
+                items = popmark()
                 calls += 1
-        elif name == "STACK_GLOBAL":
-            if len(recent) >= 2 and recent[-1] and recent[-2]:
-                imports.append((recent[-2], recent[-1]))
+                stack.append(("inst", items[0] if items else _OPAQUE))
+            elif n == "NEWOBJ":
+                pop()
+                cls = pop()
+                calls += 1
+                stack.append(("inst", cls))
+            elif n == "NEWOBJ_EX":
+                pop(); pop()
+                cls = pop()
+                calls += 1
+                stack.append(("inst", cls))
+            elif n == "REDUCE":
+                args, fn = pop(), pop()
+                calls += 1
+                stack.append(("call", fn, args))
+            elif n == "BUILD":
+                state = pop()
+                obj = top()
+                calls += 1
+                if obj[0] == "inst" and obj[1][:1] == ("g",) and obj[1][1:] == ("joblib.numpy_pickle", "NumpyArrayWrapper"):
+                    _skip_joblib_array(stream, state, findings, imports, label, depth)
+            elif n == "BINPERSID":
+                pop()
+                stack.append(_OPAQUE)
+            elif n == "PERSID":
+                stack.append(_OPAQUE)
+            elif n in ("EXT1", "EXT2", "EXT4"):
+                findings.append(_finding("medium", "extension_registry", f"{label}: uses the pickle extension registry, which hides the import name", offset=pos))
+                stack.append(_OPAQUE)
+            elif n == "MEMOIZE":
+                memo[len(memo)] = top()
+            elif n in ("PUT", "BINPUT", "LONG_BINPUT"):
+                memo[arg] = top()
+            elif n in ("GET", "BINGET", "LONG_BINGET"):
+                if arg not in memo:
+                    raise ValueError(f"memo index {arg} was never set")
+                stack.append(memo[arg])
             else:
-                findings.append(_finding("high", "unresolved_import",
-                                         "STACK_GLOBAL whose module or name could not be determined statically", offset=pos))
-            recent.append(None)
-        elif name in _EXT_OPS:
-            findings.append(_finding("medium", "extension_registry", "uses the pickle extension registry, which hides the import name", offset=pos))
-        elif name in _CALL_OPS:
-            calls += 1
-            recent.append(None)
-        else:
-            recent.append(None)
-        if len(recent) > 64:
-            del recent[:-32]
-    return findings, imports, calls
+                raise ValueError(f"unsupported opcode {n}")
+    except Exception as exc:
+        return ops, calls, exc
+    return ops, calls, None
+
+
+def _skip_joblib_array(stream, state, findings, imports, label, depth) -> None:
+    """joblib writes raw array bytes between pickle opcodes. Skip exactly that many bytes (using the shape and dtype
+    the pickle just declared); an object array is a nested pickle, which is walked like any other."""
+    st = state[1] if state[0] == "d" else {}
+    dtype_node, shape_node, align = st.get("dtype"), st.get("shape"), st.get("numpy_array_alignment_bytes", ("n",))
+    typestr = None
+    if dtype_node and dtype_node[0] == "call" and dtype_node[2][0] == "t" and dtype_node[2][1] and dtype_node[2][1][0][0] == "s":
+        typestr = dtype_node[2][1][0][1]
+    if typestr is None or shape_node is None or shape_node[0] != "t":
+        raise ValueError("joblib array with a dtype or shape that could not be read")
+    if "O" in typestr:
+        if depth > 8:
+            raise ValueError("nested object arrays too deep")
+        _, _, err = _walk(stream, findings, imports, label + " (object array)", depth + 1)
+        if err:
+            raise err
+        return
+    size = _itemsize(typestr)
+    if size is None or any(d[0] != "i" or d[1] < 0 for d in shape_node[1]):
+        raise ValueError(f"joblib array with unreadable dtype {typestr!r}")
+    count = 1
+    for d in shape_node[1]:
+        count *= d[1]
+    if align and align[0] == "i":
+        pad = stream.read(1)
+        if not pad:
+            raise ValueError("truncated joblib array")
+        stream.seek(stream.tell() + pad[0])
+    end = stream.tell() + count * size
+    if end > len(stream.getbuffer()):
+        raise ValueError("joblib array is longer than the file")
+    stream.seek(end)
 
 
 def scan_pickle(data: bytes, label: str = "pickle") -> dict:
@@ -166,18 +340,17 @@ def scan_pickle(data: bytes, label: str = "pickle") -> dict:
     stream = io.BytesIO(data)
     while stream.tell() < len(data):
         start = stream.tell()
-        try:
-            f, imp, c = scan_pickle_stream(stream)
-        except Exception as exc:   # genops raises ValueError/struct.error/etc. on malformed input
-            if streams == 0:
-                findings.append(_finding("medium", "malformed_pickle", f"{label}: opcodes could not be parsed ({type(exc).__name__}: {exc})"))
-            else:   # raw tensor bytes legitimately follow the pickle in legacy torch files
-                findings.append(_finding("info", "binary_after_pickle", f"{label}: {len(data) - start} bytes of non-pickle data after stream {streams}"))
-            break
-        findings += f
-        all_imports += imp
+        ops, c, err = _walk(stream, findings, all_imports, label)
         calls += c
+        if ops == 0 and err is not None:
+            findings.append(_finding("low" if streams == 0 else "info", "not_a_pickle" if streams == 0 else "binary_after_pickle",
+                                     f"{label}: {'does not start with a valid pickle opcode (raw weights or another format); pickle loaders fail on it immediately' if streams == 0 else f'{len(data) - start} bytes of non-pickle data after stream {streams}'}"))
+            break
         streams += 1
+        if err is not None:
+            findings.append(_finding("medium" if streams == 1 else "info", "malformed_pickle" if streams == 1 else "binary_after_pickle",
+                                     f"{label}: opcodes stop parsing after {ops} ops ({type(err).__name__}: {err}); imports seen before that point are still reported"))
+            break
     seen: set[tuple[str, str]] = set()
     for module, attr in all_imports:
         if (module, attr) in seen:
@@ -188,7 +361,7 @@ def scan_pickle(data: bytes, label: str = "pickle") -> dict:
             findings.append(_finding("critical", "dangerous_import", f"{label}: imports {module}.{attr}, which can run code or access the system", module=module, name=attr))
         elif kind == "unknown":
             findings.append(_finding("medium", "unknown_import", f"{label}: imports {module}.{attr}, which is not on the known-safe list; a pickle can call anything it imports", module=module, name=attr))
-    if streams > 1 and all(f["kind"] != "binary_after_pickle" for f in findings):
+    if streams > 1 and not any(f["kind"] == "binary_after_pickle" for f in findings):
         findings.append(_finding("low", "multiple_streams", f"{label}: {streams} pickle streams in one file"))
     return {"findings": findings, "imports": sorted(seen), "call_ops": calls, "streams": streams}
 
@@ -330,13 +503,17 @@ def _scan_zip(data: bytes) -> dict:
     infos = zf.infolist()
     if sum(i.file_size for i in infos) > MAX_ZIP_TOTAL:
         return {"findings": [_finding("high", "zip_bomb", "uncompressed size is over 2 GB")], "imports": [], "members": []}
+    names = [i.filename for i in infos]
     for info in infos:
         name = info.filename
         members.append(name)
         base = name.rsplit("/", 1)[-1].lower()
         if name.startswith(("/", "\\")) or ".." in name.replace("\\", "/").split("/"):
             findings.append(_finding("medium", "path_traversal_name", f"member {name!r} has an unsafe path"))
-        if base.endswith((".so", ".dll", ".dylib", ".exe", ".sh", ".bat", ".py", ".pyc", ".pyd")):
+        torchscript_code = "/code/" in "/" + name and base.endswith(".py") and any(m.endswith("constants.pkl") for m in names)
+        if torchscript_code:
+            findings.append(_finding("info", "torchscript_source", f"{name!r} is TorchScript source, interpreted by torch.jit (not Python), but TorchScript can call any registered operator"))
+        elif base.endswith((".so", ".dll", ".dylib", ".exe", ".sh", ".bat", ".py", ".pyc", ".pyd")):
             findings.append(_finding("high", "executable_member", f"archive contains the executable or script file {name!r}"))
         if info.file_size > MAX_ZIP_MEMBER:
             findings.append(_finding("high", "zip_bomb", f"member {name!r} expands to {info.file_size} bytes"))
@@ -358,11 +535,16 @@ def _scan_zip(data: bytes) -> dict:
 
 def _decompress(data: bytes) -> tuple[bytes, str | None]:
     """Strip a gzip / bz2 / xz / zlib wrapper, with a size cap (decompression bombs)."""
-    for magic, factory, name in ((b"\x1f\x8b", lambda: zlib.decompressobj(31), "gzip"), (b"BZh", bz2.BZ2Decompressor, "bz2"),
-                                 (b"\xfd7zXZ", lzma.LZMADecompressor, "xz")):
+    candidates = [(b"\x1f\x8b", lambda: zlib.decompressobj(31), "gzip"), (b"BZh", bz2.BZ2Decompressor, "bz2"),
+                  (b"\xfd7zXZ", lzma.LZMADecompressor, "xz"), (b"\x5d\x00\x00", lambda: lzma.LZMADecompressor(lzma.FORMAT_ALONE), "lzma")]
+    if len(data) > 2 and data[0] == 0x78 and (data[0] * 256 + data[1]) % 31 == 0:
+        candidates.append((b"\x78", lambda: zlib.decompressobj(), "zlib"))
+    for magic, factory, name in candidates:
         if data.startswith(magic):
-            d = factory()
-            out = d.decompress(data, MAX_DECOMPRESSED + 1)
+            try:
+                out = factory().decompress(data, MAX_DECOMPRESSED + 1)
+            except (OSError, EOFError, zlib.error, lzma.LZMAError, ValueError):
+                continue       # looked like a header but is not a stream: treat as plain bytes
             if len(out) > MAX_DECOMPRESSED:
                 raise ValueError(f"{name} stream expands past {MAX_DECOMPRESSED // 1024 // 1024} MB")
             return out, name

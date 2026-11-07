@@ -47,13 +47,13 @@ def isolated_db(tmp_path):
 
 
 def test_get_latest_real_empty(isolated_db):
-    assert isolated_db.get_latest_real() is None
+    assert isolated_db.get_latest_real("u1") is None
 
 
 def test_get_latest_real_prefers_upload_over_demo(isolated_db):
-    isolated_db.save_result(_sample_result("demo", 0.9), "demo", "demo.csv")
-    isolated_db.save_result(_sample_result("upload", 0.2), "upload", "real.csv")
-    latest_real = isolated_db.get_latest_real()
+    isolated_db.save_result(_sample_result("demo", 0.9), "demo", "demo.csv", "u1")
+    isolated_db.save_result(_sample_result("upload", 0.2), "upload", "real.csv", "u1")
+    latest_real = isolated_db.get_latest_real("u1")
     assert latest_real is not None
     assert latest_real["source"] == "upload"
 
@@ -65,9 +65,9 @@ def test_resolve_prefer_real_skips_demo(isolated_db):
         deps.upload_result_cache._data.clear()
     with deps.demo_result_cache._lock:
         deps.demo_result_cache._data.clear()
-    isolated_db.save_result(_sample_result("demo", 0.8), "demo", "d.csv")
-    assert deps.resolve_latest_result(prefer="real") is None
-    auto = deps.resolve_latest_result(prefer="auto")
+    isolated_db.save_result(_sample_result("demo", 0.8), "demo", "d.csv", "u1")
+    assert deps.resolve_latest_result("u1", prefer="real") is None
+    auto = deps.resolve_latest_result("u1", prefer="auto")
     assert auto is not None
     assert auto["source"] == "demo"
 
@@ -80,7 +80,7 @@ def test_trust_score_empty_is_not_grade_a(isolated_db):
         deps.upload_result_cache._data.clear()
     with deps.demo_result_cache._lock:
         deps.demo_result_cache._data.clear()
-    payload = asyncio.run(get_trust_score())
+    payload = asyncio.run(get_trust_score({"id": "u1", "name": "u1", "role": "user"}))
     assert payload["data_source"] == "none"
     assert payload["has_analysis"] is False
     assert payload["model_safety"]["grade"] is None

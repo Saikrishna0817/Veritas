@@ -55,7 +55,7 @@ async def scan_model(
         logger.exception("Model scan failed [rid=%s]", rid)
         raise HTTPException(status_code=500, detail=f"Model scan failed. Check server logs (request ID: {rid}).")
 
-    background_tasks.add_task(deps.db.save_model_scan, full_result)
+    background_tasks.add_task(deps.db.save_model_scan, full_result, user["id"])
     background_tasks.add_task(
         deps.db.log_audit_event, user["id"], "analysis.model_scanned", "model", full_result["scan_id"],
         {"filename": model_filename, "format": full_result["scan"]["format"], "verdict": full_result["verdict"]},
@@ -64,22 +64,22 @@ async def scan_model(
 
 
 @router.get("/analyze/model/history")
-async def get_model_scan_history(limit: int = 20):
-    return {"scans": deps.db.get_model_scan_history(limit=limit)}
+async def get_model_scan_history(limit: int = 20, user: dict = Depends(require_user)):
+    return {"scans": deps.db.get_model_scan_history(deps.owner_scope(user), limit=limit)}
 
 
 @router.get("/analyze/model/{scan_id}")
-async def get_model_scan_result(scan_id: str):
-    result = deps.db.get_model_scan(scan_id)
+async def get_model_scan_result(scan_id: str, user: dict = Depends(require_user)):
+    result = deps.db.get_model_scan(scan_id, deps.owner_scope(user))
     if not result:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return result
 
 
 @router.get("/trust/score")
-async def get_trust_score():
+async def get_trust_score(user: dict = Depends(require_user)):
     """Trust scores from latest real analysis, or honest empty state (no fake Grade A)."""
-    r = deps.resolve_latest_result(prefer="auto")
+    r = deps.resolve_latest_result(user["id"], prefer="auto")
     if not r:
         now = datetime.now(timezone.utc).isoformat()
         return {

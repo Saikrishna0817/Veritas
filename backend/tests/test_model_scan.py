@@ -208,3 +208,35 @@ def test_model_endpoint_scans_without_loading_and_reports_the_verdict(monkeypatc
     body = ok.json()
     assert body["verdict"] == "NO_CODE_EXECUTION_FOUND" and body["model_type"] == "LogisticRegression"
     assert c.post("/api/v1/analyze/model", headers=headers, files={"model_file": ("x.exe", b"MZ", "application/octet-stream")}).status_code == 400
+
+
+def test_payload_followed_by_garbage_is_still_reported():
+    """pickle.load would run the REDUCE before hitting the garbage, so the scanner must report it too."""
+    r = scan_bytes(pickle.dumps(_System())[:-1] + b"\xff\xfe garbage", "m.pkl")
+    assert r["verdict"] == "DANGEROUS" and "malformed_pickle" in _kinds(r)
+
+
+def test_joblib_files_with_raw_array_bytes_parse_cleanly():
+    import joblib
+    from sklearn.ensemble import RandomForestClassifier
+    rng = np.random.RandomState(0)
+    model = RandomForestClassifier(n_estimators=3).fit(rng.rand(60, 4), rng.rand(60) > 0.5)
+    for compress in (0, 3, ("gzip", 3), ("bz2", 3), ("lzma", 3)):
+        buf = io.BytesIO()
+        joblib.dump(model, buf, compress=compress)
+        r = scan_bytes(buf.getvalue(), "m.joblib")
+        assert r["verdict"] == "NO_CODE_EXECUTION_FOUND", (compress, r["findings"])
+
+
+def test_payload_hidden_after_a_joblib_array_is_found():
+    import joblib
+    buf = io.BytesIO()
+    joblib.dump({"a": np.arange(10), "evil": _System()}, buf)
+    assert scan_bytes(buf.getvalue(), "m.joblib")["verdict"] == "DANGEROUS"
+
+
+def test_library_gadgets_are_flagged_not_waved_through():
+    from research.scanner_bench.build_corpus import proto0
+    for module, name in (("pandas.core.computation.eval", "eval"), ("sklearn.utils._testing", "assert_run_python_script_without_output"),
+                         ("pydoc", "pipepager")):
+        assert scan_bytes(proto0(module, name, ["x"]), "m.pkl")["verdict"] == "DANGEROUS", (module, name)

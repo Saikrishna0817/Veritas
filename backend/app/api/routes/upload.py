@@ -82,12 +82,13 @@ async def analyze_uploaded_csv(
 
     if background:
         def _job() -> dict:
-            result, dataset_id = _orchestrate_csv(content, filename, split)
+            result, dataset_id = _orchestrate_csv(content, filename, user["id"], split)
             result["source"] = "upload"
+            result["owner_id"] = user["id"]
             result = deps.to_serializable(result)
             deps.upload_result_cache[dataset_id] = result
-            deps.upload_result_cache["latest"] = result
-            deps.db.save_result(result, "upload", filename)
+            deps.upload_result_cache[deps.latest_key(user["id"])] = result
+            deps.db.save_result(result, "upload", filename, owner_id=user["id"])
             deps.db.log_audit_event(
                 user["id"], "analysis.uploaded", "dataset", dataset_id,
                 {"filename": filename, "n_samples": result.get("n_samples"), "verdict": result.get("verdict")},
@@ -98,7 +99,7 @@ async def analyze_uploaded_csv(
         return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
-        full_result, dataset_id = await run_csv_analysis(content, filename, source="upload", split=split)
+        full_result, dataset_id = await run_csv_analysis(content, filename, user["id"], source="upload", split=split)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception:
@@ -110,9 +111,9 @@ async def analyze_uploaded_csv(
         )
 
     deps.upload_result_cache[dataset_id] = full_result
-    deps.upload_result_cache["latest"] = full_result
+    deps.upload_result_cache[deps.latest_key(user["id"])] = full_result
 
-    background_tasks.add_task(deps.db.save_result, full_result, "upload", filename)
+    background_tasks.add_task(deps.db.save_result, full_result, "upload", filename, user["id"])
     background_tasks.add_task(
         deps.db.log_audit_event,
         user["id"],
@@ -127,33 +128,31 @@ async def analyze_uploaded_csv(
     )
 
     ws_manager = request.app.state.ws_manager
-    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result)
+    background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result, user["id"])
 
     return JSONResponse(content=full_result)
 
 
+def _owned(result: dict | None, user: dict) -> dict | None:
+    """A cached result is returned only to the user who made it (admins can read any)."""
+    if result and (result.get("owner_id") == user["id"] or user.get("role") == "admin"):
+        return result
+    return None
+
+
 @router.get("/analyze/upload/latest")
-async def get_latest_upload_result():
-    """Get the latest uploaded dataset analysis result (memory cache → DB fallback)."""
-    cached = deps.upload_result_cache.get("latest")
-    if cached:
-        return cached
-    result = deps.db.get_latest(source="upload")
+async def get_latest_upload_result(user: dict = Depends(require_user)):
+    """The caller's latest uploaded dataset analysis (memory cache, then DB)."""
+    result = deps.upload_result_cache.get(deps.latest_key(user["id"])) or deps.db.get_latest(user["id"], source="upload")
     if not result:
-        raise HTTPException(
-            status_code=404,
-            detail="No upload analysis yet. POST to /analyze/upload first.",
-        )
+        raise HTTPException(status_code=404, detail="No upload analysis yet. POST to /analyze/upload first.")
     return result
 
 
 @router.get("/analyze/upload/{dataset_id}")
-async def get_upload_result(dataset_id: str):
-    """Get analysis result for a specific uploaded dataset (memory → DB fallback)."""
-    cached = deps.upload_result_cache.get(dataset_id)
-    if cached:
-        return cached
-    result = deps.db.get_result(dataset_id)
+async def get_upload_result(dataset_id: str, user: dict = Depends(require_user)):
+    """One of the caller's uploaded dataset results. 404 for anyone else's, so ids cannot be probed."""
+    result = _owned(deps.upload_result_cache.get(dataset_id), user) or deps.db.get_result(dataset_id, deps.owner_scope(user))
     if not result:
         raise HTTPException(status_code=404, detail="Dataset not found.")
     return result
