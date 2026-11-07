@@ -26,7 +26,9 @@ DATA_ORDER = ["CLEAN", "LOW_RISK", "SUSPICIOUS", "CONFIRMED_POISONED"]
 
 
 class CliError(Exception):
-    pass
+    def __init__(self, message: str, status: int = 0):
+        super().__init__(message)
+        self.status = status
 
 
 def _multipart(files: dict[str, str], fields: dict[str, str]) -> tuple[bytes, str]:
@@ -56,14 +58,46 @@ def _call(url: str, key: str, body: bytes | None = None, ctype: str | None = Non
             detail = json.loads(exc.read()).get("detail", exc.reason)
         except Exception:
             detail = exc.reason
-        raise CliError(f"server said {exc.code}: {detail}") from None
+        raise CliError(f"server said {exc.code}: {detail}", exc.code) from None
     except urllib.error.URLError as exc:
         raise CliError(f"cannot reach {url}: {exc.reason}") from None
 
 
+def _post_json(url: str, key: str, payload: dict) -> dict:
+    return _call(url, key, json.dumps(payload).encode(), "application/json")
+
+
+def _direct(base: str, key: str, path: str, files: dict[str, str], fields: dict[str, str]) -> dict:
+    """Upload each file straight to object storage with a presigned URL, then ask the API to queue the job."""
+    roles = {"file": "csv", "reference_file": "csv_reference", "model_file": "model"}
+    ids = {}
+    for name, fpath in files.items():
+        with open(fpath, "rb") as fh:
+            data = fh.read()
+        grant = _post_json(f"{base}/uploads/presign", key, {"role": roles[name], "filename": os.path.basename(fpath), "size": len(data)})
+        put = urllib.request.Request(grant["url"], data=data, method="PUT")      # no Authorization header: the URL is the credential
+        try:
+            urllib.request.urlopen(put, timeout=600).read()
+        except urllib.error.HTTPError as exc:
+            raise CliError(f"storage refused the upload: {exc.code} {exc.reason}") from None
+        except urllib.error.URLError as exc:
+            raise CliError(f"cannot reach storage: {exc.reason}") from None
+        ids[name] = grant["upload_id"]
+    done = {"upload_id": ids.get("file") or ids["model_file"]}
+    if "reference_file" in ids:
+        done["reference_upload_id"] = ids["reference_file"]
+    done.update({k: v for k, v in fields.items() if k in ("split_column", "split_cutoff")})
+    return _post_json(f"{base}/uploads/complete", key, done)
+
+
 def _run_job(base: str, key: str, path: str, files: dict[str, str], fields: dict[str, str], wait: float) -> dict:
-    body, ctype = _multipart(files, fields)
-    job = _call(f"{base}{path}?background=true", key, body, ctype)
+    try:
+        job = _direct(base, key, path, files, fields)
+    except CliError as exc:
+        if exc.status != 501:                    # 501: the server stores uploads locally, so send the bytes through the API instead
+            raise
+        body, ctype = _multipart(files, fields)
+        job = _call(f"{base}{path}?background=true", key, body, ctype)
     deadline = time.time() + wait
     while time.time() < deadline:
         state = _call(f"{base}/jobs/{job['job_id']}", key)

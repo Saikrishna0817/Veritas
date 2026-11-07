@@ -31,6 +31,19 @@ Point a second hostname (for example `staging.your.domain`) at port 5174 in Clou
 keys there. Deploy a tag to staging first, run `e2e/` against it
 (`BASE_URL=https://staging.your.domain E2E_USER=... E2E_PASS=... npx playwright test`), then deploy production.
 
+## Direct uploads (S3 / Cloudflare R2)
+
+With `VERITAS_STORAGE_URL=s3://bucket` the CLI sends files straight to the bucket (`POST /uploads/presign`, PUT, `POST /uploads/complete`)
+so the API never carries the bytes. With local storage `/uploads/presign` answers 501 and clients fall back to `/analyze/upload`.
+
+Bucket setup, once:
+- **R2:** set `VERITAS_S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com`, `AWS_DEFAULT_REGION=auto`, and an R2 API token as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Presigned URLs use SigV4 with the size signed in.
+- **Lifecycle rule:** expire objects under `upload/` and `model/` after 1 day. The worker deletes uploads it processes; this removes ones that were presigned and never completed.
+- **CORS (only when a browser uploads):** allow `PUT` from your site origin with header `Content-Length`. The CLI needs no CORS.
+- The bucket must not be public. The API checks that an uploaded object exists, belongs to the caller, is used once and matches the declared size before queuing it; it never trusts the client's word.
+
+Not verified against real S3 or R2 (tests use a mocked bucket): check that a PUT with a different size than declared is refused by the bucket.
+
 ## Backups and restore
 - `scripts/backup.sh` writes `backups/veritas-<utc>.dump` (pg_dump custom format), keeps the newest 14, optionally uploads to S3/R2.
 - `scripts/restore-drill.sh [dump]` restores into a scratch database and compares row counts. Run it monthly and after changing

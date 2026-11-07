@@ -583,7 +583,7 @@ def get_usage(owner_id: str) -> Dict[str, int]:
 
 # ── Data deletion and retention ───────────────────────────────────────────────
 
-_OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases")
+_OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases", "pending_uploads")
 
 
 def delete_owner_data(owner_id: str) -> Dict[str, int]:
@@ -610,6 +610,32 @@ def purge_older_than(days: int) -> Dict[str, int]:
         counts[table] = conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (cutoff,)).rowcount
     conn.commit()
     return counts
+
+
+# ── Direct uploads ────────────────────────────────────────────────────────────
+
+def create_pending_upload(upload_id: str, owner_id: str, role: str, filename: str, size: int, storage_key: str) -> None:
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO pending_uploads (id, owner_id, role, filename, size, storage_key, used, created_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+        (upload_id, owner_id, role, filename, size, storage_key, datetime.now(timezone.utc).isoformat()))
+    conn.commit()
+
+
+def count_open_uploads(owner_id: str, since_iso: str) -> int:
+    return _get_conn().execute(
+        "SELECT COUNT(*) AS n FROM pending_uploads WHERE owner_id = ? AND used = 0 AND created_at >= ?", (owner_id, since_iso)).fetchone()["n"]
+
+
+def claim_pending_upload(upload_id: str, owner_id: str) -> Optional[Dict]:
+    """The owner's unused upload row, marked used in the same step so a presigned upload can start only one job."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM pending_uploads WHERE id = ? AND owner_id = ?", (upload_id, owner_id)).fetchone()
+    if not row:
+        return None
+    claimed = conn.execute("UPDATE pending_uploads SET used = 1 WHERE id = ? AND owner_id = ? AND used = 0", (upload_id, owner_id)).rowcount
+    conn.commit()
+    return dict(row) if claimed else None
 
 
 # ── Background jobs ───────────────────────────────────────────────────────────

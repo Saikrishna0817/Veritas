@@ -1,4 +1,5 @@
 """The command-line client against a real server on a real socket, authenticated with an API key."""
+import json
 import os
 import pickle
 import socket
@@ -60,3 +61,39 @@ def test_check_data_and_error_paths(server, key, tmp_path):
     assert veritas_cli.main(["--api-url", server, "--api-key", key, "check-data", str(f)]) == 1
     assert veritas_cli.main(["--api-url", server, "--api-key", "vk_wrong", "scan-model", str(f)]) == 2
     assert veritas_cli.main(["--api-url", "http://127.0.0.1:9", "--api-key", key, "scan-model", str(f)]) == 2
+
+
+def test_direct_upload_sequence_and_501_fallback(monkeypatch, tmp_path):
+    f = tmp_path / "m.pkl"; f.write_bytes(pickle.dumps({"a": 1}))
+    calls, puts = [], []
+
+    def fake_call(url, key, body=None, ctype=None, method=None):
+        calls.append(url.rsplit("/", 1)[-1].split("?")[0])
+        if url.endswith("/uploads/presign"):
+            return {"upload_id": "u1", "url": "https://bucket.example/put?sig=1"}
+        if url.endswith("/uploads/complete"):
+            assert json.loads(body) == {"upload_id": "u1"}
+            return {"job_id": "j1"}
+        return {"status": "completed", "result": {"verdict": "SAFE_FORMAT"}}
+
+    class Resp:
+        def read(self): return b""
+
+    def fake_urlopen(req, timeout=0):
+        puts.append((req.method, req.full_url, req.get_header("Authorization"), len(req.data)))
+        return Resp()
+
+    monkeypatch.setattr(veritas_cli, "_call", fake_call)
+    monkeypatch.setattr(veritas_cli.urllib.request, "urlopen", fake_urlopen)
+    assert veritas_cli._run_job("http://x/api/v1", "vk_k", "/analyze/model", {"model_file": str(f)}, {}, 5) == {"verdict": "SAFE_FORMAT"}
+    assert calls[:2] == ["presign", "complete"] and puts == [("PUT", "https://bucket.example/put?sig=1", None, f.stat().st_size)]
+
+    calls.clear()
+    def local_storage_server(url, key, body=None, ctype=None, method=None):
+        calls.append(url)
+        if url.endswith("/uploads/presign"):
+            raise veritas_cli.CliError("server said 501: no", 501)
+        return {"job_id": "j2"} if "background=true" in url else {"status": "completed", "result": {"verdict": "SAFE_FORMAT"}}
+    monkeypatch.setattr(veritas_cli, "_call", local_storage_server)
+    assert veritas_cli._run_job("http://x/api/v1", "vk_k", "/analyze/model", {"model_file": str(f)}, {}, 5)["verdict"] == "SAFE_FORMAT"
+    assert any("analyze/model?background=true" in c for c in calls)
