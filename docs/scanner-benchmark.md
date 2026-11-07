@@ -35,7 +35,7 @@ Raw results: `backend/research/results/2026-11-07-scanner-bench-*.{md,json}`. Fi
 | modelscan | 135/371 (36%) | 1/147 |
 
 Held-out misses on the first run (all fixed afterwards, tests added): dotted/aliased names through allowed libraries
-(`sklearn.utils` + `os.system`, 5 families, 35 files, **not even flagged for review**), `torch.storage._load_from_bytes` wrapping
+(`sklearn.utils` + `os.system` and similar: 6 families, 42 files, **not even flagged for review**; a 7th was REVIEW only), `torch.storage._load_from_bytes` wrapping
 a nested pickle, `atexit.register`, `codecs.open`, `io.open`. After the fixes the same held-out run is 339/339, but that is
 **not** a held-out number any more. The only dev misses are by design: a custom ONNX operator domain and two malformed
 safetensors are REVIEW, not DANGEROUS.

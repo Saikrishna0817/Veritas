@@ -238,7 +238,7 @@ build their call chain without any dangerous import (the unknown-import rule cov
 # Phase 4: scanner benchmark and first hardening slice
 
 - **Scanner benchmark:** see `docs/scanner-benchmark.md`. It found a real hole (dotted attribute paths through allowed libraries,
-  0/35 files caught on the first held-out run) and benign joblib files that the first parser rejected; both are fixed and covered by tests.
+  0/42 files flagged at all on the first held-out run) and benign joblib files that the first parser rejected; both are fixed and covered by tests.
 - **Tenant isolation (roadmap Phase 3):** results, model scans, defense actions and review cases carry `owner_id`; every read takes an
   explicit owner (`ALL_OWNERS` for admins), so a forgotten filter is a `TypeError`. The global `latest` caches, live websocket events,
   history, reports, forensics, trust score, review queue and job lookups are per user. `tests/test_tenant_isolation.py` runs two users
