@@ -99,7 +99,7 @@ Full tables: `research/results/2026-11-06-benchmark-v2-final-r1.md` (old Veritas
 - ~~Move `veritas2` into the app pipeline~~ done (see Phase 2b below).
 - ~~Explicit reference-set input~~ done: separate reference file, column cutoff (numbers/dates), or file order (default, with a warning).
 - ~~Fix batch-level power at small contamination~~ partly done (Phase 3 below): calibration fixed, power at 1-3% is a sample-size limit.
-- Sandboxed model-file scanner; more real-noise datasets (CIFAR-100N, text embeddings).
+- ~~Sandboxed model-file scanner~~ built (Phase 3c), not yet benchmarked at scale; more real-noise datasets (CIFAR-100N, text embeddings).
 
 ---
 
@@ -211,3 +211,26 @@ Simulated features removed: the sophistication score, counterfactual, red-team s
 injection narrative (ingestion time is not injection time). The narrative now states the flagged-row count, the two check
 results and the average feature difference, and says it cannot say who or when. The attack-type guess is limited to the
 three types the checks can support (label flip, backdoor, clean label). The blast radius reports flagged-row counts only.
+
+# Phase 3c: model-file scanner (roadmap item 7)
+
+`app/scanner/model_scan.py` (standard library only) answers "can loading this file run code?" without ever loading it.
+- **Pickles** (pickle, joblib, legacy and zip PyTorch, `.npy` object arrays, gzip/bz2/xz wrapped): every opcode is walked with
+  `pickletools.genops`; each import (GLOBAL, STACK_GLOBAL with memo tracking, INST, extension codes) is classed dangerous
+  (os, subprocess, builtins.eval/exec/getattr..., socket, importlib, ctypes, ...), known-safe (numpy/sklearn/scipy/torch data
+  containers) or unknown. Unresolvable imports count as dangerous, unknown ones as REVIEW. Payloads appended after a clean
+  pickle are scanned too.
+- **safetensors / GGUF / plain `.npy`**: structure validated (header size, offsets in range, no overlaps).
+- **ONNX**: wire-format parse for custom operator domains (native code) and external-data paths that escape the folder.
+- **Zip**: pickles inside are scanned; executable members, path-traversal names and zip bombs are flagged.
+- **HDF5/Keras `.h5`** and unknown formats are reported as not inspected (REVIEW), never as safe.
+- Verdicts: DANGEROUS, REVIEW, NO_CODE_EXECUTION_FOUND, SAFE_FORMAT. The scan runs in a separate `python -I` process with an empty
+  environment, a throwaway cwd and memory, CPU, file-descriptor and write limits; a crash or timeout is itself DANGEROUS.
+  Network isolation and seccomp are left to the deployment (run it in a no-network container).
+- The sklearn restricted loader only runs afterwards, for metadata. Parameter-level "poisoning" analysis of weights was removed.
+
+**Verified so far:** 29 unit tests with generated fixtures (reduce gadgets at pickle protocols 0/2/4/5, appended payload, gzip,
+decompression bomb, torch zip and legacy torch, sklearn model, safetensors, ONNX, npy, HDF5, sandbox failure). That is not
+the roadmap's exit bar: it has not been run against a public corpus of malicious models or a benign model-hub sample, and
+has not been compared with modelscan/picklescan. Known gaps: HDF5/Keras, TensorFlow SavedModel, nested archives, pickles that
+build their call chain without any dangerous import (the unknown-import rule covers custom classes only).

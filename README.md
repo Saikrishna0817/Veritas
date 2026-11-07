@@ -24,7 +24,7 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
 | **5-Layer Detection Pipeline** | Statistical shift → Spectral activation → Ensemble anomaly → Causal proof → Federated trust |
 | **Attack Type Classification** | Automatically identifies: label flip, backdoor, clean label, gradient poisoning, boiling frog |
 | **Proxy Impact Analysis** | Compares proxy-model outcomes with and without flagged rows; it does not prove an attack or deployment harm |
-| **Model Scanner** | Upload supported scikit-learn `.pkl` models through a restricted legacy parser and scan their parameters for anomalies |
+| **Model File Scanner** | Static scan (never loads the file) of pickle/joblib, PyTorch, safetensors, ONNX, NumPy and GGUF files for anything that can run code when loaded, in an isolated worker process |
 | **Real Dataset Library** | Iris, Wine, Breast Cancer, Digits — with known-quantity poison injection for ground-truth validation |
 | **SQLite Persistence** | All analysis results stored permanently and queryable via the History page |
 | **Red Team Simulator** | Inject synthetic attacks and measure the platform's resilience in real time |
@@ -43,7 +43,8 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
 │       ├── detection/          # Veritas v2: label check + gated shift check (veritas2.py), pipeline.py adapter
 │       ├── forensics/          # Attack reconstruction + narratives
 │       ├── defense/            # Auto-defense + HITL + Red Team
-│       ├── ingestion/          # CSV + Model (.pkl) parsing
+│       ├── ingestion/          # CSV parsing, restricted sklearn loader (metadata only)
+│       ├── scanner/            # Static model-file scanner (model_scan.py)
 │       ├── demo/               # Synthetic + real public datasets
 │       ├── api/routes/         # REST + WebSocket routes (auth, upload, models, datasets, reports, users, jobs)
 │       ├── models/database.py  # SQLite persistence layer
@@ -54,7 +55,7 @@ Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically
         └── pages/
             ├── Dashboard.jsx         # Live trust scores + radar chart
             ├── UploadPage.jsx        # Upload and analyse CSV files
-            ├── ModelScanPage.jsx     # Scan .pkl models
+            ├── ModelScanPage.jsx     # Scan model files
             ├── RealDatasetsPage.jsx  # Real dataset library
             ├── ForensicsPage.jsx     # Attack reconstruction details
             ├── AdminDashboard.jsx    # Admin console: users, red-team simulator
@@ -170,7 +171,7 @@ Validated with: bootstrap 95% CI, placebo test, t-test (p < 0.05)
 |--------|----------|-------------|
 | `POST` | `/api/v1/demo/run` | Run full analysis on demo data |
 | `POST` | `/api/v1/analyze/upload` | Upload and analyse a CSV (`?background=true` returns a job id to poll at `GET /api/v1/jobs/{id}`) |
-| `POST` | `/api/v1/analyze/model` | Scan a `.pkl` model file |
+| `POST` | `/api/v1/analyze/model` | Statically scan a model file |
 | `GET` | `/api/v1/datasets/real` | Real dataset catalog |
 | `POST` | `/api/v1/redteam/simulate` | Inject attack + measure detection |
 | `GET` | `/api/v1/blueteam/status` | SOC threat level + summary |

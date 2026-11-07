@@ -14,9 +14,11 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+import uuid
 from typing import Any
 
 from app.api import dependencies as deps
+from app.scanner.model_scan import scan_sandboxed
 
 logger = logging.getLogger(__name__)
 
@@ -108,66 +110,40 @@ async def run_csv_analysis(
     return deps.to_serializable(full_result), dataset_id
 
 
-def _orchestrate_model(
-    model_bytes: bytes,
-    model_filename: str,
-    dataset_bytes: bytes | None,
-    dataset_filename: str | None,
-) -> dict[str, Any]:
-    """Run model scan pipeline (blocking — for thread pool)."""
+SCAN_SCORE = {"DANGEROUS": 1.0, "REVIEW": 0.5}
+
+
+def _orchestrate_model(model_bytes: bytes, model_filename: str) -> dict[str, Any]:
+    """Statically scan a model file in a sandboxed worker (blocking, for the thread pool)."""
     started = time.perf_counter()
-    ingested = deps.model_engine.ingest(model_bytes, model_filename, dataset_bytes, dataset_filename)
-
-    scan_pipeline = deps.DetectionPipeline()
-    detection_result = scan_pipeline.run_on_upload(ingested)
-
-    samples = ingested["samples"]
-    incoming = samples[ingested["reference_split"]:]
-
-    attack_class = deps.classifier.classify(detection_result["layer_results"], incoming)
-    pattern = deps.reconstructor.reconstruct(incoming, attack_class, detection_result["layer_results"])
-    blast = deps.blast_mapper.map(incoming, detection_result["layer_results"])
-    defense_action = deps.defense.decide_action(
-        incoming, detection_result["overall_suspicion_score"], detection_result["verdict"],
-        scope=ingested["scan_id"],
-    )
-
+    scan = scan_sandboxed(model_bytes, model_filename)
+    metadata = None
+    if scan["format"] == "pickle" and scan["verdict"] == "NO_CODE_EXECUTION_FOUND":
+        try:   # restricted loader only after the scanner found nothing to run
+            _, metadata = deps.model_engine.load_and_validate(model_bytes, model_filename)
+        except ValueError:
+            metadata = None   # a pickle, but not one of the supported sklearn estimators
     return {
-        **detection_result,
-        "scan_id": ingested["scan_id"],
+        "scan_id": str(uuid.uuid4()),
         "model_filename": model_filename,
-        "dataset_filename": dataset_filename,
-        "model_type": ingested["model_type"],
-        "model_metadata": ingested["model_metadata"],
-        "extraction_info": ingested["extraction_info"],
-        "attack_classification": attack_class,
-        "injection_pattern": pattern,
-        "blast_radius": blast,
-        "defense_action": defense_action,
         "source": "model_scan",
+        "verdict": scan["verdict"],
+        "overall_suspicion_score": SCAN_SCORE.get(scan["verdict"], 0.0),
+        "scan": scan,
+        "model_type": (metadata or {}).get("model_type") or scan["format"],
+        "model_metadata": metadata,
         "interpretation": (
-            "Parameters extracted from the model's learned weights/trees were "
-            "analyzed for statistical anomalies consistent with poisoning. "
-            "A high suspicion score suggests the model was trained on poisoned data."
+            "Static analysis only: the file was never loaded or run. DANGEROUS means it imports something that can run code "
+            "or access the system when loaded. NO_CODE_EXECUTION_FOUND means every import is a known data container; that is "
+            "not a guarantee of safety. This does not tell you whether the model was trained on poisoned data."
         ),
+        "attack_classification": {},
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
 
 
-async def run_model_analysis(
-    model_bytes: bytes,
-    model_filename: str,
-    dataset_bytes: bytes | None,
-    dataset_filename: str | None,
-) -> dict[str, Any]:
+async def run_model_analysis(model_bytes: bytes, model_filename: str) -> dict[str, Any]:
     """Async wrapper: runs _orchestrate_model in the shared thread pool."""
     loop = asyncio.get_running_loop()
-    result = await loop.run_in_executor(
-        deps.get_thread_pool(),
-        _orchestrate_model,
-        model_bytes,
-        model_filename,
-        dataset_bytes,
-        dataset_filename,
-    )
+    result = await loop.run_in_executor(deps.get_thread_pool(), _orchestrate_model, model_bytes, model_filename)
     return deps.to_serializable(result)

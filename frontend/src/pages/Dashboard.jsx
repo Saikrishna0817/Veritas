@@ -32,8 +32,8 @@ function MetricCard({ label, value, unit = '', color = 'var(--red-primary)', sub
 const features = [
   {
     id: 'f1',
-    title: 'Detect Data & Model Poisoning',
-    desc: 'Upload a dataset or a trained .pkl model and check it for wrong labels and shifted rows and catch poisoned samples before they ship.',
+    title: 'Audit Datasets, Scan Model Files',
+    desc: 'Check a dataset for wrong labels and shifted rows, or scan a model file to see whether loading it can run code.',
     icon: <BrainCircuit className="w-8 h-8 text-white" />,
   },
   {
