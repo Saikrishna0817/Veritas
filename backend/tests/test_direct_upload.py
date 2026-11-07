@@ -48,7 +48,7 @@ def _presign(h, role, name, size):
 def _put(store, presigned, data, row_key=None):
     """Stand in for the client's PUT: what lands in the bucket is what the signed URL would have accepted."""
     from app.models import database as db
-    key = db._get_conn().execute("SELECT storage_key FROM pending_uploads WHERE id = ?", (presigned["upload_id"],)).fetchone()[0]
+    key = db._get_conn().execute("SELECT storage_key FROM pending_uploads WHERE id = ?", (presigned["upload_id"],)).fetchone()["storage_key"]
     store.put(key, data)
     return key
 
