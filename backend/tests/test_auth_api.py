@@ -1,3 +1,4 @@
+from starlette.requests import Request
 import pytest
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
@@ -28,9 +29,13 @@ def regular_user():
         db.create_user("user", hash_password(TEST_USER_PASSWORD), role="user")
 
 
+PUBLIC_AUTH_ROUTES = {"/auth/token", "/auth/logout", "/auth/signup", "/auth/verify-email", "/auth/resend-verification",
+                      "/auth/password-reset/request", "/auth/password-reset/confirm"}
+
+
 def test_missing_bearer_token_is_rejected():
     with pytest.raises(HTTPException) as error:
-        require_user(None)
+        require_user(Request({"type": "http", "method": "GET", "path": "/x", "headers": []}), None)
     assert error.value.status_code == 401
 
 
@@ -54,7 +59,7 @@ def test_invalid_token_is_rejected():
 def test_every_rest_endpoint_except_token_issuance_requires_authentication():
     unprotected = []
     for route in api_router.routes:
-        if not isinstance(route, APIRoute) or route.path == "/auth/token":
+        if not isinstance(route, APIRoute) or route.path in PUBLIC_AUTH_ROUTES:
             continue
         calls = {dependency.call for dependency in route.dependant.dependencies}
         if require_user not in calls and require_admin not in calls:

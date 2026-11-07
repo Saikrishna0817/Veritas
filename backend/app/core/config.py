@@ -34,6 +34,19 @@ class Settings:
     jwt_expiry_minutes: int = int(os.getenv("VERITAS_JWT_EXPIRY_MINUTES", "60"))
     admin_username: str = os.getenv("VERITAS_ADMIN_USERNAME", "")
     admin_password: str = os.getenv("VERITAS_ADMIN_PASSWORD", "")
+    # Public base URL used in emailed links, and outgoing mail (any SMTP provider: Resend, Brevo, ...). Without
+    # smtp_host, messages are logged and kept in an in-memory outbox (development and tests only).
+    public_url: str = os.getenv("VERITAS_PUBLIC_URL", "http://localhost:5173")
+    smtp_host: str = os.getenv("VERITAS_SMTP_HOST", "")
+    smtp_port: int = int(os.getenv("VERITAS_SMTP_PORT", "587"))
+    smtp_user: str = os.getenv("VERITAS_SMTP_USER", "")
+    smtp_password: str = os.getenv("VERITAS_SMTP_PASSWORD", "")
+    mail_from: str = os.getenv("VERITAS_MAIL_FROM", "Veritas <no-reply@localhost>")
+    # Self-serve sign-up. Verification can only be disabled for local development.
+    signup_enabled: bool = os.getenv("VERITAS_SIGNUP_ENABLED", "true").lower() == "true"
+    require_email_verification: bool = os.getenv("VERITAS_REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
+    turnstile_secret: str = os.getenv("VERITAS_TURNSTILE_SECRET", "")   # Cloudflare Turnstile; empty disables the check
+    cookie_secure: bool = os.getenv("VERITAS_COOKIE_SECURE", "true").lower() == "true"   # false only for http://localhost
     # Stored results older than this many days are deleted at startup (0 keeps everything).
     retention_days: int = int(os.getenv("VERITAS_RETENTION_DAYS", "30"))
     # Per-user daily quotas (UTC day). Admins are exempt. 0 disables a limit.

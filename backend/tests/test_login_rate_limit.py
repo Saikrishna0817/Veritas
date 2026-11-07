@@ -1,7 +1,7 @@
 import asyncio
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from starlette.requests import Request
 
 from app.api.routes.auth import LoginRequest, login_rate_limiter, token
@@ -23,10 +23,10 @@ def test_login_rate_limit_blocks_after_threshold():
     credentials = LoginRequest(username="test-admin", password="wrong")
     for _ in range(5):
         with pytest.raises(HTTPException) as error:
-            asyncio.run(token(credentials, make_request()))
+            asyncio.run(token(credentials, make_request(), Response()))
         assert error.value.status_code == 401
     with pytest.raises(HTTPException) as error:
-        asyncio.run(token(credentials, make_request()))
+        asyncio.run(token(credentials, make_request(), Response()))
     assert error.value.status_code == 429
 
 
@@ -40,6 +40,6 @@ def test_login_rate_limit_resets_after_window():
 def test_other_routes_are_not_rate_limited():
     for _ in range(20):
         with pytest.raises(HTTPException) as error:
-            require_user(None)
+            require_user(Request({"type": "http", "method": "GET", "path": "/x", "headers": []}), None)
         assert error.value.status_code == 401
     assert login_rate_limiter.allow("198.51.100.3", now=0.0)

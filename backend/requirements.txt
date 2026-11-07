@@ -5,7 +5,9 @@ bcrypt==5.0.0
 certifi==2026.1.4
 click==8.3.1
 colorama==0.4.6
+dnspython==2.9.2
 ecdsa==0.19.1
+email-validator==2.3.0
 fastapi==0.129.0
 greenlet==3.3.1
 h11==0.16.0
@@ -16,14 +18,16 @@ idna==3.11
 joblib==1.5.3
 numpy==2.4.2
 pandas==3.0.1
+psycopg[binary]==3.3.8
 pyasn1==0.6.2
 pydantic==2.12.5
 pydantic_core==2.41.5
+pytest==8.3.5
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.22
-pytest==8.3.5
+redis==8.1.0
 rsa==4.9.1
 scikit-learn==1.8.0
 scipy==1.17.0

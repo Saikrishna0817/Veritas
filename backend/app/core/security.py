@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import Depends, HTTPException, status
+import hmac
+
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 import bcrypt
@@ -54,6 +56,8 @@ def authenticate_user(username: str, password: str) -> dict[str, str] | None:
 
     stored = db.get_user_by_username(username)
     if verify_password(password, stored["password_hash"] if stored else _DUMMY_HASH) and stored:
+        if not stored.get("email_verified", 1):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Verify your email address first. Check your inbox, or request a new link.")
         return {"id": stored["id"], "name": stored["username"], "role": stored["role"]}
     return None
 
@@ -82,10 +86,50 @@ def token_expiry(token: str) -> float:
     return float(jwt.get_unverified_claims(token)["exp"])
 
 
-def require_user(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict[str, Any]:
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
-    return decode_access_token(credentials.credentials)
+SESSION_COOKIE = "veritas_session"      # httpOnly: the JWT, never readable by page scripts
+CSRF_COOKIE = "veritas_csrf"            # readable by the page, echoed back in X-CSRF-Token
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def set_session_cookies(response, token: str) -> str:
+    """Set the httpOnly session cookie and the CSRF cookie (double-submit). Returns the CSRF token."""
+    import secrets
+    csrf = secrets.token_urlsafe(24)
+    max_age = settings.jwt_expiry_minutes * 60
+    common = {"max_age": max_age, "secure": settings.cookie_secure, "samesite": "strict", "path": "/"}
+    response.set_cookie(SESSION_COOKIE, token, httponly=True, **common)
+    response.set_cookie(CSRF_COOKIE, csrf, httponly=False, **common)
+    return csrf
+
+
+def clear_session_cookies(response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(CSRF_COOKIE, path="/")
+
+
+def require_user(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict[str, Any]:
+    """Authenticate by API key (``Bearer vk_...``), bearer JWT, or the session cookie.
+
+    Cookie sessions are ambient credentials, so every state-changing request must also carry an X-CSRF-Token
+    header equal to the CSRF cookie. Bearer tokens and API keys are not sent automatically by browsers.
+    """
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials
+        if token.startswith("vk_"):
+            from app.models import database as db
+            row = db.get_user_by_api_key(token)
+            if row is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key", headers={"WWW-Authenticate": "Bearer"})
+            return {"id": row["id"], "name": row["username"], "role": row["role"], "via": "api_key"}
+        return decode_access_token(token)
+    cookie = request.cookies.get(SESSION_COOKIE)
+    if cookie:
+        if request.method not in SAFE_METHODS:
+            sent, expected = request.headers.get("x-csrf-token", ""), request.cookies.get(CSRF_COOKIE, "")
+            if not expected or not hmac.compare_digest(sent, expected):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Missing or invalid CSRF token")
+        return decode_access_token(cookie)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
 
 
 def require_admin(user: dict[str, Any] = Depends(require_user)) -> dict[str, Any]:

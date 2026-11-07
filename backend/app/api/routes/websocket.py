@@ -9,7 +9,8 @@ from typing import List
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.security import decode_access_token, token_expiry
+from app.core.config import settings
+from app.core.security import SESSION_COOKIE, decode_access_token, token_expiry
 
 router = APIRouter()
 
@@ -48,6 +49,22 @@ class ConnectionManager:
 
 
 async def _authenticate(websocket: WebSocket) -> str | None:
+    """Cookie session (browser) or an ``auth`` first frame (API clients). A cookie is an ambient credential, so the
+    Origin header must be one of our own origins (blocks cross-site WebSocket hijacking)."""
+    cookie = websocket.cookies.get(SESSION_COOKIE)
+    if cookie:
+        origin = websocket.headers.get("origin")
+        if origin and origin not in settings.cors_allow_origins:
+            return None
+        try:
+            decode_access_token(cookie)
+            return cookie
+        except Exception:
+            return None
+    return await _authenticate_frame(websocket)
+
+
+async def _authenticate_frame(websocket: WebSocket) -> str | None:
     """Expect ``{"type": "auth", "token": ...}`` as the first frame; return the token.
 
     The token travels in a message, not the URL, so it never lands in proxy or

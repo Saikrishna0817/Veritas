@@ -283,24 +283,126 @@ def _ensure_bootstrap_admin(conn: Database) -> None:
     conn.commit()
 
 
+_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified"
+
+
 def get_user_by_username(username: str) -> Optional[Dict]:
-    conn = _get_conn()
-    row = conn.execute("SELECT id, username, password_hash, role, created_at FROM users WHERE username=?", (username,)).fetchone()
+    row = _get_conn().execute(f"SELECT {_USER_COLS} FROM users WHERE username=?", (username,)).fetchone()
     return dict(row) if row else None
 
 
-def create_user(username: str, password_hash: str, role: str = "analyst") -> str:
+def get_user_by_email(email: str) -> Optional[Dict]:
+    row = _get_conn().execute(f"SELECT {_USER_COLS} FROM users WHERE email=?", (email,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_user_by_id(user_id: str) -> Optional[Dict]:
+    row = _get_conn().execute(f"SELECT {_USER_COLS} FROM users WHERE id=?", (user_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def create_user(username: str, password_hash: str, role: str = "analyst", email: str | None = None, email_verified: bool = True) -> str:
     user_id = str(uuid.uuid4())
     conn = _get_conn()
     conn.execute(
         """
-        INSERT INTO users (id, username, password_hash, role, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (id, username, password_hash, role, created_at, email, email_verified)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (user_id, username, password_hash, role, datetime.now(timezone.utc).isoformat()),
+        (user_id, username, password_hash, role, datetime.now(timezone.utc).isoformat(), email, 1 if email_verified else 0),
     )
     conn.commit()
     return user_id
+
+
+def set_email_verified(user_id: str) -> None:
+    conn = _get_conn()
+    conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+def set_password_hash(user_id: str, password_hash: str) -> None:
+    conn = _get_conn()
+    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+    conn.commit()
+
+
+# ── One-time tokens (email verification, password reset) ─────────────────────
+
+def create_auth_token(user_id: str, purpose: str, ttl_minutes: int) -> str:
+    """Return a new random token; only its SHA-256 is stored. Older unused tokens for the same purpose stop working."""
+    import hashlib
+    import secrets
+    raw = secrets.token_urlsafe(32)
+    conn = _get_conn()
+    now = datetime.now(timezone.utc)
+    conn.execute("UPDATE auth_tokens SET used_at = ? WHERE user_id = ? AND purpose = ? AND used_at IS NULL", (now.isoformat(), user_id, purpose))
+    conn.execute(
+        "INSERT INTO auth_tokens (token_hash, user_id, purpose, expires_at) VALUES (?, ?, ?, ?)",
+        (hashlib.sha256(raw.encode()).hexdigest(), user_id, purpose, (now + timedelta(minutes=ttl_minutes)).isoformat()),
+    )
+    conn.commit()
+    return raw
+
+
+def consume_auth_token(raw: str, purpose: str) -> str | None:
+    """Return the user id if the token is valid, unexpired and unused, and mark it used (single use)."""
+    import hashlib
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_conn()
+    row = conn.execute(
+        """UPDATE auth_tokens SET used_at = ? WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > ?
+           RETURNING user_id""",
+        (now, hashlib.sha256(raw.encode()).hexdigest(), purpose, now),
+    ).fetchone()
+    conn.commit()
+    return row["user_id"] if row else None
+
+
+# ── API keys ─────────────────────────────────────────────────────────────────
+
+def create_api_key(owner_id: str, name: str) -> tuple[str, Dict]:
+    """Returns (raw_key, row). The raw key is shown once; only its hash is stored."""
+    import hashlib
+    import secrets
+    raw = "vk_" + secrets.token_urlsafe(32)
+    key_id = str(uuid.uuid4())
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO api_keys (id, owner_id, name, prefix, key_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (key_id, owner_id, name, raw[:10], hashlib.sha256(raw.encode()).hexdigest(), datetime.now(timezone.utc).isoformat()),
+    )
+    conn.commit()
+    return raw, {"id": key_id, "name": name, "prefix": raw[:10]}
+
+
+def get_user_by_api_key(raw: str) -> Optional[Dict]:
+    import hashlib
+    conn = _get_conn()
+    row = conn.execute(
+        """SELECT u.id, u.username, u.role, k.id AS key_id FROM api_keys k JOIN users u ON u.id = k.owner_id
+           WHERE k.key_hash = ? AND k.revoked_at IS NULL""",
+        (hashlib.sha256(raw.encode()).hexdigest(),),
+    ).fetchone()
+    if row:
+        conn.execute("UPDATE api_keys SET last_used_at = ? WHERE id = ?", (datetime.now(timezone.utc).isoformat(), row["key_id"]))
+        conn.commit()
+    return dict(row) if row else None
+
+
+def list_api_keys(owner_id: str) -> List[Dict]:
+    rows = _get_conn().execute(
+        "SELECT id, name, prefix, created_at, last_used_at, revoked_at FROM api_keys WHERE owner_id = ? ORDER BY created_at DESC", (owner_id,)
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def revoke_api_key(owner_id: str, key_id: str) -> bool:
+    conn = _get_conn()
+    cur = conn.execute("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND owner_id = ? AND revoked_at IS NULL",
+                       (datetime.now(timezone.utc).isoformat(), key_id, owner_id))
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def list_users(limit: int = 50) -> List[Dict]:
