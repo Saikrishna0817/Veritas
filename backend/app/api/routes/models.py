@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from app.api import dependencies as deps
 from app.api.analysis_helpers import run_model_analysis
 from app.api.routes.upload import read_upload_limited
+from app.core import quota
 from app.core.security import is_safe_filename, require_user
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ async def scan_model(
 
     model_bytes = await read_upload_limited(model_file, MAX_SCAN_SIZE)
     model_filename = model_file.filename
+    quota.charge_scan(user, len(model_bytes))
 
     try:
         full_result = await run_model_analysis(model_bytes, model_filename)

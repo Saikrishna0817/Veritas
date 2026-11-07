@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
 from app.api.analysis_helpers import _orchestrate_csv, run_csv_analysis
+from app.core import quota
 from app.core.security import is_safe_filename, require_user
 from app.jobs.queue import job_store
 
@@ -71,6 +72,7 @@ async def analyze_uploaded_csv(
 
     content = await read_upload_limited(file, MAX_CSV_SIZE)
     filename = file.filename
+    quota.charge_analysis(user, rows=content.count(b"\n"))
     split: dict = {}
     if reference_file is not None:
         if not reference_file.filename or not is_safe_filename(reference_file.filename) \

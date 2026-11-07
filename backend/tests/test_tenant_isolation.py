@@ -97,3 +97,23 @@ def test_live_events_reach_only_the_owner():
     mgr.connect(a, "iso-alice"); mgr.connect(b, "iso-bob")
     asyncio.run(mgr.broadcast("sample_analyzed", {"x": 1}, owner_id="iso-alice"))
     assert "a" in sent and "b" not in sent
+
+
+def test_daily_quota_stops_a_user_without_affecting_others():
+    from app.core import quota
+    user, other = {"id": "quota-u", "role": "user"}, {"id": "quota-v", "role": "user"}
+    quota.charge(user, "analyses", 1, 2)
+    quota.charge(user, "analyses", 1, 2)
+    with pytest.raises(Exception) as exc:
+        quota.charge(user, "analyses", 1, 2)
+    assert getattr(exc.value, "status_code", None) == 429
+    quota.charge(other, "analyses", 1, 2)                       # someone else is unaffected
+    quota.charge({"id": "quota-admin", "role": "admin"}, "analyses", 1, 1)
+    quota.charge({"id": "quota-admin", "role": "admin"}, "analyses", 1, 1)   # admins are exempt
+
+
+def test_oversized_request_is_refused_before_any_work():
+    from app.core import quota
+    with pytest.raises(Exception) as exc:
+        quota.charge({"id": "quota-w", "role": "user"}, "rows", 5_000, 1_000)
+    assert exc.value.status_code == 429

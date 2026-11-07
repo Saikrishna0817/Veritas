@@ -32,6 +32,10 @@ class Settings:
     jwt_expiry_minutes: int = int(os.getenv("VERITAS_JWT_EXPIRY_MINUTES", "60"))
     admin_username: str = os.getenv("VERITAS_ADMIN_USERNAME", "")
     admin_password: str = os.getenv("VERITAS_ADMIN_PASSWORD", "")
+    # Per-user daily quotas (UTC day). Admins are exempt. 0 disables a limit.
+    quota_analyses_per_day: int = int(os.getenv("VERITAS_QUOTA_ANALYSES_PER_DAY", "50"))
+    quota_rows_per_day: int = int(os.getenv("VERITAS_QUOTA_ROWS_PER_DAY", "2000000"))
+    quota_scan_mb_per_day: int = int(os.getenv("VERITAS_QUOTA_SCAN_MB_PER_DAY", "1000"))
 
 
 settings = Settings()

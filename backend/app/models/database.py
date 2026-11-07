@@ -124,6 +124,11 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_hitl_decided ON hitl_decisions(decided_at DESC);
     """
     )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS usage_daily (
+            owner_id TEXT NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (owner_id, day, kind))"""
+    )
     for table in ("analysis_results", "model_scans", "defense_actions", "hitl_cases"):
         _add_owner_column(conn, table)
     conn.commit()
@@ -491,3 +496,35 @@ def get_hitl_decisions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         (*args, max(1, min(limit, 200))),
     ).fetchall()
     return [dict(row) for row in rows]
+
+
+# ── Usage quotas ──────────────────────────────────────────────────────────────
+
+def charge_usage(owner_id: str, kind: str, amount: int, limit: int) -> tuple[bool, int]:
+    """Add ``amount`` to today's counter if that keeps it within ``limit`` (0 = unlimited).
+    Returns (allowed, used_today). The check and the increment are one transaction."""
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    conn = _get_conn()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute("SELECT amount FROM usage_daily WHERE owner_id=? AND day=? AND kind=?", (owner_id, day, kind)).fetchone()
+        used = row["amount"] if row else 0
+        if limit and used + amount > limit:
+            conn.execute("ROLLBACK")
+            return False, used
+        conn.execute(
+            """INSERT INTO usage_daily (owner_id, day, kind, amount) VALUES (?, ?, ?, ?)
+               ON CONFLICT(owner_id, day, kind) DO UPDATE SET amount = amount + excluded.amount""",
+            (owner_id, day, kind, amount),
+        )
+        conn.execute("COMMIT")
+        return True, used + amount
+    except Exception:
+        conn.execute("ROLLBACK")
+        raise
+
+
+def get_usage(owner_id: str) -> Dict[str, int]:
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rows = _get_conn().execute("SELECT kind, amount FROM usage_daily WHERE owner_id=? AND day=?", (owner_id, day)).fetchall()
+    return {r["kind"]: r["amount"] for r in rows}

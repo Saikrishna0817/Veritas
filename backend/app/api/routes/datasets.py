@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from app.api import dependencies as deps
 from app.api.analysis_helpers import run_csv_analysis
+from app.core import quota
 from app.core.security import require_user
 
 logger = logging.getLogger(__name__)
@@ -211,6 +212,7 @@ async def analyze_real_dataset(
         data = deps.get_real_dataset(name)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
+    quota.charge_analysis(user)
 
     try:
         full_result, dataset_id = await run_csv_analysis(
