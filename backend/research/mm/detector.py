@@ -5,7 +5,7 @@
 * pixel  - classifier two-sample test on low-level pixel statistics (catches stamped patches, noise, blending).
 
 Each check becomes an exact tail-test evidence against held-out clean rows. A shift check joins the ranking
-only when its own evidence reaches ``GATE``; its batch evidence is lowered by ``PENALTY`` (weighted Bonferroni).
+only when its own evidence reaches its ``GATE``; its batch evidence is lowered by ``PENALTY`` (weighted Bonferroni).
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 
 from app.detection import veritas2 as v2
 
-GATE = 3.0
+GATE = {"shift": 3.0, "pixel": 1.0}  # pixel gate chosen on the dev datasets only (0 / 1 / 2 / 3 compared, 1 best)
 PENALTY = {"label": 0.1, "shift": 1.0, "pixel": 1.0}  # -log10 of each check's share of the false-alarm budget
 
 
@@ -35,7 +35,7 @@ def veritas_mm(d: dict):
         cal, inc = component(d)
         e = v2.exact_tail_test(cal, inc)
         ev.append(e - PENALTY[name])
-        if name == "label" or e >= GATE:
+        if name == "label" or e >= GATE[name]:
             rows.append(v2.neg_log_p(cal, inc))
     return np.max(rows, axis=0), max(ev)
 

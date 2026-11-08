@@ -34,7 +34,7 @@ from research.mm.pixel import pixel_features  # noqa: E402
 ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm}
 
 ROOT = Path(__file__).parent
-MANIFEST_PATH = ROOT / "benchmark" / "manifest-mm-images-v2.json"
+MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_MM_MANIFEST", "manifest-mm-images-v2.json")
 
 
 def load_manifest(profile: str = "full") -> dict:
