@@ -281,4 +281,8 @@ Not verified / not done:
 
 ## Dependency bump check (numpy 2.5.4, pandas 3.1.0)
 
-Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges. All 12,000 per-batch detector outputs are identical to `final-r2` (bit-for-bit apart from timings), so the bumps did not move any score. `fetch_openml`'s default ARFF parser breaks on categorical columns under pandas 3.1, so the harness now falls back to `parser="liac-arff"`. Result: `backend/research/results/2026-11-07-benchmark-v2-deps-bump-numpy25-pandas31.*`. scikit-learn stays at 1.8.0 (its 1.9 bump fails tests and is not merged).
+Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges. All 12,000 per-batch detector outputs are identical to `final-r2` (bit-for-bit apart from timings), so the bumps did not move any score. `fetch_openml`'s default ARFF parser breaks on categorical columns under pandas 3.1, so the harness now falls back to `parser="liac-arff"`. Result: `backend/research/results/2026-11-07-benchmark-v2-deps-bump-numpy25-pandas31.*`.
+
+## Dependency bump check (scikit-learn 1.9.1)
+
+Re-ran the same 1,680 held-out batches on scikit-learn 1.9.1. Unlike the numpy/pandas bump, outputs are **not** bit-identical: about 45% of per-batch scores move (gradient-boosting internals changed), by up to 4.3 in `veritas2` batch score on individual batches. Aggregates stay within noise. `veritas2` mean batch detection at 5% false alarms by poison rate (1.8.0 → 1.9.1): 1% 0.150 → 0.144, 3% 0.647 → 0.611, 5% 0.747 → 0.744, 10% 0.886 → 0.872; mean row AUPRC at 5% poison 0.678 → 0.681 (95% intervals are about ±0.15 wide). No claim in the model card changes. The metadata unpickler allow-list also needed `sklearn._loss._loss` classes for 1.9 pickles. Result: `backend/research/results/2026-11-08-benchmark-v2-deps-bump-sklearn19.*`.
