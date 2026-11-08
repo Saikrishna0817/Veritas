@@ -21,15 +21,20 @@ from pathlib import Path  # noqa: E402
 
 import numpy as np  # noqa: E402
 from sklearn.decomposition import PCA  # noqa: E402
+from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from research.baselines import DETECTORS  # noqa: E402
 from research.bench_v2 import _row_metrics, aggregate, detector_inputs, to_markdown  # noqa: E402
 from research.mm import datasets  # noqa: E402
 from research.mm.attacks import ATTACKS, make_context  # noqa: E402
+from research.mm.detector import pixel_c2st, veritas_mm  # noqa: E402
 from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
+from research.mm.pixel import pixel_features  # noqa: E402
+
+ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm}
 
 ROOT = Path(__file__).parent
-MANIFEST_PATH = ROOT / "benchmark" / "manifest-mm-images-v1.json"
+MANIFEST_PATH = ROOT / "benchmark" / "manifest-mm-images-v2.json"
 
 
 def load_manifest(profile: str = "full") -> dict:
@@ -43,7 +48,7 @@ def load_manifest(profile: str = "full") -> dict:
     return m
 
 
-def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray) -> dict:
+def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray, pix: np.ndarray) -> dict:
     """Attack the incoming pixels, re-embed what changed, return what a detector (and the scorer) needs."""
     m = spec["manifest"]
     rng = np.random.default_rng([m["random_seed"], zlib_id(spec["data_id"]), spec["seed"],
@@ -52,17 +57,20 @@ def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray) -> dict:
     n_ref = int(m["batch_rows"] * m["reference_fraction"])
     ref, inc = sel[:n_ref], sel[n_ref:]
     raw, y = ds.raw[inc].copy(), ds.y[inc].copy()
-    E_inc = emb[inc].copy()
+    E_inc, P_inc = emb[inc].copy(), pix[inc].copy()
     mask = np.zeros(len(inc), dtype=bool)
     if spec["attack"]:
         ctx = make_context(raw, ds.n_classes, rng)
         n_poison = max(1, round(spec["rate"] * len(inc)))
         idx = ATTACKS[spec["attack"]](raw, y, rng, n_poison, ctx)
         mask[idx] = True
-        E_inc[idx] = embed_images(raw[idx])
+        E_inc[idx], P_inc[idx] = embed_images(raw[idx]), pixel_features(raw[idx])
     pca = PCA(m["pca_dims"], random_state=0).fit(emb[ref])
     d = detector_inputs(pca.transform(emb[ref]), ds.y[ref], pca.transform(E_inc), y, ds.n_classes,
                         m["calibration_fraction_of_reference"])
+    n_cal = int(len(ref) * m["calibration_fraction_of_reference"])
+    scaler = StandardScaler().fit(pix[ref][n_cal:])  # pixel views follow the same fit/cal split as the embedding
+    d.update({"P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc)})
     return {"d": d, "mask": mask}
 
 
@@ -77,7 +85,7 @@ def score_batch(job: dict) -> dict:
     out.update({"n_incoming": len(mask), "n_poisoned": int(mask.sum()), "detectors": {}})
     for name in spec["manifest"]["detectors"]:
         started = time.perf_counter()
-        rows, batch = DETECTORS[name](d)
+        rows, batch = ALL_DETECTORS[name](d)
         res = {"batch_score": batch, "seconds": round(time.perf_counter() - started, 3)}
         if mask.any():
             res.update(_row_metrics(np.asarray(rows, dtype=float), mask))
@@ -103,9 +111,9 @@ def jobs(m: dict):
     specs = batch_specs(m)
     for data_id in dict.fromkeys(s["data_id"] for s in specs):
         ds = datasets.load(data_id)
-        emb = clean_embeddings(ds)
+        emb, pix = clean_embeddings(ds), pixel_features(ds.raw)
         for spec in (s for s in specs if s["data_id"] == data_id):
-            yield {"spec": spec, **prepare_batch(spec, ds, emb)}
+            yield {"spec": spec, **prepare_batch(spec, ds, emb, pix)}
 
 
 def main() -> None:

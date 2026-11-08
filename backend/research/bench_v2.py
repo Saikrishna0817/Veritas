@@ -253,7 +253,7 @@ def _mean_metric(det: str, attack: str, rate: float, metric: str):
 def aggregate(records: list[dict], m: dict) -> dict:
     ci = m["metrics"]["ci"]
     fpr = m["metrics"]["batch"]["tpr_at_clean_fpr"]
-    dets = [d for d in DETECTORS if any(d in r["detectors"] for r in records)]
+    dets = list(dict.fromkeys(d for r in records for d in r["detectors"]))  # whatever the run scored, first-seen order
     summary = {}
     for split in m["datasets"]:
         recs = [r for r in records if r["split"] == split]
