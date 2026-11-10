@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import AuthLayout, { Field } from '../components/AuthLayout';
+import { Button, ErrorNote } from '../components/ui';
+import HumanCheck from '../components/HumanCheck';
+import { TURNSTILE_SITE_KEY } from '../services/config';
 
 const COPY = {
-  signup: { title: 'Create your account', cta: 'Create account' },
-  verify: { title: 'Confirm your email', cta: '' },
-  forgot: { title: 'Reset your password', cta: 'Send reset link' },
-  reset: { title: 'Choose a new password', cta: 'Change password' },
+  signup: { title: 'Create an account', lede: 'We email you a link to confirm the address.', cta: 'Create account' },
+  verify: { title: 'Confirm your email', lede: 'Checking your link…', cta: '' },
+  forgot: { title: 'Reset your password', lede: 'If the address has an account, a reset link is on its way.', cta: 'Send reset link' },
+  reset: { title: 'Choose a new password', lede: 'At least 10 characters.', cta: 'Change password' },
+  resend: { title: 'Confirm your email', lede: 'Lost the confirmation email or it expired? We send a new link, valid for 24 hours.', cta: 'Send a new link' },
 };
-
-const input = 'w-full rounded-xl p-3 bg-black/40 border border-white/10 text-white';
 
 /** Public account pages: sign-up, email confirmation, forgot password, reset password. */
 export default function AccountFlowPage({ mode }) {
@@ -19,11 +22,14 @@ export default function AccountFlowPage({ mode }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [human, setHuman] = useState('');
+  const [checkRound, setCheckRound] = useState(0);
+  const needsCheck = Boolean(TURNSTILE_SITE_KEY) && ['signup', 'forgot', 'resend'].includes(mode);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => {
     if (mode !== 'verify') return;
-    if (!token) { setError('This link is missing its token.'); return; }
+    if (!token) { setError('This link is missing its token. Open the link from the email again.'); return; }
     api.verifyEmail(token).then((r) => setMessage(r.message)).catch((e) => setError(e.message));
   }, [mode, token]);
 
@@ -32,37 +38,46 @@ export default function AccountFlowPage({ mode }) {
     setError(''); setMessage(''); setBusy(true);
     try {
       let r;
-      if (mode === 'signup') r = await api.signup(form.username, form.email, form.password);
-      else if (mode === 'forgot') r = await api.requestPasswordReset(form.email);
+      if (mode === 'signup') r = await api.signup(form.username, form.email, form.password, human);
+      else if (mode === 'forgot') r = await api.requestPasswordReset(form.email, human);
+      else if (mode === 'resend') r = await api.resendVerification(form.email, human);
       else r = await api.confirmPasswordReset(token, form.password);
       setMessage(r.message);
     } catch (err) {
-      setError(err.message || 'Something went wrong.');
+      setError(err.message || 'Something went wrong. Try again in a moment.');
     } finally {
       setBusy(false);
+      if (needsCheck) { setHuman(''); setCheckRound((n) => n + 1); }   // a check token works once
     }
   }
 
   const copy = COPY[mode];
   return (
-    <main className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg-void)' }}>
-      <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-[24px] p-10" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(19,19,22,0.85)' }}>
-        <h1 className="text-2xl font-bold text-white m-0">{copy.title}</h1>
-        {mode === 'signup' && <input className={input} placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" />}
-        {(mode === 'signup' || mode === 'forgot') && <input className={input} type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />}
+    <AuthLayout
+      title={copy.title}
+      lede={copy.lede}
+      footer={(
+        <>
+          <Link to="/login" className="text-violet hover:text-[var(--red-bright)]">Sign in</Link>
+          {mode !== 'signup'
+            ? <Link to="/signup" className="text-textSecondary hover:text-textPrimary">Create an account</Link>
+            : <Link to="/forgot-password" className="text-textSecondary hover:text-textPrimary">Forgot password?</Link>}
+        </>
+      )}
+    >
+      <form onSubmit={submit} className="space-y-5">
+        {mode === 'signup' && <Field label="Username" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" />}
+        {(mode === 'signup' || mode === 'forgot' || mode === 'resend') && <Field label="Email" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />}
         {(mode === 'signup' || mode === 'reset') && (
-          <input className={input} type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" />
+          <Field label="Password" type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" />
         )}
-        {error && <div className="text-red-400 text-sm font-bold" role="alert">{error}</div>}
-        {message && <div className="text-green-400 text-sm font-bold" role="status">{message}</div>}
+        {needsCheck && !message && <HumanCheck onToken={setHuman} onError={setError} resetKey={checkRound} />}
+        <ErrorNote>{error}</ErrorNote>
+        {message && <div role="status" className="rounded-2xl border border-statusSafe/40 bg-statusSafe/[0.07] px-4 py-3 text-sm text-statusSafe">{message}</div>}
         {mode !== 'verify' && !message && (
-          <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-redPrimary text-white font-bold disabled:opacity-50">{busy ? 'Please wait…' : copy.cta}</button>
+          <Button type="submit" variant="uv" loading={busy} disabled={needsCheck && !human} className="w-full py-3.5 text-[15px]">{copy.cta}</Button>
         )}
-        <div className="text-sm text-gray-400 flex justify-between">
-          <Link to="/login" className="text-gray-300">Sign in</Link>
-          {mode !== 'signup' ? <Link to="/signup" className="text-gray-300">Create account</Link> : <Link to="/forgot-password" className="text-gray-300">Forgot password?</Link>}
-        </div>
       </form>
-    </main>
+    </AuthLayout>
   );
 }

@@ -8,32 +8,39 @@ export default {
     extend: {
       colors: {
         // Base surfaces
-        bgVoid: 'var(--bg-void)',
-        bgSurface: 'var(--bg-surface)',
-        bgPanel: 'var(--bg-panel)',
-        bgPanelRaised: 'var(--bg-panel-raised)',
+        bgVoid: '#080708',
+        bgSurface: '#0C0B0C',
+        bgPanel: '#141314',
+        bgPanelRaised: '#1A1A1A',
         borderHairline: 'var(--border-hairline)',
         
         // Brand red
-        redPrimary: 'var(--red-primary)',
-        redBright: 'var(--red-bright)',
-        redDim: 'var(--red-dim)',
+        redPrimary: '#B9A3FF',
+        redBright: '#D3C6FF',
+        redDim: '#2A2140',
         redGlow: 'var(--red-glow)',
         
         // Semantic status
-        statusSafe: 'var(--status-safe)',
-        statusWarn: 'var(--status-warn)',
-        statusCritical: 'var(--status-critical)',
+        statusSafe: '#6EE7A0',
+        statusWarn: '#FFB86B',
+        statusCritical: '#FF2327',
         
         // Text
-        textPrimary: 'var(--text-primary)',
-        textSecondary: 'var(--text-secondary)',
-        textMuted: 'var(--text-muted)',
+        textPrimary: '#FFFFFF',
+        textSecondary: '#CFCED0',
+        textMuted: '#9A989C',
+        uv: '#DDB5FC',
+        flag: '#FF6A4D',
+        violet: '#B9A3FF',
+        statusInfo: '#9DB8FF',
+        borderStrong: 'var(--border-strong)',
+        ink: { 950: '#080708', 900: '#0C0B0C', 850: '#141314', 800: '#1A1A1A', 700: '#2C2C2C', 600: '#4A494B' },
+        bone: '#FFFFFF',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Wix Madefor Display', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
-        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        display: ['Wix Madefor Display', 'system-ui', 'sans-serif'],
       },
       animation: {
         'marquee': 'marquee 25s linear infinite',
@@ -45,7 +52,9 @@ export default {
         }
       },
       boxShadow: {
-        'red-glow': '0 0 40px var(--red-glow)',
+        'red-glow': '0 10px 30px -8px var(--red-glow)',
+        'uv': '0 14px 40px -14px rgba(185,163,255,0.55)',
+        'lift': '0 18px 40px -18px rgba(0,0,0,0.9)',
       },
     },
   },

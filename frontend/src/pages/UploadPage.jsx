@@ -1,365 +1,328 @@
-import { useState, useRef, useCallback } from 'react';
-import { api } from '../services/api';
-import UploadSchemaCard from '../components/upload/UploadSchemaCard';
-import AttackClassificationCard from '../components/upload/AttackClassificationCard';
-import LayerScoresGrid from '../components/upload/LayerScoresGrid';
-import { FolderUp, CloudUpload, FileText, Target, Zap, Activity, ShieldAlert, ClipboardList, Download, Check } from 'lucide-react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
+import { motion } from 'framer-motion';
+import { Download, RotateCcw, AlertTriangle } from 'lucide-react';
+import { useAnalysisRun } from '../hooks/useAnalysisRun';
+import JobCard from '../components/JobCard';
+import {
+  DATA_VERDICTS, PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, downloadJson,
+} from '../components/ui';
 
-const ATTACK_COLORS = {
-  label_flip: '#f59e0b',
-  backdoor: 'var(--red-primary)',
-  clean_label: '#a855f7',
-  gradient_poisoning: '#06b6d4',
-  boiling_frog: 'var(--status-safe)',
-};
+const Specimen3D = lazy(() => import('../components/Specimen3D'));
 
-const VERDICT_CONFIG = {
-  CONFIRMED_POISONED: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-12 h-12 text-[var(--status-critical)]" />, label: 'CONFIRMED POISONED' },
-  SUSPICIOUS: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <Activity className="w-12 h-12 text-[var(--status-warn)]" />, label: 'SUSPICIOUS' },
-  LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-12 h-12 text-blue-500" />, label: 'LOW RISK' },
-  CLEAN: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-12 h-12 text-[var(--status-safe)]" />, label: 'CLEAN' },
-};
+const STAGES = ['Reading schema', 'Splitting off the trusted reference', 'Label check', 'Distribution-shift check', 'Calibrating against clean rows'];
+const REF_MODES = [
+  { id: 'order', label: 'First 70% of this file', hint: 'Only works if the first rows are known good.' },
+  { id: 'file', label: 'A separate trusted CSV', hint: 'Same columns as the batch.' },
+  { id: 'column', label: 'Rows before a cutoff', hint: 'A number or date column, e.g. ingested_at < 2026-03-01.' },
+];
 
-function StatCard({ label, value, sub, color = 'var(--red-primary)', icon }) {
+function StageTicker() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((x) => Math.min(x + 1, STAGES.length - 1)), 1800);
+    return () => clearInterval(t);
+  }, []);
   return (
-    <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6 flex-1 min-w-[180px] hover:bg-bgPanelRaised transition-colors">
-      <div className="mb-3 w-10 h-10 rounded-lg flex items-center justify-center bg-black/20 border border-borderHairline text-white">
-        {icon}
+    <div className="panel scan-sweep p-5" role="status" aria-live="polite">
+      <ol className="space-y-2 font-mono text-sm">
+        {STAGES.map((s, k) => (
+          <li key={s} className={`flex items-center gap-3 transition-colors ${k < i ? 'text-textMuted' : k === i ? 'text-uv' : 'text-textMuted/50'}`}>
+            <span className="w-4">{k < i ? '✓' : k === i ? '›' : ''}</span>{s}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function EvidenceBar({ name, check, score }) {
+  const ev = check?.evidence ?? 0;
+  const ran = check?.ran !== false;
+  const width = Math.min(ev / 8, 1) * 100;
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold">{name}</span>
+        <span className="font-mono text-sm text-textSecondary">
+          {ran ? <>−log₁₀ p = <span className={check?.alarm ? 'text-flag' : ''}>{ev.toFixed(2)}</span></> : 'skipped (one label value)'}
+        </span>
       </div>
-      <div className="text-3xl font-mono font-extrabold" style={{ color }}>{value}</div>
-      <div className="text-[13px] text-textPrimary mt-1 font-bold tracking-wide uppercase">{label}</div>
-      {sub && <div className="text-[11px] text-textMuted mt-1">{sub}</div>}
+      <div className="relative mt-2 h-3 rounded-sm bg-ink-950">
+        {[1.3, 2, 4].map((t) => (
+          <span key={t} className="absolute inset-y-[-3px] w-px bg-borderStrong" style={{ left: `${(t / 8) * 100}%` }} aria-hidden />
+        ))}
+        <motion.div
+          className="h-full rounded-sm"
+          style={{ background: check?.alarm ? 'var(--flag)' : 'var(--violet)' }}
+          initial={{ width: 0 }}
+          animate={{ width: `${width}%` }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+        />
+      </div>
+      <div className="relative mt-1 h-4 font-mono text-[10px] text-textMuted">
+        {[['0.05', 1.3], ['0.01', 2], ['1e-4', 4]].map(([l, t]) => (
+          <span key={l} className="absolute -translate-x-1/2" style={{ left: `${(t / 8) * 100}%` }}>{l}</span>
+        ))}
+      </div>
+      {score != null && <div className="sr-only">Scaled score {Math.round(score * 100)}%</div>}
+    </div>
+  );
+}
+
+function RankedRows({ scores, flagged, offset }) {
+  const [showAll, setShowAll] = useState(false);
+  const rows = useMemo(() => {
+    const flagSet = new Set(flagged);
+    return scores.map((s, i) => ({ i, s, f: flagSet.has(i) })).sort((a, b) => b.s - a.s);
+  }, [scores, flagged]);
+  const visible = rows.slice(0, showAll ? 200 : 25);
+  const max = rows[0]?.s || 1;
+  return (
+    <Panel
+      title="Rows to review first"
+      aside={<span className="font-mono text-xs text-textMuted">{flagged.length} flagged · {scores.length.toLocaleString()} ranked</span>}
+    >
+      <p className="-mt-2 mb-4 max-w-[70ch] text-sm text-textSecondary">
+        Ranked by row evidence: −log₁₀ of the share of clean reference rows that score at least as high. 2.0 means the row is in the clean top 1%.
+        Row numbers are positions in your file.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[420px] text-sm">
+          <thead>
+            <tr className="rule-label text-left">
+              <th className="py-2 pr-4 font-normal">Rank</th>
+              <th className="py-2 pr-4 font-normal">File row</th>
+              <th className="py-2 pr-4 font-normal">Evidence</th>
+              <th className="py-2 font-normal w-[40%]"><span className="sr-only">Bar</span></th>
+            </tr>
+          </thead>
+          <tbody className="font-mono">
+            {visible.map((r, k) => (
+              <tr key={r.i} className="border-t border-borderHairline">
+                <td className="py-2 pr-4 text-textMuted">{k + 1}</td>
+                <td className="py-2 pr-4">{(r.i + offset + 1).toLocaleString()}</td>
+                <td className={`py-2 pr-4 ${r.f ? 'text-flag' : 'text-textSecondary'}`}>{r.s.toFixed(2)}{r.f && <span className="ml-2 text-[10px] uppercase">flagged</span>}</td>
+                <td className="py-2">
+                  <div className="h-1.5 rounded-sm bg-ink-950"><div className="h-full rounded-sm" style={{ width: `${(r.s / max) * 100}%`, background: r.f ? 'var(--flag)' : '#4A494B' }} /></div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > 25 && (
+        <button onClick={() => setShowAll((x) => !x)} className="mt-4 text-sm text-violet hover:text-[var(--red-bright)]">
+          {showAll ? 'Show top 25' : `Show top ${Math.min(rows.length, 200)}`}
+        </button>
+      )}
+    </Panel>
+  );
+}
+
+function Result({ result, onReset }) {
+  const v = DATA_VERDICTS[result.verdict] || DATA_VERDICTS.SUSPICIOUS;
+  const lr = result.layer_results || {};
+  const flags = lr.row_flags || {};
+  const info = result.dataset_info || {};
+  const cls = result.attack_classification;
+  const warnings = [...new Set([...(info.warnings || []), ...(result.warnings || [])])];
+
+  return (
+    <div className="space-y-8">
+      <section className="edge-card"><div className="edge-inner relative grid xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(55% 80% at 80% 60%, rgba(71,0,214,0.5), transparent 70%)' }} />
+        <div className="relative z-10 p-8 md:p-12">
+          <div className="rule-label">{info.filename}</div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-3 font-display text-[clamp(2.4rem,5vw,4.4rem)] font-medium leading-[0.9]"
+            style={{ color: v.color }}
+          >
+            {v.label}
+          </motion.div>
+          <p className="mt-4 max-w-[46ch] text-textSecondary">{v.blurb}</p>
+          <div className="mt-8 grid grid-cols-2 gap-6">
+            <Readout label="Batch evidence" value={v.p} />
+            <Readout label="Flagged rows" value={(flags.flagged_indices_incoming || []).length} color="var(--flag)" note={`of ${(result.n_samples || 0).toLocaleString()} checked`} />
+            <Readout label="Mode" value={result.detection_mode === 'supervised' || info.has_labels ? 'Labelled' : 'Unlabelled'} note={info.label_column ? `label: ${info.label_column}` : 'shift check only'} />
+            <Readout label="Time" value={result.elapsed_ms ? (result.elapsed_ms / 1000).toFixed(1) : '—'} unit="s" />
+          </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Button variant="ghost" onClick={onReset}><RotateCcw className="h-4 w-4" /> Examine another batch</Button>
+            <Button
+              variant="ghost"
+              onClick={() => downloadJson(result, `veritas_${(info.filename || 'batch').replace(/\.csv$/i, '')}_${Date.now()}.json`)}
+            >
+              <Download className="h-4 w-4" /> Download JSON
+            </Button>
+          </div>
+        </div>
+        <div className="relative min-h-[360px] border-t border-borderHairline xl:border-l xl:border-t-0">
+          <Suspense fallback={null}>
+            <Specimen3D className="absolute inset-0" scores={flags.row_scores} flagged={flags.flagged_indices_incoming} />
+          </Suspense>
+          <span className="pointer-events-none absolute bottom-3 right-4 font-mono text-[11px] text-textMuted">your rows · height = evidence · move the pointer to tilt</span>
+        </div>
+      </div></section>
+
+      {warnings.length > 0 && (
+        <div className="rounded-2xl border border-statusWarn/40 bg-statusWarn/[0.06] p-4 text-sm text-[#FFD9AE]">
+          {warnings.map((w) => <div key={w} className="flex gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />{w}</div>)}
+        </div>
+      )}
+
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        {flags.row_scores?.length ? (
+          <RankedRows scores={flags.row_scores} flagged={flags.flagged_indices_incoming || []} offset={info.reference_split || 0} />
+        ) : <div />}
+        <div className="space-y-8">
+          <Panel title="Two checks, one verdict">
+            <div className="space-y-6">
+              <EvidenceBar name="Label check" check={lr.label_check} score={result.layer_scores?.label_check} />
+              <EvidenceBar name="Distribution-shift check" check={lr.shift_check} score={result.layer_scores?.shift_check} />
+            </div>
+            <p className="mt-4 text-xs text-textMuted">
+              Ticks mark the verdict cut-offs. The shift check joins the row ranking only when its own evidence reaches 3.0
+              {lr.shift_check?.in_row_ranking ? ' (it did here).' : ' (it did not here).'}
+            </p>
+          </Panel>
+          <Panel title="Schema">
+            <dl className="grid grid-cols-2 gap-4 text-sm">
+              {[
+                ['Rows in file', info.n_rows?.toLocaleString()],
+                ['Features', info.n_features],
+                ['Label column', info.label_column || 'none'],
+                ['Reference rows', info.reference_split?.toLocaleString()],
+              ].map(([k, val]) => (
+                <div key={k}><dt className="rule-label">{k}</dt><dd className="mt-1 break-all font-mono">{val ?? '—'}</dd></div>
+              ))}
+            </dl>
+            {info.feature_names?.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {info.feature_names.slice(0, 40).map((f) => (
+                  <span key={f} className="rounded-lg border border-borderHairline bg-ink-950 px-2 py-0.5 font-mono text-[11px] text-textSecondary">{f}</span>
+                ))}
+                {info.feature_names.length > 40 && <span className="px-2 py-0.5 font-mono text-[11px] text-textMuted">+{info.feature_names.length - 40}</span>}
+              </div>
+            )}
+          </Panel>
+          {cls?.attack_type && (
+            <Panel title="Pattern guess" aside={<PreviewTag />}>
+              <div className="font-display text-2xl font-medium capitalize">{cls.attack_type.replace(/_/g, ' ')}</div>
+              {cls.description && <p className="mt-2 text-sm text-textSecondary">{cls.description}</p>}
+              <p className="mt-3 text-xs text-textMuted">A heuristic reading of which attack the flagged rows resemble. It is not measured on the benchmark.</p>
+            </Panel>
+          )}
+        </div>
+      </div>
+
+      {result.injection_pattern?.narrative && (
+        <Panel title="Draft analyst notes" aside={<PreviewTag />}>
+          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-textSecondary">{result.injection_pattern.narrative}</pre>
+        </Panel>
+      )}
     </div>
   );
 }
 
 export default function UploadPage() {
-  const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState(null);
-  const [refMode, setRefMode] = useState('order'); // order | file | column
+  const [refMode, setRefMode] = useState('order');
   const [referenceFile, setReferenceFile] = useState(null);
   const [splitColumn, setSplitColumn] = useState('');
   const [splitCutoff, setSplitCutoff] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const fileRef = useRef();
+  const { run: start, loading, job, result, error, setError, reset: clearResult } = useAnalysisRun('csv');
 
-  const handleFile = (f) => {
+  const pick = (setter) => (f) => {
     if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      setError('Only CSV files are accepted.');
-      return;
-    }
-    if (f.size > 200 * 1024 * 1024) {
-      setError('File too large. Maximum size is 200MB.');
-      return;
-    }
-    setFile(f);
-    setError(null);
-    setResult(null);
+    if (!f.name.toLowerCase().endsWith('.csv')) return setError('Only .csv files are accepted.');
+    if (f.size > 200 * 1024 * 1024) return setError('That file is over 200 MB. Split it or sample it first.');
+    setError('');
+    setter(f);
   };
 
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragging(false);
-    const f = e.dataTransfer.files[0];
-    handleFile(f);
-  }, []);
-
-  const onDragOver = (e) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-  const onDragLeave = () => setDragging(false);
-
-  const runAnalysis = async () => {
+  const run = async () => {
     if (!file) return;
-    if ((refMode === 'file' && !referenceFile) || (refMode === 'column' && (!splitColumn.trim() || !splitCutoff.trim()))) {
-      setError('Finish choosing the trusted reference first.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setProgress(0);
-
-    const interval = setInterval(() => {
-      setProgress((p) => (p < 85 ? p + (85 - p) * 0.08 : p));
-    }, 300);
-
-    try {
-      const data = await api.uploadCSV(file, {
-        referenceFile: refMode === 'file' ? referenceFile : null,
-        splitColumn: refMode === 'column' ? splitColumn.trim() : '',
-        splitCutoff: refMode === 'column' ? splitCutoff.trim() : '',
-      });
-      clearInterval(interval);
-      setProgress(100);
-      setTimeout(() => setResult(data), 300);
-    } catch (e) {
-      clearInterval(interval);
-      setError(e.message || 'Analysis failed.');
-    } finally {
-      setLoading(false);
-    }
+    if (refMode === 'file' && !referenceFile) return setError('Choose the trusted reference CSV, or switch to another reference option.');
+    if (refMode === 'column' && (!splitColumn.trim() || !splitCutoff.trim())) return setError('Enter both the column name and the cutoff value.');
+    start(file, {
+      referenceFile: refMode === 'file' ? referenceFile : null,
+      splitColumn: refMode === 'column' ? splitColumn.trim() : '',
+      splitCutoff: refMode === 'column' ? splitCutoff.trim() : '',
+    });
   };
 
-  const verdict = result ? VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS : null;
-  const attackColor = result
-    ? ATTACK_COLORS[result.attack_classification?.attack_type] || 'var(--red-primary)'
-    : 'var(--red-primary)';
+  const reset = () => { clearResult(); setFile(null); setReferenceFile(null); };
 
   return (
-    <div className="relative w-full min-h-[calc(100vh-80px)] bg-transparent overflow-hidden">
-      <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-12">
-        
-        {!result && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Left Column: Context / How it works */}
-            <div className="space-y-8">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
-                    <FolderUp className="w-5 h-5 text-redPrimary" />
-                  </div>
-                  <h1 className="text-[56px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
-                    Upload Dataset
-                  </h1>
-                </div>
-                <p className="text-textSecondary text-[18px] leading-relaxed max-w-md">
-                  Upload a CSV and say which rows are trusted — the platform auto-detects the schema, then checks the rest for wrong labels and distribution shift.
-                </p>
-              </div>
-
-              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 space-y-6">
-                <h3 className="font-display font-bold text-textPrimary text-xl">How it works</h3>
-                <ol className="space-y-6 relative before:absolute before:inset-y-0 before:left-4 before:w-[2px] before:bg-borderHairline">
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">1. Secure Upload</h4>
-                    <p className="text-textMuted text-sm">Accepts .csv files up to 200MB (≤ 200,000 rows). Processed in memory without storage.</p>
-                  </li>
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary/30 border border-redPrimary rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">2. Trusted reference</h4>
-                    <p className="text-textMuted text-sm">Use a separate trusted file, rows before a cutoff, or the first 70% of the file as the baseline.</p>
-                  </li>
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-borderHairline rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">3. Run 5 Detection Layers</h4>
-                    <p className="text-textMuted text-sm">Runs a label check and a distribution-shift check against your reference rows.</p>
-                  </li>
-                </ol>
-              </div>
-            </div>
-
-            {/* Right Column: Upload Zone */}
-            <div className="flex flex-col gap-6">
-              <div
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onClick={() => fileRef.current?.click()}
-                className={`border-[3px] border-dashed rounded-[28px] p-16 text-center cursor-pointer backdrop-blur-xl transition-all duration-300 w-full flex flex-col items-center justify-center min-h-[400px]
-                  ${dragging ? 'border-redPrimary bg-redPrimary/5 shadow-red-glow' : file ? 'border-statusSafe bg-statusSafe/5' : 'border-borderHairline bg-bgVoid/40 hover:bg-bgPanel'}`}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => handleFile(e.target.files[0])}
-                />
-                <div className="mb-6">
-                  {file ? <FileText className="w-16 h-16 text-statusSafe" /> : dragging ? <FolderUp className="w-16 h-16 text-redPrimary animate-bounce" /> : <CloudUpload className="w-16 h-16 text-textMuted" />}
-                </div>
-                {file ? (
-                  <>
-                    <div className="text-statusSafe font-bold text-2xl tracking-wide">{file.name}</div>
-                    <div className="text-textMuted text-sm font-mono mt-3">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB · Click to change
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-textPrimary font-bold text-2xl tracking-wide">
-                      Drop your CSV here or click to browse
-                    </div>
-                    <div className="text-textMuted font-mono text-sm mt-3">
-                      Accepts .csv files up to 200MB (≤ 200,000 rows)
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {error && (
-                <div className="bg-statusCritical/10 border border-statusCritical/30 rounded-xl p-4 text-statusCritical font-bold text-sm">
-                  ⚠️ {error}
-                </div>
-              )}
-
-              {file && !result && (
-                <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-5 space-y-3 text-sm">
-                  <div className="font-bold text-textPrimary">Which rows are trusted (the reference)?</div>
-                  <select value={refMode} onChange={(e) => setRefMode(e.target.value)}
-                    className="w-full bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary">
-                    <option value="order">First 70% of this file (file order)</option>
-                    <option value="file">A separate trusted CSV with the same columns</option>
-                    <option value="column">Rows before a cutoff in a column (number or date)</option>
-                  </select>
-                  {refMode === 'file' && (
-                    <input type="file" accept=".csv" onChange={(e) => setReferenceFile(e.target.files[0] || null)} className="text-textMuted" />
-                  )}
-                  {refMode === 'column' && (
-                    <div className="flex gap-2">
-                      <input value={splitColumn} onChange={(e) => setSplitColumn(e.target.value)} placeholder="column, e.g. date"
-                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
-                      <input value={splitCutoff} onChange={(e) => setSplitCutoff(e.target.value)} placeholder="cutoff, e.g. 2026-03-01"
-                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
-                    </div>
-                  )}
-                  <div className="text-textMuted">Everything else in this file is checked against the reference. File order only works if the first rows are known good.</div>
-                </div>
-              )}
-
-              {file && !result && (
-                <button
-                  onClick={runAnalysis}
-                  disabled={loading}
-                  className="w-full py-5 rounded-2xl bg-redPrimary text-white font-bold text-xl hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-redPrimary/50"
-                >
-                  {loading ? '🔬 Analyzing...' : '🚀 Run Poisoning Detection'}
-                </button>
-              )}
-
-              {loading && (
-                <div className="p-6 bg-bgPanel border border-borderHairline rounded-[20px]">
-                  <div className="flex justify-between text-sm text-textPrimary font-bold mb-3">
-                    <span>Running label and shift checks...</span>
-                    <span className="font-mono">{Math.round(progress)}%</span>
-                  </div>
-                  <div className="h-3 bg-bgVoid rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-redPrimary transition-all duration-300 ease-out shadow-red-glow"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="flex gap-2 mt-4 flex-wrap">
-                    {['Schema Detection', 'Reference Split', 'Label Check', 'Shift Check', 'Verdict'].map((s, i) => (
-                      <span
-                        key={s}
-                        className={`text-[11px] font-mono px-3 py-1.5 rounded-full border transition-all duration-500
-                          ${progress > i * 14 ? 'bg-redPrimary/10 border-redPrimary/30 text-redPrimary' : 'bg-bgVoid/50 border-borderHairline text-textMuted'}`}
-                      >
-                        {progress > i * 14 ? '✓ ' : ''}{s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <PageHeader
+        title={result ? 'Examination' : 'Examine a'}
+        accent={result ? null : 'batch'}
+        lede={result ? null : 'Give Veritas a labelled CSV and say which rows you trust. It ranks the rest by how likely their label is wrong or their features were tampered with, then gives one calibrated verdict.'}
+      />
+      {result ? (
+        <Result result={result} onReset={reset} />
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          <div className="space-y-5">
+            <Dropzone
+              accept=".csv"
+              file={file}
+              onFile={pick(setFile)}
+              label="Drop the batch CSV"
+              hint="Up to 200 MB and 200,000 rows. Files over 10 MB run in the background. A label column is detected automatically; answer-key columns such as is_poisoned are ignored."
+            />
+            <ErrorNote>{error}</ErrorNote>
+            {job ? <JobCard {...job} /> : loading && <StageTicker />}
           </div>
-        )}
 
-        {/* Results */}
-        {result && (
-          <div className="animate-fadeInUp bg-bgVoid/80 backdrop-blur-2xl rounded-[32px] p-8 md:p-12 border border-borderHairline shadow-2xl">
-            {/* Verdict Banner */}
-            <div
-              className="rounded-[24px] p-6 md:p-8 mb-10 flex items-center gap-8 border"
-              style={{ background: verdict.bg, borderColor: `${verdict.color}40` }}
-            >
-              <div>{verdict.icon}</div>
-              <div className="flex-1">
-                <div className="text-3xl md:text-4xl font-display font-bold tracking-wide" style={{ color: verdict.color }}>
-                  {verdict.label}
-                </div>
-                <div className="text-textPrimary text-lg mt-3 font-medium flex items-center gap-3 flex-wrap">
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Suspicion Score</span>
-                  <strong style={{ color: verdict.color }} className="font-mono">{Math.round((result.overall_suspicion_score || 0) * 100)}%</strong>
-                  <span className="text-borderHairline">|</span>
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Poisoning Level</span>
-                  <strong style={{ color: verdict.color }}>{result.poisoning_level || 'N/A'}</strong>
-                  <span className="text-borderHairline">|</span>
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Mode</span>
-                  <strong className="text-textPrimary">
-                    {result.detection_mode === 'supervised' ? 'Supervised' : 'Unsupervised'}
-                  </strong>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setResult(null);
-                  setFile(null);
-                  setProgress(0);
-                }}
-                className="px-6 py-3 rounded-xl border border-borderHairline bg-bgPanel hover:bg-bgPanelRaised text-textPrimary font-bold transition-colors"
-              >
-                ↩ New Upload
-              </button>
+          <fieldset className="panel space-y-5 p-6" disabled={loading}>
+            <legend className="sr-only">Trusted reference</legend>
+            <div>
+              <h2 className="font-display text-lg font-medium">Which rows do you trust?</h2>
+              <p className="mt-1 text-sm text-textSecondary">Everything else is checked against these.</p>
             </div>
-
-            {/* Schema & Classification Row */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
-              <UploadSchemaCard datasetInfo={result.dataset_info} nSamples={result.n_samples} />
-              <AttackClassificationCard classification={result.attack_classification} attackColor={attackColor} />
+            <div className="space-y-2" role="radiogroup" aria-label="Reference source">
+              {REF_MODES.map((m) => (
+                <label
+                  key={m.id}
+                  className={`flex cursor-pointer gap-3 rounded-2xl border p-3.5 transition-colors ${refMode === m.id ? 'border-violet bg-violet/[0.08]' : 'border-borderHairline hover:border-borderStrong'}`}
+                >
+                  <input type="radio" name="ref" value={m.id} checked={refMode === m.id} onChange={() => setRefMode(m.id)} className="mt-1 accent-[#B9A3FF]" />
+                  <span>
+                    <span className="block text-sm font-semibold">{m.label}</span>
+                    <span className="block text-xs text-textMuted">{m.hint}</span>
+                  </span>
+                </label>
+              ))}
             </div>
-
-            {/* Layer Scores */}
-            <div className="mb-10">
-              <LayerScoresGrid layerScores={result.layer_scores} />
-            </div>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-              <StatCard
-                icon={<Target className="w-6 h-6" />}
-                label="Flagged Rows"
-                value={result.blast_radius?.n_poisoned_samples || 0}
-                sub={`of ${result.n_samples || 0} incoming`}
-                color="var(--status-warn)"
-              />
-              <StatCard
-                icon={<ShieldAlert className="w-6 h-6" />}
-                label="Defense Action"
-                value={result.defense_action?.action?.replace(/_/g, ' ') || 'monitor'}
-                sub={result.defense_action?.reason?.replace(/_/g, ' ')}
-                color="var(--status-safe)"
-              />
-            </div>
-
-            {/* Narrative */}
-            {result.injection_pattern?.narrative && (
-              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 mb-10">
-                <div className="font-bold text-textPrimary mb-4 flex items-center gap-2 text-xl">
-                  <ClipboardList className="w-6 h-6 text-redPrimary" /> What Was Flagged
-                </div>
-                <pre className="font-mono text-sm text-textSecondary leading-relaxed whitespace-pre-wrap m-0 bg-bgVoid p-6 rounded-xl border border-borderHairline">
-                  {result.injection_pattern.narrative}
-                </pre>
+            {refMode === 'file' && (
+              <Dropzone accept=".csv" file={referenceFile} onFile={pick(setReferenceFile)} label="Drop the trusted CSV" />
+            )}
+            {refMode === 'column' && (
+              <div className="grid grid-cols-2 gap-3">
+                {[['Column', splitColumn, setSplitColumn, 'ingested_at'], ['Cutoff', splitCutoff, setSplitCutoff, '2026-03-01']].map(([l, val, set, ph]) => (
+                  <label key={l} className="text-sm">
+                    <span className="rule-label">{l}</span>
+                    <input
+                      value={val}
+                      onChange={(e) => set(e.target.value)}
+                      placeholder={ph}
+                      className="mt-1 w-full rounded-2xl border border-borderStrong bg-ink-950 px-3 py-2.5 font-mono text-sm focus:border-uv focus:outline-none"
+                    />
+                  </label>
+                ))}
               </div>
             )}
-
-            {/* Download Report */}
-            <button
-              onClick={() => {
-                const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `forensics_${result.dataset_info?.filename?.replace('.csv', '') || 'report'}_${Date.now()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="w-full py-5 rounded-2xl border border-redPrimary/40 bg-redPrimary/10 text-redPrimary font-bold text-xl hover:bg-redPrimary/20 transition-colors flex justify-center items-center gap-3"
-            >
-              <Download className="w-6 h-6" /> Download Forensic Report (JSON)
-            </button>
-          </div>
-        )}
-
-      </div>
+            <Button variant="uv" onClick={run} loading={loading} disabled={!file} className="w-full py-4 text-[15px]">
+              {loading ? 'Examining…' : 'Run poisoning detection'}
+            </Button>
+          </fieldset>
+        </div>
+      )}
     </div>
   );
 }

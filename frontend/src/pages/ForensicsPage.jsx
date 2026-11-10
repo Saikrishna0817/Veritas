@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { PreviewTag } from '../components/ui';
 import { Search, Upload, Target, ShieldAlert, Activity, Check, HelpCircle, Folder, AlertTriangle, Fingerprint, Bug, BrainCircuit } from 'lucide-react';
 
 function NarrativeBox({ narrative }) {
     if (!narrative) return null;
     return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 font-mono text-sm relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary shadow-red-glow"></div>
-            <div className="text-redPrimary uppercase tracking-widest mb-4 text-xs font-bold flex items-center gap-2">
+        <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 font-mono text-sm relative overflow-hidden group">
+            <div className="text-redPrimary tracking-wide mb-4 text-xs font-medium flex items-center gap-2">
                 <Search className="w-4 h-4" /> Heuristic Investigation Summary
             </div>
             <pre className="text-textSecondary whitespace-pre-wrap leading-relaxed bg-bgVoid p-4 rounded-lg border border-borderHairline">{narrative}</pre>
@@ -22,14 +22,14 @@ function AttackClassCard({ classification }) {
     }[classification.severity] || 'text-textMuted';
 
     return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
-            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
+        <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 hover:border-redPrimary/30 transition-colors">
+            <div className="text-xs text-redPrimary mb-6 font-medium flex items-center gap-2">
                 <Bug className="w-4 h-4" /> Classification
             </div>
             <div className="space-y-4">
                 <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
                     <span className="font-mono text-xs text-textMuted">Attack Type</span>
-                    <span className="font-mono text-sm font-bold text-statusCritical capitalize">
+                    <span className="text-sm font-medium text-statusCritical capitalize">
                         {classification.attack_type?.replace(/_/g, ' ')}
                     </span>
                 </div>
@@ -41,13 +41,13 @@ function AttackClassCard({ classification }) {
                 </div>
                 <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
                     <span className="font-mono text-xs text-textMuted">Confidence</span>
-                    <span className="font-mono text-xs font-bold text-redPrimary">
+                    <span className="text-xs font-medium text-redPrimary">
                         {(classification.confidence * 100).toFixed(1)}%
                     </span>
                 </div>
                 <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
                     <span className="font-mono text-xs text-textMuted">Severity</span>
-                    <span className={`font-mono text-xs font-bold ${severityColor} uppercase`}>
+                    <span className={`text-xs font-medium ${severityColor} uppercase`}>
                         {classification.severity}
                     </span>
                 </div>
@@ -60,7 +60,7 @@ function AttackClassCard({ classification }) {
                                 <span className="text-textPrimary">{(prob * 100).toFixed(1)}%</span>
                             </div>
                             <div className="h-1.5 bg-bgVoid rounded-full overflow-hidden">
-                                <div className="h-full bg-redPrimary shadow-red-glow rounded-full transition-all"
+                                <div className="h-full bg-redPrimary shadow-lift rounded-full transition-all"
                                     style={{ width: `${prob * 100}%` }} />
                             </div>
                         </div>
@@ -74,8 +74,8 @@ function AttackClassCard({ classification }) {
 function PatternCard({ pattern }) {
     if (!pattern) return null;
     return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
-            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
+        <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 hover:border-redPrimary/30 transition-colors">
+            <div className="text-xs text-redPrimary mb-6 font-medium flex items-center gap-2">
                 <Fingerprint className="w-4 h-4" /> Flagged Rows
             </div>
             <div className="space-y-0 font-mono text-xs">
@@ -85,7 +85,7 @@ function PatternCard({ pattern }) {
                 ].map(({ label, value }) => value != null && (
                     <div key={label} className="flex justify-between py-3 border-b border-borderHairline last:border-0 items-center">
                         <span className="text-textMuted">{label}</span>
-                        <span className="text-textPrimary font-bold bg-bgVoid px-2 py-1 rounded">{value}</span>
+                        <span className="text-textPrimary font-medium bg-bgVoid px-2 py-1 rounded">{value}</span>
                     </div>
                 ))}
             </div>
@@ -102,11 +102,11 @@ function VerdictBadge({ verdict, score }) {
     }[verdict] || { color: 'var(--text-muted)', bg: 'var(--bg-panel)', icon: <HelpCircle className="w-6 h-6 text-textMuted" /> };
 
     return (
-        <div className="flex items-center gap-4 px-5 py-3 rounded-xl border" style={{ background: cfg.bg, borderColor: `${cfg.color}40` }}>
+        <div className="flex items-center gap-4 px-5 py-3 rounded-2xl border" style={{ background: cfg.bg, borderColor: `${cfg.color}40` }}>
             {cfg.icon}
             <div>
-                <div className="text-sm font-bold font-mono tracking-wide" style={{ color: cfg.color }}>{verdict}</div>
-                {score != null && <div className="text-[10px] font-mono text-textMuted uppercase tracking-widest mt-1">Suspicion: {(score * 100).toFixed(1)}%</div>}
+                <div className="text-sm font-medium" style={{ color: cfg.color }}>{verdict}</div>
+                {score != null && <div className="text-[10px] text-textMuted mt-1">Suspicion: {(score * 100).toFixed(1)}%</div>}
             </div>
         </div>
     );
@@ -115,7 +115,7 @@ function VerdictBadge({ verdict, score }) {
 function DatasetInfoBanner({ info, dataSource }) {
     if (!info) return null;
     return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl px-5 py-4 text-xs font-mono text-textSecondary flex gap-6 flex-wrap items-center">
+        <div className="bg-bgPanel border border-borderHairline rounded-2xl px-5 py-4 text-xs font-mono text-textSecondary flex gap-6 flex-wrap items-center">
             <span className="flex items-center gap-2"><Folder className="w-4 h-4 text-redPrimary" /> <strong className="text-textPrimary">{info.filename}</strong></span>
             <span className="text-borderHairline">|</span>
             <span>Rows: <strong className="text-textPrimary">{info.n_rows?.toLocaleString()}</strong></span>
@@ -165,21 +165,14 @@ export default function ForensicsPage() {
     useEffect(() => { load(activeTab); }, [activeTab, load]);
 
     return (
-        <div className="relative z-10 px-6 md:px-12 py-12 max-w-6xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
+        <div className="relative z-10 px-5 md:px-10 py-10 md:py-14 max-w-[1360px] mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
-                        <Search className="w-4 h-4" /> Forensic Analysis
-                    </div>
-                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
-                        Poisoning <span className="text-redPrimary">Investigation</span>
-                    </h1>
-                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
-                        Heuristic pattern analysis // Threat signals
-                    </p>
+                <div className="max-w-3xl">
+                    <h1 className="font-display font-medium text-[clamp(2.2rem,5vw,4.2rem)] leading-[0.95] text-textPrimary">Forensics{" "}<PreviewTag className="ml-3" /></h1>
+                    <p className="mt-4 text-textSecondary text-[17px] leading-relaxed max-w-[62ch]">Heuristic reading of the latest flagged batch: which pattern the flagged rows resemble and how they arrived. Treat it as a lead to check, not a finding.</p>
                 </div>
                 <button onClick={() => load(activeTab)} disabled={loading}
-                    className="px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest disabled:opacity-50">
+                    className="px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary text-sm font-medium rounded-2xl hover:bg-redPrimary/20 transition-all disabled:opacity-50">
                     {loading ? 'Analyzing...' : 'Refresh Scan'}
                 </button>
             </div>
@@ -190,10 +183,7 @@ export default function ForensicsPage() {
                     const TabIcon = tab.icon;
                     return (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl font-mono text-xs uppercase tracking-widest font-bold transition-all
-                            ${activeTab === tab.id 
-                                ? 'bg-redPrimary/10 text-redPrimary border-b-2 border-redPrimary' 
-                                : 'bg-transparent text-textMuted hover:text-textPrimary hover:bg-bgPanel'}`}>
+                            className={`flex items-center gap-2 px-4 py-2 rounded-2xl border text-sm font-medium transition-colors ${activeTab === tab.id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}>
                             <TabIcon className="w-4 h-4" /> {tab.label}
                         </button>
                     );
@@ -201,7 +191,7 @@ export default function ForensicsPage() {
             </div>
 
             {error && (
-                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-xl p-5 font-mono text-sm text-statusWarn flex items-center gap-3">
+                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-2xl p-5 font-mono text-sm text-statusWarn flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5" /> {error}
                 </div>
             )}

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
+import { PreviewTag } from '../components/ui';
 import { 
     ShieldAlert, AlertTriangle, Shield, CheckCircle, 
     Lock, Zap, ClipboardList, Target, ShieldCheck, 
@@ -31,18 +32,18 @@ const SEVERITY_CONFIG = {
 
 function StatCard({ icon: Icon, label, value, sub, color = 'var(--red-primary)' }) {
     return (
-        <div className="bg-bgPanel border rounded-xl p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn">
+        <div className="bg-bgPanel border rounded-[28px] p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn">
             <div className="mb-3">{Icon && <Icon className="w-6 h-6" style={{ color }} />}</div>
-            <div className="text-[40px] font-mono font-black leading-none tracking-tighter" style={{ color }}>{value}</div>
-            <div className="text-xs text-textSecondary mt-3 font-bold uppercase tracking-widest">{label}</div>
-            {sub && <div className="text-[10px] text-textMuted mt-1 font-mono uppercase">{sub}</div>}
+            <div className="text-[40px] font-mono font-medium leading-none tracking-tighter" style={{ color }}>{value}</div>
+            <div className="text-xs text-textSecondary mt-3 font-medium tracking-wide">{label}</div>
+            {sub && <div className="text-[10px] text-textMuted mt-1">{sub}</div>}
         </div>
     );
 }
 
 function SectionHeader({ title, icon: Icon }) {
     return (
-        <div className="text-xs text-redPrimary uppercase tracking-widest mb-5 font-bold pb-3 border-b border-borderHairline flex items-center gap-2">
+        <div className="text-xs text-redPrimary tracking-wide mb-5 font-medium pb-3 border-b border-borderHairline flex items-center gap-2">
             {Icon && <Icon className="w-4 h-4" />}
             {title}
         </div>
@@ -59,16 +60,16 @@ function ThreatBanner({ status }) {
             {cfg.pulse && (
                 <div className="absolute inset-0 bg-redPrimary/5 pointer-events-none animate-pulse" style={{ background: `radial-gradient(ellipse at right, ${cfg.color}15 0%, transparent 70%)` }} />
             )}
-            <div className={cfg.pulse ? "drop-shadow-red-glow" : ""}>
+            <div className={cfg.pulse ? "drop-shadow-lift" : ""}>
                 <ThreatIcon className="w-14 h-14" style={{ color: cfg.color }} />
             </div>
             <div className="flex-1 text-center md:text-left z-10">
                 <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
-                    <span className="text-2xl font-mono font-black tracking-widest uppercase" style={{ color: cfg.color }}>
+                    <span className="text-2xl font-medium" style={{ color: cfg.color }}>
                         THREAT LEVEL: {cfg.label}
                     </span>
                     {cfg.pulse && (
-                        <span className="text-[10px] px-3 py-1 rounded-full border uppercase tracking-widest font-bold animate-pulse" style={{ background: `${cfg.color}20`, color: cfg.color, borderColor: `${cfg.color}50` }}>
+                        <span className="text-[10px] px-3 py-1 rounded-full border tracking-wide font-medium animate-pulse" style={{ background: `${cfg.color}20`, color: cfg.color, borderColor: `${cfg.color}50` }}>
                             LIVE
                         </span>
                     )}
@@ -82,7 +83,7 @@ function ThreatBanner({ status }) {
                 </div>
             </div>
             <div className="text-center md:text-right z-10">
-                <div className="text-[10px] text-textMuted uppercase tracking-widest font-bold">Updated</div>
+                <div className="text-[10px] text-textMuted tracking-wide font-medium">Updated</div>
                 <div className="text-xs text-textSecondary font-mono mt-1">
                     {status.updated_at ? new Date(status.updated_at).toLocaleTimeString() : '—'}
                 </div>
@@ -105,7 +106,7 @@ function DefenseStats({ status }) {
 function HITLQueue({ cases, onDecide }) {
     if (!cases || cases.length === 0) {
         return (
-            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
+            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-2xl flex flex-col items-center">
                 <CheckCircle className="w-8 h-8 mb-3 opacity-20" />
                 No pending cases — queue is clear
             </div>
@@ -114,11 +115,11 @@ function HITLQueue({ cases, onDecide }) {
     return (
         <div className="flex flex-col gap-3">
             {cases.map(c => (
-                <div key={c.case_id} className="bg-bgVoid border border-statusWarn/30 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4">
+                <div key={c.case_id} className="bg-bgVoid border border-statusWarn/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-4">
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                            <span className="text-sm font-mono font-bold text-textPrimary">{c.case_id?.slice(0, 8)}…</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-statusWarn/20 text-statusWarn border border-statusWarn/30 font-bold uppercase tracking-wider">PENDING</span>
+                            <span className="text-sm font-medium text-textPrimary">{c.case_id?.slice(0, 8)}…</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-statusWarn/20 text-statusWarn border border-statusWarn/30 font-medium uppercase tracking-wider">PENDING</span>
                         </div>
                         <div className="text-xs font-mono text-textSecondary mb-2 flex gap-3 flex-wrap items-center">
                             <span>Suspicion: <strong className="text-statusWarn">{Math.round((c.suspicion_score || 0) * 100)}%</strong></span>
@@ -137,11 +138,11 @@ function HITLQueue({ cases, onDecide }) {
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                         <button onClick={() => onDecide(c.case_id, 'approve_quarantine')}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusCritical/30 bg-statusCritical/10 text-statusCritical text-xs font-bold hover:bg-statusCritical/20 transition-colors uppercase tracking-wider">
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusCritical/30 bg-statusCritical/10 text-statusCritical text-xs font-medium hover:bg-statusCritical/20 transition-colors uppercase tracking-wider">
                             <Lock className="w-4 h-4" /> Quarantine
                         </button>
                         <button onClick={() => onDecide(c.case_id, 'mark_safe')}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusSafe/30 bg-statusSafe/10 text-statusSafe text-xs font-bold hover:bg-statusSafe/20 transition-colors uppercase tracking-wider">
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusSafe/30 bg-statusSafe/10 text-statusSafe text-xs font-medium hover:bg-statusSafe/20 transition-colors uppercase tracking-wider">
                             <Check className="w-4 h-4" /> Safe
                         </button>
                     </div>
@@ -155,7 +156,7 @@ function IncidentLog({ incidents }) {
     const [expanded, setExpanded] = useState(null);
     if (!incidents || incidents.length === 0) {
         return (
-            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-xl flex flex-col items-center">
+            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-2xl flex flex-col items-center">
                 <Radio className="w-8 h-8 mb-3 opacity-20" />
                 No incidents logged yet.
             </div>
@@ -169,7 +170,7 @@ function IncidentLog({ incidents }) {
                 return (
                     <div key={i} onClick={() => setExpanded(isOpen ? null : i)} className={`p-3 rounded-lg cursor-pointer transition-all border ${isOpen ? 'bg-bgVoid border-borderHairline' : 'bg-transparent border-transparent hover:bg-bgVoid/50'}`}>
                         <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider whitespace-nowrap" style={{ background: sev.bg, color: sev.color, borderColor: `${sev.color}40` }}>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded border uppercase tracking-wider whitespace-nowrap" style={{ background: sev.bg, color: sev.color, borderColor: `${sev.color}40` }}>
                                 {sev.label}
                             </span>
                             <span className="text-xs font-mono text-textPrimary flex-1 capitalize flex items-center gap-2">
@@ -183,7 +184,7 @@ function IncidentLog({ incidents }) {
                             </span>
                         </div>
                         {isOpen && inc.reason && (
-                            <div className="mt-3 text-xs font-mono text-textSecondary pl-3 border-l-2 border-redPrimary/50 py-1 bg-redPrimary/5 rounded-r">
+                            <div className="mt-3 text-xs font-mono text-textSecondary pl-3 border border-redPrimary/50 py-1 bg-redPrimary/5 rounded-r">
                                 {inc.reason}
                             </div>
                         )}
@@ -221,7 +222,7 @@ function PlaybookPanel() {
                     const isSelected = selected === p.id;
                     return (
                         <button key={p.id} onClick={() => loadPlaybook(p.id)} 
-                            className={`px-4 py-2 rounded-full text-[11px] uppercase tracking-widest font-bold border transition-all ${isSelected ? 'bg-redPrimary/20 text-redPrimary border-redPrimary' : 'bg-transparent text-textMuted border-borderHairline hover:border-textMuted hover:text-textSecondary'}`}>
+                            className={`px-4 py-2 rounded-full text-[11px] tracking-wide font-medium border transition-all ${isSelected ? 'bg-redPrimary/20 text-redPrimary border-redPrimary' : 'bg-transparent text-textMuted border-borderHairline hover:border-textMuted hover:text-textSecondary'}`}>
                             {p.attack}
                         </button>
                     );
@@ -231,14 +232,14 @@ function PlaybookPanel() {
             {loading && <div className="text-textMuted text-sm font-mono animate-pulse">Loading playbook...</div>}
 
             {detail && !loading && (
-                <div className="bg-bgVoid border border-redPrimary/30 rounded-xl p-6 animate-fadeInUp">
+                <div className="bg-bgVoid border border-redPrimary/30 rounded-2xl p-6 animate-fadeInUp">
                     <div className="flex items-center gap-3 mb-5">
-                        <div className="text-lg font-black tracking-wider text-redPrimary uppercase">{detail.attack}</div>
-                        <span className="text-[9px] px-2 py-0.5 rounded border border-redPrimary/40 bg-redPrimary/10 text-redPrimary uppercase tracking-widest font-bold">
+                        <div className="text-lg font-medium tracking-wider text-redPrimary uppercase">{detail.attack}</div>
+                        <span className="text-[9px] px-2 py-0.5 rounded border border-redPrimary/40 bg-redPrimary/10 text-redPrimary tracking-wide font-medium">
                             {detail.severity}
                         </span>
                     </div>
-                    <div className="text-sm font-mono text-textSecondary mb-6 leading-relaxed border-l-2 border-borderHairline pl-4 italic">
+                    <div className="text-sm font-mono text-textSecondary mb-6 leading-relaxed border border-borderHairline pl-4 italic">
                         "{detail.description}"
                     </div>
 
@@ -249,12 +250,12 @@ function PlaybookPanel() {
                             { title: 'Remediation', key: 'remediation', icon: ShieldCheck },
                         ].map(section => (
                             <div key={section.key}>
-                                <div className="text-[11px] text-redPrimary font-bold mb-3 uppercase tracking-widest flex items-center gap-2">
+                                <div className="text-[11px] text-redPrimary font-medium mb-3 tracking-wide flex items-center gap-2">
                                     <section.icon className="w-3.5 h-3.5" /> {section.title}
                                 </div>
                                 <div className="space-y-2">
                                     {(detail[section.key] || []).map((step, i) => (
-                                        <div key={i} className="text-xs font-mono text-textPrimary py-1.5 px-3 border-l-2 border-redPrimary/50 bg-bgPanel rounded-r">
+                                        <div key={i} className="text-xs font-mono text-textPrimary py-1.5 px-3 border border-redPrimary/50 bg-bgPanel rounded-r">
                                             {step}
                                         </div>
                                     ))}
@@ -273,7 +274,7 @@ function PlaybookPanel() {
             )}
 
             {!detail && !loading && playbooks.length > 0 && (
-                <div className="text-textMuted text-sm font-mono p-4 border-2 border-dashed border-borderHairline rounded-xl text-center">
+                <div className="text-textMuted text-sm font-mono p-4 border-2 border-dashed border-borderHairline rounded-2xl text-center">
                     Select an attack type above to view the step-by-step response playbook.
                 </div>
             )}
@@ -316,33 +317,26 @@ export default function BlueTeamPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
                 <Shield className="w-16 h-16 text-redPrimary animate-pulse mb-6" />
-                <div className="text-textMuted font-mono text-sm tracking-widest uppercase">Initialising Blue Team SOC...</div>
+                <div className="text-textMuted text-sm">Initialising Blue Team SOC...</div>
             </div>
         );
     }
 
     return (
-        <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
+        <div className="relative z-10 px-5 md:px-10 py-10 md:py-14 max-w-[1360px] mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
-                        <Shield className="w-4 h-4" /> Blue Team
-                    </div>
-                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
-                        Security Operations <span className="text-redPrimary">Centre</span>
-                    </h1>
-                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
-                        Real-time defense status // HITL review queue
-                    </p>
+                <div className="max-w-3xl">
+                    <h1 className="font-display font-medium text-[clamp(2.2rem,5vw,4.2rem)] leading-[0.95] text-textPrimary">Response <span className="serif-accent">desk</span>{" "}<PreviewTag className="ml-3" /></h1>
+                    <p className="mt-4 text-textSecondary text-[17px] leading-relaxed max-w-[62ch]">Actions taken on flagged batches, the human-review queue and response playbooks. Quarantine and review decisions here are real; threat levels are heuristic.</p>
                 </div>
-                <button onClick={loadAll} className="flex items-center gap-2 px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest">
+                <button onClick={loadAll} className="flex items-center gap-2 px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary text-sm font-medium rounded-2xl hover:bg-redPrimary/20 transition-all">
                     <RefreshCw className="w-4 h-4" /> Refresh
                 </button>
             </div>
 
             {decisionMsg && (
-                <div className="bg-statusSafe/10 border border-statusSafe/30 rounded-xl px-5 py-4 text-statusSafe text-sm font-bold font-mono flex items-center gap-3">
+                <div className="bg-statusSafe/10 border border-statusSafe/30 rounded-2xl px-5 py-4 text-statusSafe text-sm font-medium flex items-center gap-3">
                     <CheckCircle className="w-5 h-5" /> Decision recorded: {decisionMsg}
                 </div>
             )}
@@ -356,7 +350,7 @@ export default function BlueTeamPage() {
             {/* Main grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
                 {/* HITL Queue */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
                     <SectionHeader title={`Human Review Queue (${(status?.pending_cases || []).length} pending)`} icon={ClipboardList} />
                     <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
@@ -366,7 +360,7 @@ export default function BlueTeamPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Incident Log */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
                     <SectionHeader title={`Defense Incident Log (${incidents.length} events)`} icon={Radio} />
                     <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                         <IncidentLog incidents={incidents} />
@@ -374,7 +368,7 @@ export default function BlueTeamPage() {
                 </div>
 
                 {/* Playbooks */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-6 lg:p-8">
+                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
                     <SectionHeader title="Incident Response Playbooks" icon={BookOpen} />
                     <PlaybookPanel />
                 </div>

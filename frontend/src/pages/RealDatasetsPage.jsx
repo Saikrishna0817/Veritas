@@ -1,182 +1,121 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Download, Play, X } from 'lucide-react';
 import { api } from '../services/api';
+import { DATA_VERDICTS, PageHeader, Button, ErrorNote, Readout } from '../components/ui';
 
-const DATASET_META = {
-    iris: { icon: '🌸', domain: 'Biology', color: '#a855f7' },
-    wine: { icon: '🍷', domain: 'Chemistry', color: '#ef4444' },
-    breast_cancer: { icon: '🏥', domain: 'Healthcare', color: '#06b6d4' },
-    digits: { icon: '🔢', domain: 'Computer Vision', color: '#f59e0b' },
-    diabetes: { icon: '💉', domain: 'Healthcare', color: '#10b981' },
-    wine_quality: { icon: '🍇', domain: 'Food Science', color: '#ec4899' },
-    covertype: { icon: '🌲', domain: 'Environmental', color: '#84cc16' },
-};
+const Specimen3D = lazy(() => import('../components/Specimen3D'));
 
-const VERDICT_CONFIG = {
-    CONFIRMED_POISONED: { color: '#ef4444', bg: 'rgba(239,68,68,0.12)', icon: '☠️', label: 'CONFIRMED POISONED' },
-    SUSPICIOUS: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', icon: '⚠️', label: 'SUSPICIOUS' },
-    LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.10)', icon: '🔵', label: 'LOW RISK' },
-    CLEAN: { color: '#22c55e', bg: 'rgba(34,197,94,0.12)', icon: '✅', label: 'CLEAN' },
-};
-
-const ATTACK_COLORS = {
-    label_flip: '#f59e0b', backdoor: '#ef4444',
-    clean_label: '#a855f7', gradient_poisoning: '#06b6d4', boiling_frog: '#22c55e',
-};
-
-const LAYER_LABELS = {
-    label_check: 'Label Check', shift_check: 'Distribution-Shift Check',
-};
-
-function ScoreBar({ label, score, color = '#6366f1' }) {
-    const pct = Math.round((score || 0) * 100);
-    return (
-        <div style={{ marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, fontSize: 11, color: '#334155' }}>
-                <span>{label}</span><span style={{ color, fontWeight: 700 }}>{pct}%</span>
-            </div>
-            <div style={{ height: 5, background: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: `linear-gradient(90deg, ${color}88, ${color})`, borderRadius: 3, transition: 'width 1s ease' }} />
-            </div>
+function Result({ result, onClose }) {
+  const v = DATA_VERDICTS[result.verdict] || DATA_VERDICTS.SUSPICIOUS;
+  const lr = result.layer_results || {};
+  const flags = lr.row_flags || {};
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="overflow-hidden"
+    >
+      <div className="grid border-t border-borderHairline bg-ink-950/50 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div className="p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="font-display text-4xl font-medium leading-none" style={{ color: v.color }}>{v.label}</div>
+            <button onClick={onClose} aria-label="Close result" className="rounded-2xl p-1.5 text-textMuted hover:bg-white/[0.04] hover:text-textPrimary"><X className="h-4 w-4" /></button>
+          </div>
+          {result.poison_note && <p className="mt-3 text-sm text-statusWarn">Injected for ground truth: {result.poison_note}</p>}
+          <div className="mt-6 grid grid-cols-2 gap-5">
+            <Readout label="Flagged rows" value={flags.flagged_indices_incoming?.length ?? 0} color="var(--flag)" note={`of ${(result.n_samples ?? 0).toLocaleString()} checked`} />
+            <Readout label="Evidence" value={v.p} />
+            <Readout label="Label check" value={lr.label_check?.evidence?.toFixed(2) ?? '—'} note="−log₁₀ p" />
+            <Readout label="Shift check" value={lr.shift_check?.evidence?.toFixed(2) ?? '—'} note="−log₁₀ p" />
+          </div>
         </div>
-    );
-}
-
-function DatasetCard({ dataset, onAnalyze, onDownload, loading }) {
-    const meta = DATASET_META[dataset.id] || { icon: '📊', domain: 'General', color: '#6366f1' };
-    return (
-        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${meta.color}22`, borderRadius: 14, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 32 }}>{meta.icon}</span>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#141414', fontSize: 14 }}>{dataset.name}</div>
-                    <div style={{ fontSize: 11, color: meta.color, marginTop: 2 }}>{meta.domain}</div>
-                </div>
-            </div>
-            <div style={{ fontSize: 12, color: '#475569', lineHeight: 1.6 }}>{dataset.description}</div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {dataset.attack_types?.map(t => (
-                    <span key={t} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: `${ATTACK_COLORS[t] || '#6366f1'}18`, color: ATTACK_COLORS[t] || '#6366f1', border: `1px solid ${ATTACK_COLORS[t] || '#6366f1'}33` }}>
-                        {t.replace(/_/g, ' ')}
-                    </span>
-                ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => onAnalyze(dataset.id)} disabled={loading === dataset.id}
-                    style={{ flex: 1, padding: '9px 0', borderRadius: 8, border: 'none', background: loading === dataset.id ? 'rgba(99,102,241,0.3)' : `linear-gradient(135deg, ${meta.color}cc, ${meta.color})`, color: '#fff', fontWeight: 700, fontSize: 13, cursor: loading === dataset.id ? 'not-allowed' : 'pointer' }}>
-                    {loading === dataset.id ? '🔬 Analyzing...' : '🚀 Analyze'}
-                </button>
-                <button onClick={() => onDownload(dataset.id)}
-                    style={{ padding: '9px 14px', borderRadius: 8, border: `1px solid ${meta.color}33`, background: `${meta.color}10`, color: meta.color, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                    ⬇️ CSV
-                </button>
-            </div>
+        <div className="relative min-h-[300px] border-t border-borderHairline md:border-l md:border-t-0">
+          <Suspense fallback={null}>
+            <Specimen3D className="absolute inset-0" scores={flags.row_scores} flagged={flags.flagged_indices_incoming} />
+          </Suspense>
         </div>
-    );
-}
-
-function ResultCard({ result, onClose }) {
-    const verdict = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS;
-    return (
-        <div style={{ background: 'rgba(255,255,255,0.5)', border: `1px solid ${verdict.color}33`, borderRadius: 16, padding: 24, animation: 'fadeIn 0.5s ease' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <span style={{ fontSize: 40 }}>{verdict.icon}</span>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 18, fontWeight: 900, color: verdict.color }}>{verdict.label}</div>
-                    <div style={{ fontSize: 12, color: '#334155', marginTop: 3 }}>
-                        {result.real_dataset_description} · <span style={{ color: '#f59e0b' }}>{result.poison_note}</span>
-                    </div>
-                </div>
-                <button onClick={onClose} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.05)', color: '#334155', cursor: 'pointer', fontSize: 12 }}>✕ Close</button>
-            </div>
-
-            <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontSize: 11, color: '#475569', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Layer Scores</div>
-                    {Object.entries(result.layer_scores || {}).map(([k, v]) => (
-                        <ScoreBar key={k} label={LAYER_LABELS[k] || k} score={v}
-                            color={Math.round(v * 100) > 70 ? '#ef4444' : Math.round(v * 100) > 40 ? '#f59e0b' : '#22c55e'} />
-                    ))}
-                </div>
-                <div style={{ flex: 1, minWidth: 200 }}>
-                    <div style={{ fontSize: 11, color: '#475569', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Attack Probabilities</div>
-                    {Object.entries(result.attack_classification?.probabilities || {}).sort(([, a], [, b]) => b - a).map(([type, prob]) => (
-                        <ScoreBar key={type} label={type.replace(/_/g, ' ')} score={prob} color={ATTACK_COLORS[type] || '#6366f1'} />
-                    ))}
-                </div>
-            </div>
-
-            {result.injection_pattern?.narrative && (
-                <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-wrap', margin: 0, background: 'rgba(0,0,0,0.2)', padding: 14, borderRadius: 8 }}>
-                    {result.injection_pattern.narrative}
-                </pre>
-            )}
-        </div>
-    );
+      </div>
+    </motion.div>
+  );
 }
 
 export default function RealDatasetsPage() {
-    const [catalog, setCatalog] = useState([]);
-    const [loadingDataset, setLoadingDataset] = useState(null);
-    const [results, setResults] = useState({});
-    const [error, setError] = useState(null);
+  const [catalog, setCatalog] = useState(null);
+  const [busy, setBusy] = useState(null);
+  const [results, setResults] = useState({});
+  const [error, setError] = useState('');
 
-    useEffect(() => {
-        api.getRealDatasets().then(d => setCatalog(d.datasets || [])).catch(() => { });
-    }, []);
+  useEffect(() => {
+    api.getRealDatasets().then((d) => setCatalog(d.datasets || [])).catch((e) => { setCatalog([]); setError(e.message); });
+  }, []);
 
-    const handleAnalyze = async (name) => {
-        setLoadingDataset(name); setError(null);
-        try {
-            const data = await api.analyzeRealDataset(name);
-            setResults(r => ({ ...r, [name]: data }));
-        } catch (e) {
-            setError(`Failed to analyze ${name}: ${e.message}`);
-        } finally { setLoadingDataset(null); }
-    };
+  const analyze = async (id) => {
+    setBusy(id);
+    setError('');
+    try {
+      const data = await api.analyzeRealDataset(id);
+      setResults((r) => ({ ...r, [id]: data }));
+    } catch (e) {
+      setError(`Could not analyse ${id}: ${e.message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
 
-    const handleDownload = async (name) => {
-        try {
-            await api.downloadRealDataset(name);
-        } catch (e) { setError(`Download failed: ${e.message}`); }
-    };
+  const download = async (id) => {
+    try { await api.downloadRealDataset(id); } catch (e) { setError(`Download failed: ${e.message}`); }
+  };
 
-    return (
-        <div style={{ padding: '48px 64px', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-            <div style={{ marginBottom: 28 }}>
-                <h1 style={{ fontSize: 48, fontWeight: 900, color: '#141414', margin: 0 }}>📚 Real World Dataset Library</h1>
-                <p style={{ color: '#475569', marginTop: 12, fontSize: 18, maxWidth: '80%', lineHeight: 1.6 }}>
-                    {catalog.length} real public datasets (UCI, Wisconsin, MNIST, and more) with controlled poison injection — known ground truth,
-                    real features. Click <strong style={{ color: '#141414' }}>Analyze</strong> to run the label and shift checks,
-                    or <strong style={{ color: '#141414' }}>CSV</strong> to download and upload your own way.
-                </p>
-            </div>
-
-            {error && (
-                <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#fca5a5', marginBottom: 20, fontSize: 14 }}>
-                    ⚠️ {error}
+  return (
+    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <PageHeader
+        title="Reference" accent="datasets"
+        lede="Public datasets with a known amount of poison injected, so you can see what Veritas finds when the answer is known. Analyse one, or download the CSV and run it through Examine a batch."
+      />
+      <ErrorNote>{error}</ErrorNote>
+      <div className="panel mt-6 overflow-hidden">
+        {catalog === null && <div className="p-6 text-sm text-textMuted" role="status">Loading the catalogue…</div>}
+        {catalog?.length === 0 && !error && <div className="p-6 text-sm text-textSecondary">No reference datasets are configured on this server.</div>}
+        <ul className="divide-y divide-borderHairline">
+          {catalog?.map((d, i) => (
+            <motion.li
+              key={d.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className="grid items-center gap-4 p-5 md:grid-cols-[minmax(0,1fr)_auto]">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h2 className="font-display text-lg font-medium">{d.name}</h2>
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-textMuted">{d.domain}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-textSecondary">{d.description}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {d.attack_types?.map((t) => (
+                      <span key={t} className="rounded-lg border border-borderHairline px-2 py-0.5 font-mono text-[11px] text-textSecondary">{t.replace(/_/g, ' ')}</span>
+                    ))}
+                  </div>
                 </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 28 }}>
-                {catalog.map(ds => (
-                    <DatasetCard key={ds.id} dataset={ds} onAnalyze={handleAnalyze} onDownload={handleDownload} loading={loadingDataset} />
-                ))}
-                {catalog.length === 0 && (
-                    <div style={{ color: '#475569', fontSize: 14, padding: 20 }}>Loading dataset catalog...</div>
+                <div className="flex gap-2">
+                  <Button variant={results[d.id] ? 'ghost' : 'uv'} onClick={() => analyze(d.id)} loading={busy === d.id} disabled={busy && busy !== d.id}>
+                    {busy !== d.id && <Play className="h-4 w-4" />} {results[d.id] ? 'Run again' : 'Analyse'}
+                  </Button>
+                  <Button variant="ghost" onClick={() => download(d.id)} aria-label={`Download ${d.name} as CSV`}><Download className="h-4 w-4" /> CSV</Button>
+                </div>
+              </div>
+              <AnimatePresence>
+                {results[d.id] && (
+                  <Result result={results[d.id]} onClose={() => setResults((r) => { const n = { ...r }; delete n[d.id]; return n; })} />
                 )}
-            </div>
-
-            {/* Results */}
-            {Object.entries(results).map(([name, result]) => (
-                <div key={name} style={{ marginBottom: 20 }}>
-                    <div style={{ fontSize: 12, color: '#475569', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
-                        {DATASET_META[name]?.icon} {name.replace(/_/g, ' ')} — Analysis Result
-                    </div>
-                    <ResultCard result={result} onClose={() => setResults(r => { const n = { ...r }; delete n[name]; return n; })} />
-                </div>
-            ))}
-
-            <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }`}</style>
-        </div>
-    );
+              </AnimatePresence>
+            </motion.li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
 }

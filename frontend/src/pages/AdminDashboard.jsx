@@ -190,29 +190,23 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-8">
+    <div className="p-6 md:p-10 max-w-[1360px] mx-auto space-y-8">
 
       {/* ── Console Header ───────────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-borderHairline pb-6">
         <div>
-          <div className="flex items-center gap-3 mb-2">
-            <span className="px-3 py-1 rounded-md bg-redPrimary/20 border border-redPrimary/40 font-mono text-[11px] font-bold text-redBright uppercase tracking-widest flex items-center gap-1.5 shadow-red-glow">
-              <Lock className="w-3.5 h-3.5" /> Admin Privilege Level 0
-            </span>
-            <span className="font-mono text-xs text-textMuted">• Dedicated Console</span>
-          </div>
-          <h1 className="font-display font-black text-3xl md:text-4xl text-textPrimary tracking-tight">
-            Administrator Governance & Security Control
+          <h1 className="font-display font-medium text-[clamp(2.6rem,5.6vw,5rem)] leading-[1] text-textPrimary">
+            Admin <span className="serif-accent">console</span>
           </h1>
-          <p className="text-sm font-sans text-textMuted mt-1">
-            Centralized administration for user credentials, AI defense overrides, HITL review cases, security audit feeds, and model registries.
+          <p className="mt-4 max-w-[62ch] text-[17px] leading-relaxed text-textSecondary">
+            Manage accounts, the human-review queue and quarantine, and read the audit log and every stored analysis.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={refreshAll}
-            className="p-3 rounded-xl bg-bgPanel border border-borderHairline text-textMuted hover:text-white hover:border-redPrimary/50 transition-all flex items-center gap-2 font-mono text-xs font-semibold"
+            className="p-3 rounded-2xl bg-bgPanel border border-borderHairline text-textMuted hover:text-textPrimary hover:border-redPrimary/50 transition-all flex items-center gap-2 font-mono text-xs font-semibold"
             title="Refresh All System Data"
           >
             <RefreshCw className={`w-4 h-4 ${loadingUsers || loadingAudit ? 'animate-spin' : ''}`} />
@@ -220,7 +214,7 @@ export default function AdminDashboard() {
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-redPrimary text-white font-mono text-xs font-bold uppercase tracking-wider px-5 py-3 rounded-xl hover:bg-redBright shadow-red-glow transition-all"
+            className="flex items-center gap-2 bg-redPrimary text-textPrimary text-xs font-medium px-5 py-3 rounded-2xl hover:bg-redBright shadow-lift transition-all"
           >
             <UserPlus className="w-4 h-4" />
             Provision Account
@@ -230,48 +224,46 @@ export default function AdminDashboard() {
 
       {/* ── Notifications ────────────────────────────────────────────────────────── */}
       {userSuccess && (
-        <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-mono text-xs flex items-center justify-between shadow-lg">
+        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-mono text-xs flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
             <CheckCircle className="w-4 h-4 shrink-0" />
             <span>{userSuccess}</span>
           </div>
-          <button onClick={() => setUserSuccess('')} className="text-emerald-400 hover:text-white font-bold">✕</button>
+          <button onClick={() => setUserSuccess('')} className="text-emerald-400 hover:text-textPrimary font-medium">✕</button>
         </div>
       )}
 
       {userError && (
-        <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/40 text-red-400 font-mono text-xs flex items-center justify-between shadow-lg">
+        <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/40 text-red-400 font-mono text-xs flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-3">
             <AlertTriangle className="w-4 h-4 shrink-0 text-redPrimary" />
             <span>{userError}</span>
           </div>
-          <button onClick={() => setUserError('')} className="text-red-400 hover:text-white font-bold">✕</button>
+          <button onClick={() => setUserError('')} className="text-red-400 hover:text-textPrimary font-medium">✕</button>
         </div>
       )}
 
       {/* ── Executive Metric Cards ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="p-5 rounded-2xl bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500" />
+        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-textMuted tracking-wider">Total Accounts</span>
+            <span className="text-[11px] font-medium text-textMuted">Total Accounts</span>
             <Users className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="font-display text-3xl font-bold text-white">{users.length}</div>
+          <div className="font-display text-3xl font-medium text-textPrimary">{users.length}</div>
           <div className="font-mono text-[11px] text-textMuted flex items-center gap-2">
-            <span className="text-amber-400 font-bold">{users.filter((u) => u.role === 'admin').length} Admins</span>
+            <span className="text-amber-400 font-medium">{users.filter((u) => u.role === 'admin').length} Admins</span>
             <span>•</span>
-            <span className="text-cyan-400 font-bold">{users.filter((u) => u.role !== 'admin').length} Regular</span>
+            <span className="text-cyan-400 font-medium">{users.filter((u) => u.role !== 'admin').length} Regular</span>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary" />
+        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-textMuted tracking-wider">Quarantine Mode</span>
+            <span className="text-[11px] font-medium text-textMuted">Quarantine Mode</span>
             <Shield className={`w-4 h-4 ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`} />
           </div>
-          <div className={`font-display text-2xl font-bold ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
+          <div className={`font-display text-2xl font-medium ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
             {quarantineStatus?.active ? 'LOCKDOWN ACTIVE' : 'NOMINAL'}
           </div>
           <div className="font-mono text-[11px] text-textMuted">
@@ -279,23 +271,21 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500" />
+        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-textMuted tracking-wider">HITL Pending Queue</span>
+            <span className="text-[11px] font-medium text-textMuted">HITL Pending Queue</span>
             <AlertTriangle className="w-4 h-4 text-amber-400" />
           </div>
-          <div className="font-display text-3xl font-bold text-amber-400">{hitlCases.length}</div>
+          <div className="font-display text-3xl font-medium text-amber-400">{hitlCases.length}</div>
           <div className="font-mono text-[11px] text-textMuted">Cases awaiting manual review</div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
+        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[11px] font-bold uppercase text-textMuted tracking-wider">Audit Trail Records</span>
-            <Activity className="w-4 h-4 text-purple-400" />
+            <span className="text-[11px] font-medium text-textMuted">Audit Trail Records</span>
+            <Activity className="w-4 h-4 text-violet" />
           </div>
-          <div className="font-display text-3xl font-bold text-purple-400">{auditEvents.length}</div>
+          <div className="font-display text-3xl font-medium text-violet">{auditEvents.length}</div>
           <div className="font-mono text-[11px] text-textMuted">Persisted security audit logs</div>
         </div>
       </div>
@@ -304,11 +294,7 @@ export default function AdminDashboard() {
       <div className="flex items-center gap-2 border-b border-borderHairline pb-1 overflow-x-auto">
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all border ${
-            activeTab === 'users'
-              ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-red-glow'
-              : 'bg-bgPanel border-borderHairline text-textMuted hover:text-white'
-          }`}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'users' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
         >
           <Users className="w-4 h-4" />
           User Governance ({users.length})
@@ -316,11 +302,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all border ${
-            activeTab === 'security'
-              ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-red-glow'
-              : 'bg-bgPanel border-borderHairline text-textMuted hover:text-white'
-          }`}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'security' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
         >
           <Shield className="w-4 h-4" />
           AI Defense & HITL Controls ({hitlCases.length})
@@ -328,11 +310,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all border ${
-            activeTab === 'audit'
-              ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-red-glow'
-              : 'bg-bgPanel border-borderHairline text-textMuted hover:text-white'
-          }`}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'audit' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
         >
           <Activity className="w-4 h-4" />
           Security Audit Feed ({auditEvents.length})
@@ -340,11 +318,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveTab('registry')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-all border ${
-            activeTab === 'registry'
-              ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-red-glow'
-              : 'bg-bgPanel border-borderHairline text-textMuted hover:text-white'
-          }`}
+          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'registry' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
         >
           <Layers className="w-4 h-4" />
           Asset Scan Registry ({scanHistory.length})
@@ -354,17 +328,17 @@ export default function AdminDashboard() {
       {/* ── Tab Content 1: User Governance ────────────────────────────────────────── */}
       {activeTab === 'users' && (
         <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-bgPanel border border-borderHairline space-y-6">
+          <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-borderHairline pb-4">
               <div>
-                <h2 className="font-display text-xl font-bold text-white">Platform User Directory</h2>
+                <h2 className="font-display text-xl font-medium text-textPrimary">Platform User Directory</h2>
                 <p className="font-mono text-xs text-textMuted mt-1">
                   Manage platform authentication accounts, assign roles, and revoke privileges.
                 </p>
               </div>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 bg-redPrimary text-white font-mono text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl hover:bg-redBright transition-all shadow-red-glow self-start sm:self-auto"
+                className="flex items-center gap-2 bg-redPrimary text-textPrimary text-xs font-medium px-4 py-2.5 rounded-2xl hover:bg-redBright transition-all shadow-lift self-start sm:self-auto"
               >
                 <UserPlus className="w-4 h-4" />
                 Provision Account
@@ -395,16 +369,12 @@ export default function AdminDashboard() {
                           <td className="py-4 px-4 font-semibold text-textPrimary">
                             <div className="flex items-center gap-3">
                               <div
-                                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold uppercase ${
-                                  u.role === 'admin'
-                                    ? 'bg-redPrimary/20 border border-redPrimary/40 text-redBright'
-                                    : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400'
-                                }`}
+                                className={`w-9 h-9 rounded-full flex items-center justify-center font-medium uppercase ${ u.role === 'admin' ? 'bg-redPrimary/20 border border-redPrimary/40 text-redBright' : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400' }`}
                               >
                                 {u.username.charAt(0)}
                               </div>
                               <div>
-                                <div className="text-white font-bold text-sm flex items-center gap-2">
+                                <div className="text-textPrimary font-medium text-sm flex items-center gap-2">
                                   {u.username}
                                   {isSelf && (
                                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">
@@ -417,11 +387,7 @@ export default function AdminDashboard() {
                           </td>
                           <td className="py-4 px-4">
                             <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                u.role === 'admin'
-                                  ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40 shadow-red-glow'
-                                  : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
-                              }`}
+                              className={`px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${ u.role === 'admin' ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40 shadow-lift' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' }`}
                             >
                               {u.role === 'admin' ? 'ADMINISTRATOR' : 'REGULAR USER'}
                             </span>
@@ -434,11 +400,7 @@ export default function AdminDashboard() {
                             <button
                               disabled={isSelf}
                               onClick={() => handleDeleteUser(u.id, u.username)}
-                              className={`p-2 rounded-lg border transition-all ${
-                                isSelf
-                                  ? 'opacity-30 cursor-not-allowed bg-bgPanelRaised border-borderHairline text-textMuted'
-                                  : 'bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-redBright border-borderHairline hover:border-redPrimary/40'
-                              }`}
+                              className={`p-2 rounded-lg border transition-all ${ isSelf ? 'opacity-30 cursor-not-allowed bg-bgPanelRaised border-borderHairline text-textMuted' : 'bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-redBright border-borderHairline hover:border-redPrimary/40' }`}
                               title={isSelf ? 'Cannot delete your own active session' : 'Revoke Account Access'}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -459,35 +421,35 @@ export default function AdminDashboard() {
       {activeTab === 'security' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Emergency Lockdown Control */}
-          <div className="p-6 rounded-2xl bg-bgPanel border border-redPrimary/40 shadow-red-glow space-y-6">
-            <div className="flex items-center gap-3 text-redBright font-mono text-xs font-bold uppercase tracking-wider">
+          <div className="p-6 rounded-[28px] bg-bgPanel border border-redPrimary/40 shadow-lift space-y-6">
+            <div className="flex items-center gap-3 text-redBright text-xs font-medium">
               <Lock className="w-5 h-5" />
               Emergency Administrative Override
             </div>
             <div>
-              <h3 className="font-display font-bold text-white text-xl">Emergency System Quarantine</h3>
+              <h3 className="font-display font-medium text-textPrimary text-xl">Emergency System Quarantine</h3>
               <p className="text-xs font-sans text-textMuted mt-1 leading-relaxed">
                 Instantly trigger a platform-wide security lockdown. Suspends unverified ingestion pipelines and quarantines suspect training data.
               </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-bgVoid border border-borderHairline space-y-2">
+            <div className="p-4 rounded-2xl bg-bgVoid border border-borderHairline space-y-2">
               <div className="flex justify-between text-xs font-mono">
                 <span className="text-textMuted">Current Platform Status:</span>
-                <span className={`font-bold ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
+                <span className={`font-medium ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
                   {quarantineStatus?.active ? 'QUARANTINE ACTIVE' : 'NOMINAL OPERATION'}
                 </span>
               </div>
               <div className="flex justify-between text-xs font-mono">
                 <span className="text-textMuted">Quarantined Samples:</span>
-                <span className="text-white font-bold">{quarantineStatus?.total_quarantined || 0}</span>
+                <span className="text-textPrimary font-medium">{quarantineStatus?.total_quarantined || 0}</span>
               </div>
             </div>
 
             <button
               onClick={handleTriggerQuarantine}
               disabled={quarantining}
-              className="w-full py-4 px-6 rounded-xl bg-redPrimary hover:bg-redBright text-white font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-red-glow disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full py-4 px-6 rounded-2xl bg-redPrimary hover:bg-redBright text-textPrimary text-xs font-medium transition-all shadow-lift disabled:opacity-50 flex items-center justify-center gap-2"
             >
               <AlertTriangle className="w-5 h-5" />
               {quarantining ? 'Executing Lockdown...' : 'Trigger System Quarantine Lockdown'}
@@ -495,13 +457,13 @@ export default function AdminDashboard() {
           </div>
 
           {/* Pending HITL Cases Table (Full Width) */}
-          <div className="lg:col-span-2 p-6 rounded-2xl bg-bgPanel border border-borderHairline space-y-6">
+          <div className="lg:col-span-2 p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
             <div className="flex items-center justify-between border-b border-borderHairline pb-4">
               <div>
-                <h3 className="font-display font-bold text-white text-lg">HITL Review Queue Escalations</h3>
+                <h3 className="font-display font-medium text-textPrimary text-lg">HITL Review Queue Escalations</h3>
                 <p className="font-mono text-xs text-textMuted">Cases flagged by proxy disagreement requiring human review</p>
               </div>
-              <span className="font-mono text-xs text-amber-400 bg-amber-950/40 px-3 py-1 rounded-full border border-amber-500/30 font-bold">
+              <span className="text-xs text-amber-400 bg-amber-950/40 px-3 py-1 rounded-full border border-amber-500/30 font-medium">
                 {hitlCases.length} Pending
               </span>
             </div>
@@ -525,8 +487,8 @@ export default function AdminDashboard() {
                   <tbody className="divide-y divide-borderHairline">
                     {hitlCases.map((c) => (
                       <tr key={c.case_id} className="hover:bg-bgSurface/50 transition-colors">
-                        <td className="py-4 px-4 font-bold text-white">{c.case_id.slice(0, 12)}…</td>
-                        <td className="py-4 px-4 text-amber-400 font-bold">
+                        <td className="py-4 px-4 font-medium text-textPrimary">{c.case_id.slice(0, 12)}…</td>
+                        <td className="py-4 px-4 text-amber-400 font-medium">
                           {((c.suspicion_score || 0) * 100).toFixed(1)}%
                         </td>
                         <td className="py-4 px-4 text-textMuted">{c.n_samples}</td>
@@ -536,13 +498,13 @@ export default function AdminDashboard() {
                         <td className="py-4 px-4 text-right space-x-2">
                           <button
                             onClick={() => handleResolveHitl(c.case_id, 'approve_quarantine')}
-                            className="px-3 py-1.5 rounded-lg bg-redPrimary/20 text-redBright hover:bg-redPrimary hover:text-white border border-redPrimary/40 transition-all font-mono text-[10px] font-bold uppercase"
+                            className="px-3 py-1.5 rounded-lg bg-redPrimary/20 text-redBright hover:bg-redPrimary hover:text-textPrimary border border-redPrimary/40 transition-all text-[10px] font-medium"
                           >
                             Approve Quarantine
                           </button>
                           <button
                             onClick={() => handleResolveHitl(c.case_id, 'mark_safe')}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 transition-all font-mono text-[10px] font-bold uppercase"
+                            className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-600 hover:text-textPrimary border border-emerald-500/30 transition-all text-[10px] font-medium"
                           >
                             Mark Safe
                           </button>
@@ -559,17 +521,17 @@ export default function AdminDashboard() {
 
       {/* ── Tab Content 3: System Security Audit Feed ────────────────────────────── */}
       {activeTab === 'audit' && (
-        <div className="p-6 rounded-2xl bg-bgPanel border border-borderHairline space-y-6">
+        <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
           <div className="flex items-center justify-between border-b border-borderHairline pb-4">
             <div>
-              <h2 className="font-display text-xl font-bold text-white">Centralized System Security Audit Log</h2>
+              <h2 className="font-display text-xl font-medium text-textPrimary">Centralized System Security Audit Log</h2>
               <p className="font-mono text-xs text-textMuted mt-1">
                 Persisted audit records for all user actions, security overrides, scans, and credential updates.
               </p>
             </div>
             <button
               onClick={fetchAuditEvents}
-              className="p-2.5 rounded-xl bg-bgVoid border border-borderHairline text-textMuted hover:text-white transition-all font-mono text-xs"
+              className="p-2.5 rounded-2xl bg-bgVoid border border-borderHairline text-textMuted hover:text-textPrimary transition-all font-mono text-xs"
             >
               <RefreshCw className={`w-4 h-4 ${loadingAudit ? 'animate-spin' : ''}`} />
             </button>
@@ -597,8 +559,8 @@ export default function AdminDashboard() {
                       <td className="py-4 px-4 text-textMuted text-[11px]">
                         {evt.created_at ? new Date(evt.created_at).toLocaleString() : 'N/A'}
                       </td>
-                      <td className="py-4 px-4 font-bold text-cyan-400">{evt.actor_id}</td>
-                      <td className="py-4 px-4 font-bold text-white">
+                      <td className="py-4 px-4 font-medium text-cyan-400">{evt.actor_id}</td>
+                      <td className="py-4 px-4 font-medium text-textPrimary">
                         <span className="px-2.5 py-1 rounded bg-bgVoid border border-borderHairline">
                           {evt.action}
                         </span>
@@ -607,7 +569,7 @@ export default function AdminDashboard() {
                       <td className="py-4 px-4 text-right">
                         <button
                           onClick={() => setSelectedEvent(evt)}
-                          className="p-2 rounded-lg bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-white border border-borderHairline transition-all inline-flex items-center gap-1 text-[11px]"
+                          className="p-2 rounded-lg bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-textPrimary border border-borderHairline transition-all inline-flex items-center gap-1 text-[11px]"
                         >
                           <Eye className="w-3.5 h-3.5" /> View JSON
                         </button>
@@ -623,17 +585,17 @@ export default function AdminDashboard() {
 
       {/* ── Tab Content 4: Global Scan Registry ───────────────────────────────────── */}
       {activeTab === 'registry' && (
-        <div className="p-6 rounded-2xl bg-bgPanel border border-borderHairline space-y-6">
+        <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
           <div className="flex items-center justify-between border-b border-borderHairline pb-4">
             <div>
-              <h2 className="font-display text-xl font-bold text-white">Global Asset & Model Scan Registry</h2>
+              <h2 className="font-display text-xl font-medium text-textPrimary">Global Asset & Model Scan Registry</h2>
               <p className="font-mono text-xs text-textMuted mt-1">
                 Centralized registry of all scanned CSV datasets and Scikit-Learn `.pkl` models across all users.
               </p>
             </div>
             <button
               onClick={fetchScanRegistry}
-              className="p-2.5 rounded-xl bg-bgVoid border border-borderHairline text-textMuted hover:text-white transition-all font-mono text-xs"
+              className="p-2.5 rounded-2xl bg-bgVoid border border-borderHairline text-textMuted hover:text-textPrimary transition-all font-mono text-xs"
             >
               <RefreshCw className={`w-4 h-4 ${loadingRegistry ? 'animate-spin' : ''}`} />
             </button>
@@ -659,22 +621,18 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-borderHairline">
                   {scanHistory.map((item) => (
                     <tr key={item.id} className="hover:bg-bgSurface/50 transition-colors">
-                      <td className="py-4 px-4 font-bold text-white">
+                      <td className="py-4 px-4 font-medium text-textPrimary">
                         {item.filename || item.model_filename || item.id.slice(0, 8)}
                       </td>
                       <td className="py-4 px-4 text-textMuted uppercase text-[10px]">{item.source || 'scan'}</td>
                       <td className="py-4 px-4">
                         <span
-                          className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase ${
-                            item.verdict === 'POISONED' || item.verdict === 'SUSPECT'
-                              ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40'
-                              : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'
-                          }`}
+                          className={`px-2.5 py-1 rounded text-[10px] font-medium uppercase ${ item.verdict === 'POISONED' || item.verdict === 'SUSPECT' ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40' : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' }`}
                         >
                           {item.verdict || 'CLEAN'}
                         </span>
                       </td>
-                      <td className="py-4 px-4 font-bold text-white">
+                      <td className="py-4 px-4 font-medium text-textPrimary">
                         {item.score !== undefined && item.score !== null ? `${(item.score * 100).toFixed(1)}%` : 'N/A'}
                       </td>
                       <td className="py-4 px-4 text-textMuted text-[11px]">
@@ -700,28 +658,28 @@ export default function AdminDashboard() {
 
       {/* ── Provision User Modal ─────────────────────────────────────────────────── */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-md p-6 rounded-2xl bg-bgPanel border border-borderHairline shadow-2xl space-y-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="w-full max-w-md p-6 rounded-[28px] bg-bgPanel border border-borderHairline shadow-2xl space-y-6 relative">
             <button
               onClick={() => setShowCreateModal(false)}
-              className="absolute top-4 right-4 text-textMuted hover:text-white"
+              className="absolute top-4 right-4 text-textMuted hover:text-textPrimary"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-redPrimary/20 border border-redPrimary/40 flex items-center justify-center text-redBright">
+              <div className="w-10 h-10 rounded-2xl bg-redPrimary/20 border border-redPrimary/40 flex items-center justify-center text-redBright">
                 <UserPlus className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-display font-bold text-white text-lg">Provision New Platform Account</h3>
+                <h3 className="font-display font-medium text-textPrimary text-lg">Provision New Platform Account</h3>
                 <p className="font-mono text-xs text-textMuted">Create regular user or administrator credentials</p>
               </div>
             </div>
 
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block font-mono text-[10px] font-bold text-textMuted uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-medium text-textMuted mb-1">
                   Username
                 </label>
                 <input
@@ -730,12 +688,12 @@ export default function AdminDashboard() {
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="Enter username (min 3 chars)"
-                  className="w-full p-3 rounded-xl bg-bgVoid border border-borderHairline text-white font-mono text-xs focus:border-redPrimary outline-none"
+                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-mono text-[10px] font-bold text-textMuted uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-medium text-textMuted mb-1">
                   Password
                 </label>
                 <input
@@ -744,18 +702,18 @@ export default function AdminDashboard() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter password (min 4 chars)"
-                  className="w-full p-3 rounded-xl bg-bgVoid border border-borderHairline text-white font-mono text-xs focus:border-redPrimary outline-none"
+                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-mono text-[10px] font-bold text-textMuted uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-medium text-textMuted mb-1">
                   Role Privilege
                 </label>
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-bgVoid border border-borderHairline text-white font-mono text-xs focus:border-redPrimary outline-none"
+                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
                 >
                   <option value="user">Regular User (Standard Access)</option>
                   <option value="admin">Administrator (Full Access & Overrides)</option>
@@ -766,14 +724,14 @@ export default function AdminDashboard() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 rounded-xl bg-bgVoid hover:bg-bgSurface text-textMuted font-mono text-xs font-bold uppercase transition-all"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-bgVoid hover:bg-bgSurface text-textMuted text-xs font-medium transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submittingUser}
-                  className="flex-1 py-3 px-4 rounded-xl bg-redPrimary hover:bg-redBright text-white font-mono text-xs font-bold uppercase tracking-wider transition-all shadow-red-glow disabled:opacity-50"
+                  className="flex-1 py-3 px-4 rounded-2xl bg-redPrimary hover:bg-redBright text-textPrimary text-xs font-medium transition-all shadow-lift disabled:opacity-50"
                 >
                   {submittingUser ? 'Saving...' : 'Provision User'}
                 </button>
@@ -785,23 +743,23 @@ export default function AdminDashboard() {
 
       {/* ── JSON Audit Detail Modal ──────────────────────────────────────────────── */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg p-6 rounded-2xl bg-bgPanel border border-borderHairline shadow-2xl space-y-4 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="w-full max-w-lg p-6 rounded-[28px] bg-bgPanel border border-borderHairline shadow-2xl space-y-4 relative">
             <button
               onClick={() => setSelectedEvent(null)}
-              className="absolute top-4 right-4 text-textMuted hover:text-white"
+              className="absolute top-4 right-4 text-textMuted hover:text-textPrimary"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <h3 className="font-display font-bold text-white text-base">Audit Event Details</h3>
-            <pre className="p-4 rounded-xl bg-bgVoid border border-borderHairline font-mono text-xs text-cyan-400 overflow-x-auto max-h-80">
+            <h3 className="font-display font-medium text-textPrimary text-base">Audit Event Details</h3>
+            <pre className="p-4 rounded-2xl bg-bgVoid border border-borderHairline font-mono text-xs text-cyan-400 overflow-x-auto max-h-80">
               {JSON.stringify(selectedEvent, null, 2)}
             </pre>
 
             <button
               onClick={() => setSelectedEvent(null)}
-              className="w-full py-3 rounded-xl bg-bgVoid hover:bg-bgSurface text-white font-mono text-xs font-bold uppercase"
+              className="w-full py-3 rounded-2xl bg-bgVoid hover:bg-bgSurface text-textPrimary text-xs font-medium"
             >
               Close
             </button>

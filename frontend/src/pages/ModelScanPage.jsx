@@ -1,176 +1,181 @@
-import { useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Download, RotateCcw, FileCode2 } from 'lucide-react';
 import { api } from '../services/api';
-import { ShieldAlert, Check, Download, Bot, FolderUp, BrainCircuit, AlertTriangle } from 'lucide-react';
+import { useAnalysisRun } from '../hooks/useAnalysisRun';
+import JobCard from '../components/JobCard';
+import { MODEL_VERDICTS, PageHeader, Button, Panel, Dropzone, ErrorNote, downloadJson, formatBytes } from '../components/ui';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
+const SEVERITY = { critical: 'var(--status-critical)', high: 'var(--status-critical)', medium: 'var(--status-warn)', low: 'var(--status-info)', info: 'var(--text-muted)' };
 
-const VERDICT_CONFIG = {
-    DANGEROUS: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-12 h-12 text-[var(--status-critical)]" />, label: 'DANGEROUS', blurb: 'Loading this file can run code or access the system. Do not load it.' },
-    REVIEW: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <AlertTriangle className="w-12 h-12 text-[var(--status-warn)]" />, label: 'NEEDS REVIEW', blurb: 'Something could not be verified. A person should look before this file is loaded.' },
-    NO_CODE_EXECUTION_FOUND: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-12 h-12 text-blue-500" />, label: 'NO CODE EXECUTION FOUND', blurb: 'Every import is a known data container. This is not a guarantee of safety.' },
-    SAFE_FORMAT: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-12 h-12 text-[var(--status-safe)]" />, label: 'SAFE FORMAT', blurb: 'This format holds weights only and cannot contain code.' },
-};
+/** A tape of the file's first bytes scrolling past the read head while the sandbox scans it. */
+function ByteTape({ file, active }) {
+  const [hex, setHex] = useState([]);
+  useEffect(() => {
+    if (!file) return;
+    file.slice(0, 768).arrayBuffer().then((b) => setHex([...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0'))));
+  }, [file]);
+  const lines = useMemo(() => {
+    const out = [];
+    for (let i = 0; i < hex.length; i += 16) out.push({ off: i, bytes: hex.slice(i, i + 16) });
+    return out;
+  }, [hex]);
+  if (!file || !hex.length) return null;
+  return (
+    <div className={`panel relative h-[260px] overflow-hidden ${active ? 'scan-sweep' : ''}`} aria-hidden>
+      <div className="absolute inset-x-0 top-1/2 z-10 h-px bg-uv/70 shadow-uv" />
+      <motion.div
+        className="p-5 font-mono text-[12px] leading-6 text-textMuted"
+        animate={active ? { y: [0, -lines.length * 24 + 200] } : { y: 0 }}
+        transition={active ? { duration: Math.max(lines.length * 0.25, 4), repeat: Infinity, ease: 'linear' } : { duration: 0.6 }}
+      >
+        {lines.map((l) => (
+          <div key={l.off} className="flex gap-4 whitespace-nowrap">
+            <span className="text-violet/70">{l.off.toString(16).padStart(6, '0')}</span>
+            <span>{l.bytes.join(' ')}</span>
+          </div>
+        ))}
+      </motion.div>
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,var(--bg-panel),transparent_25%,transparent_75%,var(--bg-panel))]" />
+    </div>
+  );
+}
 
-const SEVERITY_COLOR = { critical: 'var(--status-critical)', high: 'var(--status-critical)', medium: 'var(--status-warn)', low: '#3b82f6', info: 'var(--text-muted)' };
-
-function ResultPanel({ result, onReset }) {
-    const scan = result.scan || {};
-    const verdict = VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.REVIEW;
-    return (
-        <div className="animate-fadeInUp space-y-6">
-            <div className="rounded-[24px] p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 border" style={{ background: verdict.bg, borderColor: `${verdict.color}40` }}>
-                <div>{verdict.icon}</div>
-                <div className="flex-1 text-center md:text-left">
-                    <div className="text-2xl md:text-3xl font-display font-bold tracking-wide" style={{ color: verdict.color }}>{verdict.label}</div>
-                    <div className="text-textPrimary text-sm mt-3 font-medium">{verdict.blurb}</div>
-                    <div className="text-textMuted text-xs font-mono mt-3 break-all">
-                        {result.model_filename} · format: {scan.format} · {(scan.size_bytes / 1024).toFixed(1)} KB · sha256 {scan.sha256?.slice(0, 16)}…
-                    </div>
-                </div>
-                <button onClick={onReset} className="px-6 py-3 rounded-xl border border-borderHairline bg-bgPanel hover:bg-bgPanelRaised text-textPrimary font-bold transition-colors whitespace-nowrap">
-                    ↩ New Scan
-                </button>
-            </div>
-
-            <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6">
-                <div className="font-bold text-textPrimary mb-4 text-sm uppercase tracking-widest">Findings ({(scan.findings || []).length})</div>
-                {(scan.findings || []).length === 0 ? (
-                    <div className="text-textMuted text-sm">Nothing flagged.</div>
-                ) : (
-                    <ul className="space-y-3 m-0 p-0 list-none">
-                        {scan.findings.map((f, i) => (
-                            <li key={i} className="flex gap-3 items-start text-sm">
-                                <span className="font-mono text-[10px] font-bold uppercase px-2 py-1 rounded border whitespace-nowrap" style={{ color: SEVERITY_COLOR[f.severity], borderColor: SEVERITY_COLOR[f.severity] }}>{f.severity}</span>
-                                <span className="text-textSecondary break-words">{f.detail}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </div>
-
-            {(scan.imports || []).length > 0 && (
-                <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6">
-                    <div className="font-bold text-textPrimary mb-4 text-sm uppercase tracking-widest">Imports the file would perform ({scan.imports.length})</div>
-                    <div className="flex flex-wrap gap-2">
-                        {scan.imports.map(([m, n]) => (
-                            <span key={`${m}.${n}`} className="font-mono text-xs px-2 py-1 rounded bg-bgVoid border border-borderHairline text-textSecondary">{m}.{n}</span>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {result.model_metadata && (
-                <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6 text-sm text-textSecondary font-mono">
-                    scikit-learn model: {result.model_metadata.model_type}
-                </div>
-            )}
-
-            <div className="text-textMuted text-xs leading-relaxed">{result.interpretation}</div>
-
-            <button onClick={() => {
-                const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url;
-                a.download = `model_scan_${result.scan_id || Date.now()}.json`; a.click();
-                URL.revokeObjectURL(url);
-            }} className="w-full py-5 rounded-2xl border border-redPrimary/40 bg-redPrimary/10 text-redPrimary font-bold text-xl hover:bg-redPrimary/20 transition-colors flex justify-center items-center gap-3 mt-4">
-                <Download className="w-6 h-6" /> Download Scan Report (JSON)
-            </button>
+function Result({ result, onReset }) {
+  const scan = result.scan || {};
+  const v = MODEL_VERDICTS[result.verdict] || MODEL_VERDICTS.REVIEW;
+  const findings = scan.findings || [];
+  return (
+    <div className="space-y-8">
+      <section className="edge-card"><div className="edge-inner relative p-8 md:p-12">
+        <div aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full blur-3xl" style={{ background: v.color, opacity: 0.12 }} />
+        <div className="rule-label break-all">{result.model_filename}</div>
+        <motion.div
+          initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }}
+          animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-3 font-display text-[clamp(2.2rem,5vw,4.4rem)] font-medium leading-[0.92]"
+          style={{ color: v.color }}
+        >
+          {v.label}
+        </motion.div>
+        <p className="mt-4 max-w-[56ch] text-lg text-textSecondary">{v.blurb}</p>
+        <dl className="mt-8 grid grid-cols-2 gap-6 border-t border-borderHairline pt-6 font-mono text-sm md:grid-cols-4">
+          <div><dt className="rule-label">Format</dt><dd className="mt-1">{scan.format || '—'}</dd></div>
+          <div><dt className="rule-label">Size</dt><dd className="mt-1">{formatBytes(scan.size_bytes)}</dd></div>
+          <div><dt className="rule-label">Findings</dt><dd className="mt-1">{findings.length}</dd></div>
+          <div className="min-w-0"><dt className="rule-label">SHA-256</dt><dd className="mt-1 truncate" title={scan.sha256}>{scan.sha256 || '—'}</dd></div>
+        </dl>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Button variant="ghost" onClick={onReset}><RotateCcw className="h-4 w-4" /> Scan another file</Button>
+          <Button variant="ghost" onClick={() => downloadJson(result, `veritas_scan_${result.scan_id || Date.now()}.json`)}><Download className="h-4 w-4" /> Download JSON</Button>
         </div>
-    );
+      </div></section>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <Panel title="Findings" aside={<span className="font-mono text-xs text-textMuted">{findings.length}</span>}>
+          {findings.length === 0 ? (
+            <p className="text-sm text-textSecondary">Nothing flagged.</p>
+          ) : (
+            <ul className="space-y-3">
+              {findings.map((f, i) => (
+                <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="grid grid-cols-[72px_1fr] gap-3 text-sm">
+                  <span className="h-fit rounded-lg border px-2 py-0.5 text-center font-mono text-[10px] font-bold uppercase" style={{ color: SEVERITY[f.severity], borderColor: SEVERITY[f.severity] }}>{f.severity}</span>
+                  <span className="break-words text-textSecondary">{f.detail}</span>
+                </motion.li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+        <Panel title="Imports the file would perform" aside={<span className="font-mono text-xs text-textMuted">{(scan.imports || []).length}</span>}>
+          {(scan.imports || []).length === 0 ? (
+            <p className="text-sm text-textSecondary">None. The file declares no Python imports.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {scan.imports.map((imp) => {
+                const name = Array.isArray(imp) ? imp.join('.') : String(imp);
+                return <span key={name} className="rounded-lg border border-borderHairline bg-ink-950 px-2 py-1 font-mono text-xs text-textSecondary">{name}</span>;
+              })}
+            </div>
+          )}
+          {result.model_metadata && <p className="mt-4 font-mono text-sm text-textSecondary">scikit-learn model: {result.model_metadata.model_type}</p>}
+        </Panel>
+      </div>
+      <p className="max-w-[80ch] text-sm text-textMuted">{result.interpretation}</p>
+    </div>
+  );
 }
 
 export default function ModelScanPage() {
-    const [modelFile, setModelFile] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [result, setResult] = useState(null);
-    const [error, setError] = useState(null);
-    const [dragging, setDragging] = useState(false);
-    const modelRef = useRef();
+  const [file, setFile] = useState(null);
+  const { run: start, loading, job, result, error, setError, reset: clearResult } = useAnalysisRun('model');
+  const [history, setHistory] = useState([]);
 
-    const handleModelFile = (f) => {
-        if (!f) return;
-        if (!EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))) { setError(`Supported files: ${EXTENSIONS.join(' ')}`); return; }
-        if (f.size > MAX_MB * 1024 * 1024) { setError(`File too large. Maximum is ${MAX_MB}MB.`); return; }
-        setModelFile(f); setError(null); setResult(null);
-    };
+  const loadHistory = () => api.getModelScanHistory(8).then((d) => setHistory(d.results || d.scans || (Array.isArray(d) ? d : []))).catch(() => {});
+  useEffect(() => { loadHistory(); }, []);
 
-    const onDrop = useCallback((e) => {
-        e.preventDefault(); setDragging(false);
-        handleModelFile(e.dataTransfer.files[0]);
-    }, []);
+  const pick = (f) => {
+    if (!f) return;
+    if (!EXTENSIONS.some((ext) => f.name.toLowerCase().endsWith(ext))) return setError(`Unsupported file type. Supported: ${EXTENSIONS.join(' ')}`);
+    if (f.size > MAX_MB * 1024 * 1024) return setError(`That file is over ${MAX_MB} MB.`);
+    setError('');
+    setFile(f);
+  };
 
-    const runScan = async () => {
-        if (!modelFile) return;
-        setLoading(true); setError(null);
-        try {
-            const formData = new FormData();
-            formData.append('model_file', modelFile);
-            setResult(await api.scanModel(formData));
-        } catch (e) {
-            setError(e.message || 'Model scan failed.');
-        } finally { setLoading(false); }
-    };
+  const run = () => start(file).then(loadHistory);
 
-    const reset = () => { setResult(null); setModelFile(null); setError(null); };
-
-    return (
-        <div className="relative w-full min-h-[calc(100vh-80px)] bg-transparent overflow-hidden">
-            <div className="relative z-10 px-6 md:px-12 py-12 max-w-4xl mx-auto flex flex-col gap-8">
-                <div className="mb-4">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
-                            <Bot className="w-5 h-5 text-redPrimary" />
-                        </div>
-                        <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">Model File Scanner</h1>
-                    </div>
-                    <p className="text-textSecondary text-[18px] leading-relaxed">
-                        Check whether a model file can run code when it is loaded. The file is analysed statically in an isolated process and is never loaded or executed.
-                    </p>
-                    <div className="flex gap-2 mt-6 flex-wrap">
-                        {['pickle / joblib', 'PyTorch .pt/.pth/.bin', 'safetensors', 'ONNX', 'NumPy .npy/.npz', 'GGUF'].map((m) => (
-                            <span key={m} className="text-[11px] font-mono px-3 py-1.5 rounded-full bg-redDim/20 border border-redPrimary/30 text-redPrimary tracking-wide">{m}</span>
-                        ))}
-                    </div>
-                </div>
-
-                {!result && (
-                    <>
-                        <div onDrop={onDrop} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
-                            className={`border-[3px] border-dashed rounded-[28px] p-16 text-center cursor-pointer backdrop-blur-xl transition-all duration-300 w-full flex flex-col items-center justify-center min-h-[300px]
-                            ${dragging ? 'border-redPrimary bg-redPrimary/5 shadow-red-glow' : modelFile ? 'border-statusSafe bg-statusSafe/5' : 'border-borderHairline bg-bgVoid/40 hover:bg-bgPanel'}`}
-                            onClick={() => modelRef.current?.click()}>
-                            <input ref={modelRef} type="file" className="hidden" onChange={(e) => handleModelFile(e.target.files[0])} />
-                            <div className="mb-6">
-                                {modelFile ? <Bot className="w-16 h-16 text-statusSafe" /> : dragging ? <FolderUp className="w-16 h-16 text-redPrimary animate-bounce" /> : <BrainCircuit className="w-16 h-16 text-textMuted" />}
-                            </div>
-                            {modelFile ? (
-                                <>
-                                    <div className="text-statusSafe font-bold text-2xl tracking-wide">{modelFile.name}</div>
-                                    <div className="text-textMuted text-sm font-mono mt-3">{(modelFile.size / 1024).toFixed(1)} KB · Click to change</div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="text-textPrimary font-bold text-2xl tracking-wide">Drop a model file here or click to browse</div>
-                                    <div className="text-textMuted font-mono text-sm mt-3">Up to {MAX_MB}MB</div>
-                                </>
-                            )}
-                        </div>
-
-                        {error && <div className="bg-statusCritical/10 border border-statusCritical/30 rounded-xl p-4 text-statusCritical font-bold text-sm">⚠️ {error}</div>}
-
-                        {modelFile && (
-                            <button onClick={runScan} disabled={loading} className="w-full py-5 rounded-2xl bg-redPrimary text-white font-bold text-xl hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-redPrimary/50">
-                                {loading ? '🔬 Scanning...' : '🚀 Scan File'}
-                            </button>
-                        )}
-                    </>
-                )}
-
-                {result && <ResultPanel result={result} onReset={reset} />}
-            </div>
-            <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
+  return (
+    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <PageHeader
+        title={result ? 'Scan result' : 'Scan a model'}
+        accent={result ? null : 'file'}
+        lede={result ? null : 'Find out whether loading a model file could run code. The file is read as bytes in an isolated process; it is never loaded or executed.'}
+      />
+      {result ? (
+        <Result result={result} onReset={() => { clearResult(); setFile(null); }} />
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          <div className="space-y-5">
+            <Dropzone accept={EXTENSIONS.join(',')} file={file} onFile={pick} icon={FileCode2} label="Drop a model file" hint={`pickle, joblib, PyTorch, safetensors, ONNX, NumPy, GGUF, Keras or zip · up to ${MAX_MB} MB; over 10 MB runs in the background`} />
+            {job ? <JobCard {...job} /> : <ByteTape file={file} active={loading} />}
+            <ErrorNote>{error}</ErrorNote>
+            <Button variant="uv" onClick={run} loading={loading} disabled={!file} className="w-full py-4 text-[15px]">
+              {loading ? 'Reading the opcode stream…' : 'Scan the file'}
+            </Button>
+          </div>
+          <div className="space-y-8">
+            <Panel title="What the verdicts mean">
+              <ul className="space-y-4">
+                {Object.entries(MODEL_VERDICTS).map(([k, val]) => (
+                  <li key={k} className="grid grid-cols-[10px_1fr] gap-3">
+                    <span className="mt-1.5 h-2.5 w-2.5 rounded-full" style={{ background: val.color }} />
+                    <span><span className="font-semibold" style={{ color: val.color }}>{val.label}.</span> <span className="text-sm text-textSecondary">{val.blurb}</span></span>
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+            <Panel title="Recent scans">
+              {history.length === 0 ? (
+                <p className="text-sm text-textSecondary">No scans yet.</p>
+              ) : (
+                <ul className="divide-y divide-borderHairline">
+                  {history.map((h) => {
+                    const v = MODEL_VERDICTS[h.verdict] || { label: h.verdict, color: 'var(--text-muted)' };
+                    return (
+                      <li key={h.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                        <span className="truncate font-mono">{h.model_filename}</span>
+                        <span className="shrink-0 font-mono text-[11px] font-bold uppercase" style={{ color: v.color }}>{v.label}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Panel>
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 }

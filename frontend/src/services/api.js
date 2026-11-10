@@ -23,8 +23,12 @@ function handleUnauthorized() {
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || fallback);
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    // FastAPI validation errors carry a list in `detail`; show the first message instead of [object Object].
+    const detail = Array.isArray(body.detail) ? body.detail[0]?.msg : body.detail;
+    const err = new Error(detail || fallback);
+    err.status = res.status;
+    throw err;
 }
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
@@ -80,13 +84,14 @@ export const api = {
 
     me: () => apiFetch('/auth/me', { skipAuth: true }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
-    signup: (username, email, password) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password }) }),
+    signup: (username, email, password, turnstileToken) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token: turnstileToken || undefined }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
-    resendVerification: (email) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
-    requestPasswordReset: (email) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    resendVerification: (email, turnstileToken) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token: turnstileToken || undefined }) }),
+    requestPasswordReset: (email, turnstileToken) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token: turnstileToken || undefined }) }),
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
+    deleteAccount: (password) => apiFetch('/account/delete', { method: 'POST', skipAuth: true, body: JSON.stringify({ password }) }),
     listApiKeys: () => apiFetch('/account/api-keys'),
     createApiKey: (name) => apiFetch('/account/api-keys', { method: 'POST', body: JSON.stringify({ name }) }),
     revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),
@@ -139,7 +144,7 @@ export const api = {
 
     // CSV Upload Analysis
     // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order
-    uploadCSV: (file, opts = {}) => {
+    uploadCSV: (file, opts = {}, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('file', file);
         if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
@@ -147,17 +152,22 @@ export const api = {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);
         }
-        return apiFormData('/analyze/upload', formData);
+        return apiFormData(`/analyze/upload${background ? '?background=true' : ''}`, formData);
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
 
     // Model Scan
     scanModel: (formData) => apiFormData('/analyze/model', formData),
-    uploadModel: (file) => {
+    uploadModel: (file, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('model_file', file);
-        return apiFormData('/analyze/model', formData);
+        return apiFormData(`/analyze/model${background ? '?background=true' : ''}`, formData);
     },
+
+    // Background jobs and direct-to-storage uploads
+    getJob: (jobId) => apiFetch(`/jobs/${jobId}`),
+    presignUpload: (role, filename, size) => apiFetch('/uploads/presign', { method: 'POST', body: JSON.stringify({ role, filename, size }) }),
+    completeUpload: (body) => apiFetch('/uploads/complete', { method: 'POST', body: JSON.stringify(body) }),
     getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 

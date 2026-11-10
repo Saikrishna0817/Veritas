@@ -1,275 +1,321 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { createElement, useEffect, useState, lazy, Suspense } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { ArrowRight, FileCode2, Play, Radio, ScanLine, TriangleAlert, Gauge } from 'lucide-react';
 import { api } from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
-import Marquee from 'react-fast-marquee';
-import { Line, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ComposedChart
-} from 'recharts';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { ChevronRight, Loader, BrainCircuit, FileText, ShieldAlert, User } from 'lucide-react';
-// three.js is ~1 MB; load the decorative hero after the page is interactive.
-const Tactile3DHero = lazy(() => import('../components/Tactile3DHero'));
+import { DATA_VERDICTS, MODEL_VERDICTS, Button, Reveal, ErrorNote } from '../components/ui';
 
-// ── Sub-components for Metrics ────────────────────────────────────────────────
+// three.js is heavy; the specimen loads after the readout is on screen.
+const Specimen3D = lazy(() => import('../components/Specimen3D'));
 
-function MetricCard({ label, value, unit = '', color = 'var(--red-primary)', sublabel }) {
-  return (
-    <div className="bg-bgPanel p-5 relative overflow-hidden rounded-[20px] border border-borderHairline group hover:bg-bgPanelRaised transition-colors">
-      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: color }} />
-      <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-2">{label}</div>
-      <div className="text-[40px] font-mono font-extrabold tracking-tight text-textPrimary flex items-baseline gap-1">
-        <span style={{ color }}>{value}</span>
-        {unit && <span className="text-sm text-textMuted font-normal">{unit}</span>}
-      </div>
-      {sublabel && <div className="text-xs text-textMuted mt-1.5 font-medium">{sublabel}</div>}
-    </div>
-  );
-}
-
-// ── Expandable Feature Cards (How SPECTRA Helps) ─────────────────────────────
-
-const features = [
-  {
-    id: 'f1',
-    title: 'Audit Datasets, Scan Model Files',
-    desc: 'Check a dataset for wrong labels and shifted rows, or scan a model file to see whether loading it can run code.',
-    icon: <BrainCircuit className="w-8 h-8 text-white" />,
-  },
-  {
-    id: 'f2',
-    title: 'Analyst Evidence Summaries',
-    desc: 'Export a JSON summary of layer scores, verdict, and limitations. Experimental analyst support — not a certification or legal evidence package.',
-    icon: <FileText className="w-8 h-8 text-white" />,
-  },
-  {
-    id: 'f3',
-    title: 'Blue Team Review Workflow',
-    desc: 'Review the latest analysis, queue human-in-the-loop decisions, and optionally run an explicit synthetic demo. Not a live 24/7 SOC feed.',
-    icon: <ShieldAlert className="w-8 h-8 text-white" />,
-  },
+const BENCH = [
+  { label: 'Row AUPRC at 5% poison', note: 'random ranking = 0.05', values: { 'Old Veritas': 0.11, veritas2: 0.69, cleanlab: 0.54, 'Two-sample test': 0.49 } },
+  { label: 'Batches caught at 5% false alarms', note: '12 held-out OpenML datasets', values: { 'Old Veritas': 0.33, veritas2: 0.78, cleanlab: 0.55, 'Two-sample test': 0.14 } },
 ];
 
-function ExpandableFeatures() {
-  const [expandedId, setExpandedId] = useState('f2');
+const EVENT_COPY = {
+  sample_analyzed: (d) => `Batch scored · ${d?.n_samples ?? '?'} rows · suspicion ${pct(d?.suspicion_score)}`,
+  attack_confirmed: (d) => `Evidence above threshold${d?.attack_type ? ` · pattern: ${d.attack_type.replace(/_/g, ' ')}` : ''}`,
+  defense_triggered: (d) => `${(d?.action || 'action').replace(/_/g, ' ')} · ${d?.samples_affected ?? 0} rows held back`,
+  human_review_required: () => 'Case opened for human review',
+};
 
+function pct(v) {
+  return v == null ? '—' : `${Math.round(v * 100)}%`;
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function VerdictReadout({ latest }) {
+  if (!latest) {
+    return (
+      <div>
+        <div className="rule-label">No batch examined yet</div>
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-4 font-display text-[clamp(2.2rem,4.2vw,3.9rem)] font-medium leading-[0.92]"
+        >
+          Put the batch on the slide.<br /><span className="serif-accent">Watch what glows.</span>
+        </motion.p>
+        <p className="mt-5 max-w-[46ch] text-textSecondary">
+          The specimen here is illustrative: 2,400 synthetic rows with a 5% poisoned tail. Examine your own CSV and it is replaced by your rows, each one lifted by its evidence.
+        </p>
+      </div>
+    );
+  }
+  const v = DATA_VERDICTS[latest.verdict] || DATA_VERDICTS.SUSPICIOUS;
+  const flags = latest.layer_results?.row_flags;
   return (
-    <div className="flex flex-col md:flex-row gap-4 w-full h-80">
-      {features.map((feat) => {
-        const isExpanded = expandedId === feat.id;
-        return (
-          <motion.div
-            key={feat.id}
-            layout
-            onClick={() => setExpandedId(feat.id)}
-            className={`cursor-pointer rounded-[20px] overflow-hidden p-6 relative border border-borderHairline flex flex-col justify-end
-              ${isExpanded ? 'bg-redDim/20 border-redPrimary/30 flex-[3]' : 'bg-bgPanel text-textPrimary flex-1 hover:bg-bgPanelRaised'}
-            `}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            <motion.div layout="position" className="mb-4 w-12 h-12 rounded-[10px] border border-borderHairline flex items-center justify-center bg-redPrimary">
-              {feat.icon}
-            </motion.div>
-            <motion.h3 layout="position" className="text-xl font-display font-bold tracking-tight mb-2 whitespace-nowrap text-textPrimary">
-              {feat.title}
-            </motion.h3>
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.p
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="text-textSecondary text-[18px] leading-relaxed"
-                >
-                  {feat.desc}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        );
-      })}
+    <div>
+      <div className="rule-label">Latest batch · {latest.dataset_info?.filename || latest.source}</div>
+      <motion.div
+        initial={{ opacity: 0, letterSpacing: '0.08em' }}
+        animate={{ opacity: 1, letterSpacing: '-0.02em' }}
+        transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+        className="mt-3 font-display text-[clamp(2.6rem,6vw,5.4rem)] font-medium leading-[0.9]"
+        style={{ color: v.color }}
+      >
+        {v.label}
+      </motion.div>
+      <p className="mt-4 max-w-[46ch] text-textSecondary">{v.blurb}</p>
+      <dl className="mt-6 grid grid-cols-3 gap-6 border-t border-borderHairline pt-5 font-mono">
+        <div><dt className="rule-label">Evidence</dt><dd className="mt-1 whitespace-nowrap text-lg">{v.p}</dd></div>
+        <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-lg text-flag">{flags?.flagged_indices_incoming?.length ?? 0}</dd></div>
+        <div><dt className="rule-label">Rows checked</dt><dd className="mt-1 text-lg">{(latest.n_samples ?? 0).toLocaleString()}</dd></div>
+      </dl>
     </div>
   );
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+function BenchLedger() {
+  const names = Object.keys(BENCH[0].values);
+  return (
+    <div className="panel overflow-hidden">
+      <div className="flex flex-col gap-2 border-b border-borderHairline p-6 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-medium">Measured, on data it never saw</h2>
+          <p className="mt-2 max-w-[62ch] text-sm text-textSecondary">
+            Benchmark v2: 18 real OpenML datasets, six injected attacks. Tuned on 6, reported on the 12 held out. On real human label noise (CIFAR-10N) it matches cleanlab rather than beating it.
+          </p>
+        </div>
+        <span className="font-mono text-[11px] text-textMuted">docs/model-card.md</span>
+      </div>
+      <div className="divide-y divide-borderHairline">
+        {BENCH.map((row, ri) => (
+          <div key={row.label} className="grid gap-4 p-6 md:grid-cols-[220px_1fr]">
+            <div>
+              <div className="font-semibold">{row.label}</div>
+              <div className="mt-1 text-xs text-textMuted">{row.note}</div>
+            </div>
+            <div className="space-y-2.5">
+              {names.map((n, i) => {
+                const val = row.values[n];
+                const ours = n === 'veritas2';
+                return (
+                  <div key={n} className="grid grid-cols-[120px_1fr_44px] items-center gap-3 text-sm">
+                    <span className={ours ? 'font-semibold text-textPrimary' : 'text-textMuted'}>{n}</span>
+                    <div className="h-2.5 overflow-hidden rounded-sm bg-ink-950">
+                      <motion.div
+                        className="h-full rounded-sm"
+                        style={{ background: ours ? 'var(--uv)' : '#4A494B' }}
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${val * 100}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.1, delay: ri * 0.15 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                    <span className={`text-right font-mono ${ours ? 'text-uv' : 'text-textSecondary'}`}>{val.toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+/** Stat cards in the style of the reference's dashboard: label, round icon chip, big number with a small unit. */
+function StatCard({ label, icon, value, unit, note, accent }) {
+  return (
+    <div className="flex h-full flex-col rounded-[28px] border border-white/[0.07] bg-[#1A1A1A] p-6">
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-sm font-medium text-textSecondary">{label}</span>
+        {accent && <span className="rounded-lg bg-uv px-2 py-0.5 text-[10px] font-medium text-ink-900">{accent}</span>}
+      </div>
+      <div className="mt-auto flex items-end justify-between gap-3 pt-8">
+        <span className="icon-chip h-11 w-11 shrink-0">{createElement(icon, { className: 'h-4 w-4 text-white', strokeWidth: 1.5, 'aria-hidden': true })}</span>
+        <span className="font-display text-right text-[clamp(2.4rem,3.6vw,3.4rem)] font-medium leading-none tracking-[-0.05em] tabular">
+          {value}{unit && <span className="ml-1 text-[0.42em] tracking-normal text-textSecondary">{unit}</span>}
+        </span>
+      </div>
+      {note && <div className="mt-3 text-right text-xs text-textMuted">{note}</div>}
+    </div>
+  );
+}
+
+function StatRow({ stats, usage }) {
+  const verdicts = stats?.by_verdict || {};
+  const flaggedBatches = (verdicts.SUSPICIOUS || 0) + (verdicts.CONFIRMED_POISONED || 0);
+  const used = usage?.used || {};
+  const limits = usage?.limits || {};
+  const pct = (k) => (limits[k] ? Math.round(((used[k] || 0) / limits[k]) * 100) : null);
+  const loading = stats === undefined;
+  const dash = '—';
+  return (
+    <section aria-label="Your numbers" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <StatCard label="Batches examined" icon={ScanLine} value={loading ? dash : (stats.total_analyses ?? 0)} note="uploads, reference datasets and sample batches" />
+      <StatCard
+        label="Batches flagged"
+        icon={TriangleAlert}
+        value={loading ? dash : flaggedBatches}
+        note="suspicious or confirmed"
+        accent={!loading && stats.total_analyses ? `${Math.round((flaggedBatches / stats.total_analyses) * 100)}%` : null}
+      />
+      <StatCard label="Model files scanned" icon={FileCode2} value={loading ? dash : (stats.model_scans ?? 0)} />
+      <StatCard
+        label="Daily quota used"
+        icon={Gauge}
+        value={usage ? (pct('analyses') ?? dash) : dash}
+        unit={usage && pct('analyses') !== null ? '%' : null}
+        note={usage ? `${used.analyses || 0} of ${limits.analyses || 'unlimited'} analyses today, UTC` : null}
+      />
+    </section>
+  );
+}
 
 export default function Dashboard({ wsEvents = [] }) {
-  const { user } = useAuth();
   const navigate = useNavigate();
-  const [trustScore, setTrustScore] = useState(null);
-  const [timeline, setTimeline] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [analystMode, setAnalystMode] = useState(false);
+  const [latest, setLatest] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [usage, setUsage] = useState(null);
+  const [demoBusy, setDemoBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (user?.role === 'admin') {
-      navigate('/admin', { replace: true });
-    }
-  }, [user, navigate]);
+  const load = () => {
+    api.getLatestUpload().then(setLatest).catch(() => setLatest(null));
+    api.getHistory(null, 8).then(setHistory).catch(() => setHistory({ results: [], stats: {} }));
+    api.getUsage().then(setUsage).catch(() => setUsage(null));
+  };
+  useEffect(load, []);
 
-  useEffect(() => {
-    api.getTrustScore().then(setTrustScore).catch(() => {});
-    api.getAttackTimeline().then((d) => setTimeline(d.timeline || [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (wsEvents.some((e) => e.event === 'attack_confirmed')) {
-      api.getTrustScore().then(setTrustScore).catch(() => {});
-    }
-  }, [wsEvents]);
-
-  const handleRunDemo = async () => {
-    setLoading(true);
-    setError(null);
+  const runDemo = async () => {
+    setDemoBusy(true);
+    setError('');
     try {
-      const result = await api.runDemo();
-      const ts = await api.getTrustScore();
-      setTrustScore(ts);
-      setTimeline(result.timeline || []);
+      await api.runDemo();
+      load();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'The sample batch could not be run.');
     } finally {
-      setLoading(false);
+      setDemoBusy(false);
     }
   };
 
+  const flags = latest?.layer_results?.row_flags;
+  const stats = history?.stats || {};
+
   return (
-    <div className="w-full">
-      {/* ── 1. Hero Section (Dark Theme) ────────────────────────────────────── */}
-      <section className="bg-transparent pt-16 pb-12 px-6 md:px-12 rounded-t-[28px]" style={{ overflow: 'visible' }}>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 items-center" style={{ overflow: 'visible', position: 'relative' }}>
-          <div className="space-y-6 relative z-10 py-12">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-redPrimary/10 border border-redPrimary/30 text-redBright font-mono text-xs font-bold tracking-wider uppercase">
-              <User className="w-3.5 h-3.5" /> USER DASHBOARD
-            </div>
-            <h1 className="text-[80px] md:text-[96px] font-display font-bold tracking-tighter text-textPrimary leading-[1.05]">
-              Uncompromising<br/>
-              <span className="text-redPrimary border-b-[4px] border-redPrimary">AI Security.</span>
-            </h1>
-
-            <p className="text-[18px] md:text-[19px] text-textSecondary max-w-lg leading-relaxed">
-              SPECTRA/VERITAS provides enterprise-grade data poisoning detection, proxy impact analysis, and continuous model security.
-            </p>
-            <div className="flex items-center gap-6">
-              <button
-                onClick={handleRunDemo}
-                disabled={loading}
-                className="group flex items-center justify-center gap-2 bg-redPrimary text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50"
-              >
-                {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Run Demo'}
-                {!loading && <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-              </button>
-              
-              {/* Analyst Mode Toggle */}
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input type="checkbox" className="sr-only" checked={analystMode} onChange={() => setAnalystMode(!analystMode)} />
-                  <div className={`block w-14 h-8 rounded-full transition-colors ${analystMode ? 'bg-redPrimary' : 'bg-bgPanelRaised'}`}></div>
-                  <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition-transform ${analystMode ? 'transform translate-x-6 bg-white' : 'bg-textSecondary'}`}></div>
-                </div>
-                <div className="text-sm font-bold text-textPrimary group-hover:text-redPrimary transition-colors">
-                  Analyst Mode
-                </div>
-              </label>
-            </div>
+    <div className="mx-auto max-w-[1360px] px-5 md:px-10">
+      {/* Specimen hero */}
+      <section className="relative grid items-center gap-6 py-10 xl:min-h-screen xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-0">
+        <div className="relative z-10">
+          <h1 className="sr-only">Veritas overview</h1>
+          <VerdictReadout latest={latest} />
+          <div className="mt-10 flex flex-wrap gap-3">
+            <Button onClick={() => navigate('/upload')} variant="uv" className="px-6 py-3.5 text-[15px]">
+              Examine a batch <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Button>
+            <Button onClick={() => navigate('/model-scan')} variant="ghost" className="px-6 py-3.5 text-[15px]">
+              <FileCode2 className="h-4 w-4" /> Scan a model file
+            </Button>
           </div>
-          
-          {/* 3D Animation — absolutely positioned, oversized so rings are never clipped */}
-          <div style={{
-            position: 'absolute',
-            right: '-15%',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '75vw',
-            height: '900px',
-            maxWidth: '1000px',
-            overflow: 'visible',
-            pointerEvents: 'none',
-            zIndex: 0
-          }}>
-             <Suspense fallback={null}><Tactile3DHero intensity={analystMode ? 2.0 : 0.5} /></Suspense>
+          <button
+            onClick={runDemo}
+            disabled={demoBusy}
+            className="mt-5 inline-flex items-center gap-2 text-sm text-textMuted underline-offset-4 hover:text-textPrimary hover:underline disabled:opacity-50"
+          >
+            <Play className="h-3.5 w-3.5" /> {demoBusy ? 'Running a synthetic sample batch…' : 'Or run a synthetic sample batch'}
+          </button>
+          {error && <div className="mt-4"><ErrorNote>{error}</ErrorNote></div>}
+        </div>
+
+        <div className="relative h-[46vh] min-h-[300px] xl:h-[82vh]">
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(50% 50% at 50% 55%, rgba(123,77,255,0.45), rgba(71,0,214,0.2) 45%, transparent 72%)' }} />
+          <Suspense fallback={<div className="h-full w-full animate-pulse rounded-2xl bg-violet/[0.04]" />}>
+            <Specimen3D
+              className="absolute inset-0"
+              scores={flags?.row_scores}
+              flagged={flags?.flagged_indices_incoming}
+              loop
+            />
+          </Suspense>
+          <div className="pointer-events-none absolute bottom-3 left-0 right-0 flex flex-wrap items-center justify-center gap-5 font-mono text-[11px] text-textMuted">
+            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#B9A3FF]" /> row, height = evidence</span>
+            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-flag" /> flagged row</span>
+            <span>{flags?.row_scores?.length ? `${flags.row_scores.length.toLocaleString()} real rows` : 'illustrative specimen'}</span>
           </div>
         </div>
       </section>
 
-      {/* ── 2. How Can SPECTRA Help? (Dark Theme) ─────────────────────────────── */}
-      <section className="bg-bgVoid py-24 px-6 md:px-12 text-textPrimary">
-        <div className="max-w-7xl mx-auto space-y-12">
-          <div className="flex justify-between items-end">
-            <h2 className="text-[56px] md:text-[64px] font-display font-bold tracking-tight max-w-lg leading-tight">
-              How Can SPECTRA Help?
-            </h2>
-            <p className="text-[18px] text-textSecondary max-w-sm text-right hidden md:block">
-              Interactive threat modeling and live detection tools designed for advanced security operations.
-            </p>
-          </div>
-          
-          <ExpandableFeatures />
-        </div>
-      </section>
+      <Reveal><StatRow stats={history ? history.stats || {} : undefined} usage={usage} /></Reveal>
 
-      {/* ── 3. Our Partners (Dark Theme Marquee) ──────────────────────────────── */}
-      <section className="bg-bgVoid border-t border-borderHairline py-12 overflow-hidden">
-        <Marquee speed={40} gradient={true} gradientColor={[0, 0, 0]} gradientWidth={100} autoFill>
-          {['NIST AI RMF', 'EU AI Act', 'MITRE ATLAS', 'ISO/IEC 42001', 'OWASP Top 10 for LLMs'].map((partner, i) => (
-            <div key={i} className="mx-12 text-xl font-bold tracking-wider text-textMuted uppercase hover:text-textPrimary transition-colors duration-300">
-              {partner}
+      <Reveal className="mt-16"><BenchLedger /></Reveal>
+
+      {/* Recent work + live tape */}
+      <section className="mt-16 grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        <Reveal>
+          <div className="panel h-full">
+            <div className="flex items-baseline justify-between border-b border-borderHairline p-6">
+              <h2 className="font-display text-xl font-medium">Recent runs</h2>
+              <Link to="/history" className="text-sm text-violet hover:text-[var(--red-bright)]">All history →</Link>
             </div>
-          ))}
-        </Marquee>
-      </section>
+            {history === null ? (
+              <div className="p-6 text-sm text-textMuted" role="status">Loading…</div>
+            ) : history.results?.length ? (
+              <ul className="divide-y divide-borderHairline">
+                {history.results.map((r) => {
+                  const v = DATA_VERDICTS[r.verdict] || MODEL_VERDICTS[r.verdict] || { label: r.verdict, color: 'var(--text-secondary)' };
+                  return (
+                    <li key={`${r.source}-${r.id}`} className="grid grid-cols-[1fr_auto] items-center gap-4 px-6 py-4">
+                      <div className="min-w-0">
+                        <div className="truncate font-mono text-sm">{r.filename || r.model_filename || r.id}</div>
+                        <div className="mt-0.5 text-xs text-textMuted">{r.source?.replace('_', ' ')} · {timeAgo(r.created_at)}</div>
+                      </div>
+                      <span className="rounded-lg border px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-wide" style={{ color: v.color, borderColor: v.color }}>
+                        {v.short || v.label}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="p-6 text-sm text-textSecondary">Nothing yet. Examine a batch or scan a model file and it lands here.</div>
+            )}
+            {history && (
+              <div className="flex gap-8 border-t border-borderHairline px-6 py-4 font-mono text-xs text-textMuted">
+                <span>{stats.total_analyses ?? 0} batches</span>
+                <span>{stats.model_scans ?? 0} model scans</span>
+              </div>
+            )}
+          </div>
+        </Reveal>
 
-      {/* ── 4. Dashboard Metrics (Dark Theme) ─────────────────────────────────── */}
-      <section className="bg-bgSurface py-16 px-6 md:px-12 rounded-b-[28px] border-t border-borderHairline">
-         <div className="max-w-7xl mx-auto space-y-8">
-            <h3 className="text-[56px] font-display font-bold text-textPrimary tracking-tight">Latest analysis</h3>
-            
-            {error && (
-              <div className="p-4 bg-redDim border border-redPrimary text-textPrimary text-[18px] font-mono rounded-xl shadow-red-glow">
-                ⚠️ Connection Error: {error}
-              </div>
-            )}
-
-            {trustScore && trustScore.data_source === 'none' && (
-              <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-8 space-y-3">
-                <div className="font-mono text-xs text-textMuted uppercase tracking-widest">No analysis yet</div>
-                <p className="text-textSecondary">Upload a CSV or analyse a real dataset. Scores stay blank until then.</p>
-              </div>
-            )}
-            {trustScore && trustScore.has_analysis && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <MetricCard label="Data Quality" value={trustScore.dataset_trust.data_quality} color="var(--status-safe)" sublabel={trustScore.data_source} />
-                <MetricCard label="Poison Risk" value={trustScore.dataset_trust.poison_risk} unit="%" color="var(--red-primary)" />
-                <MetricCard label="Behavioral Trust" value={trustScore.dataset_trust.behavioral_trust} color="var(--status-warn)" />
-                <div className="bg-bgPanel p-5 relative overflow-hidden rounded-[20px] border border-borderHairline group hover:bg-bgPanelRaised transition-colors">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary" />
-                  <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-2">Model Grade</div>
-                  <div className="text-[40px] font-extrabold tracking-tight text-textPrimary font-mono">
-                    {trustScore.model_safety.grade}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {timeline.length > 0 && (
-              <div className="bg-bgPanel p-6 lg:p-8 rounded-[20px] border border-borderHairline mt-8 hover:bg-bgPanelRaised transition-colors">
-                <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-6">Threat Timeline Analysis</div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={timeline.slice(-24)} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="timestamp" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} tickFormatter={(v) => v.slice(11, 16)} />
-                    <YAxis yAxisId="left" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} domain={[0.7, 1.0]} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-hairline)', borderRadius: '12px' }} />
-                    <Bar yAxisId="right" dataKey="poison_count" fill="var(--red-glow)" stroke="var(--red-primary)" name="Poison Count" radius={[4, 4, 0, 0]} />
-                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="var(--status-safe)" strokeWidth={2.5} dot={false} name="Accuracy" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-         </div>
+        <Reveal delay={0.1}>
+          <div className="panel h-full">
+            <div className="flex items-center gap-2 border-b border-borderHairline p-6">
+              <Radio className="h-4 w-4 text-uv" aria-hidden />
+              <h2 className="font-display text-xl font-medium">Live events</h2>
+            </div>
+            <ol className="max-h-[360px] space-y-0 overflow-y-auto p-2" aria-live="polite">
+              {wsEvents.length === 0 && <li className="p-4 text-sm text-textMuted">Quiet. Events from your analyses stream here as they happen.</li>}
+              {wsEvents.map((e, i) => (
+                <motion.li
+                  key={`${e.receivedAt}-${i}`}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="grid grid-cols-[64px_1fr] gap-3 rounded-lg px-4 py-2.5 text-sm hover:bg-white/[0.02]"
+                >
+                  <time className="font-mono text-[11px] text-textMuted">{new Date(e.receivedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
+                  <span className={e.event === 'attack_confirmed' ? 'text-flag' : 'text-textSecondary'}>
+                    {(EVENT_COPY[e.event] || (() => (e.event || 'event').replace(/_/g, ' ')))(e.data)}
+                  </span>
+                </motion.li>
+              ))}
+            </ol>
+          </div>
+        </Reveal>
       </section>
     </div>
   );
