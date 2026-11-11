@@ -148,10 +148,11 @@ export function Reveal({ children, delay = 0, className = '' }) {
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
-      whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      // Starts readable: if the animation never runs (stalled script, throttled tab), the content is still there.
+      initial={{ opacity: 0.55, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
-      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.8, delay, ease: [0.19, 1, 0.22, 1] }}
     >
       {children}
     </motion.div>

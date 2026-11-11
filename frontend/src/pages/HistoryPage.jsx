@@ -105,12 +105,11 @@ export default function HistoryPage() {
         ))}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2" role="tablist" aria-label="Filter by source">
+      <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filter by source">
         {SOURCES.map(([id, label]) => (
           <button
             key={id || 'all'}
-            role="tab"
-            aria-selected={source === id}
+            aria-pressed={source === id}
             onClick={() => { setSource(id); setSelected(null); }}
             className={`rounded-2xl border px-3.5 py-2 text-sm transition-colors ${source === id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
           >

@@ -1,772 +1,446 @@
-import { useState, useEffect, useCallback } from 'react';
-import {
-  Shield,
-  Users,
-  UserPlus,
-  Trash2,
-  AlertTriangle,
-  CheckCircle,
-  Activity,
-  Lock,
-  RefreshCw,
-  Eye,
-  X,
-  Layers,
-} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Users, UserPlus, Trash2, RefreshCw, ShieldAlert, ScrollText, Database, ChevronDown, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Panel, Button, ErrorNote, Empty } from '../components/ui';
 
-export default function AdminDashboard() {
-  const { user: activeUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('users');
+const ROLES = [
+  { id: 'user', label: 'User', note: 'Runs checks and scans; sees only their own results.' },
+  { id: 'analyst', label: 'Analyst', note: 'Same access as User today.' },
+  { id: 'admin', label: 'Administrator', note: 'This console: accounts, audit log, every stored result.' },
+];
+const inputClass = 'w-full rounded-2xl border border-transparent bg-white/[0.06] px-4 py-3 text-[15px] transition-colors focus:border-uv focus:outline-none';
 
-  // Governance state
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [userError, setUserError] = useState('');
-  const [userSuccess, setUserSuccess] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState('user');
-  const [submittingUser, setSubmittingUser] = useState(false);
+function when(iso) {
+  return iso ? new Date(iso).toLocaleString() : '—';
+}
 
-  // Security & Quarantine state
-  const [quarantineStatus, setQuarantineStatus] = useState(null);
-  const [quarantining, setQuarantining] = useState(false);
-  const [hitlCases, setHitlCases] = useState([]);
-  const [loadingHitl, setLoadingHitl] = useState(false);
+/** Two-step destructive action: the first click asks, the second does it. */
+function ConfirmButton({ label, confirmLabel, onConfirm, disabled, title }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!asking) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        title={title}
+        aria-label={title || label}
+        onClick={() => setAsking(true)}
+        className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm text-textMuted transition-colors hover:bg-statusCritical/10 hover:text-statusCritical disabled:cursor-not-allowed disabled:opacity-30"
+      >
+        <Trash2 className="h-4 w-4" aria-hidden /> <span className="sr-only sm:not-sr-only">{label}</span>
+      </button>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); setAsking(false); } }}
+        className="rounded-xl border border-statusCritical/50 px-3 py-1.5 text-sm text-statusCritical hover:bg-statusCritical/10 disabled:opacity-50"
+      >
+        {busy ? 'Working…' : confirmLabel}
+      </button>
+      <button type="button" onClick={() => setAsking(false)} className="rounded-xl px-2 py-1.5 text-sm text-textMuted hover:text-textPrimary" aria-label="Cancel">
+        <X className="h-4 w-4" aria-hidden />
+      </button>
+    </span>
+  );
+}
 
-  // Audit feed state
-  const [auditEvents, setAuditEvents] = useState([]);
-  const [loadingAudit, setLoadingAudit] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState(null);
+function Count({ label, value, note }) {
+  return (
+    <div className="rounded-[28px] border border-white/[0.07] bg-[#1A1A1A] p-6">
+      <div className="text-sm font-medium text-textSecondary">{label}</div>
+      <div className="font-display mt-6 text-[clamp(2.2rem,3.2vw,3rem)] font-medium leading-none tracking-[-0.05em] tabular">{value}</div>
+      {note && <div className="mt-2 text-xs text-textMuted">{note}</div>}
+    </div>
+  );
+}
 
-  // Scan registry state
-  const [scanHistory, setScanHistory] = useState([]);
-  const [loadingRegistry, setLoadingRegistry] = useState(false);
+function verdictOf(v) {
+  return DATA_VERDICTS[v] || MODEL_VERDICTS[v] || { label: v || '—', short: v || '—', color: 'var(--text-muted)' };
+}
 
-  const fetchUsers = useCallback(async () => {
-    setLoadingUsers(true);
-    try {
-      const data = await api.getUsers();
-      setUsers(data);
-    } catch (err) {
-      setUserError(err.message || 'Failed to load user directory.');
-    } finally {
-      setLoadingUsers(false);
-    }
-  }, []);
+// ── Accounts ─────────────────────────────────────────────────────────────────
 
-  const fetchSecurityData = useCallback(async () => {
-    setLoadingHitl(true);
-    try {
-      const [qs, hitl] = await Promise.all([
-        api.getDefenseStatus().catch(() => null),
-        api.getPendingReviews().catch(() => ({ cases: [] })),
-      ]);
-      setQuarantineStatus(qs);
-      setHitlCases(hitl.cases || []);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingHitl(false);
-    }
-  }, []);
+function NewAccount({ onCreated, onClose }) {
+  const [form, setForm] = useState({ username: '', password: '', role: 'user' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
-  const fetchAuditEvents = useCallback(async () => {
-    setLoadingAudit(true);
-    try {
-      const res = await api.getAuditEvents(100);
-      setAuditEvents(res.events || []);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingAudit(false);
-    }
-  }, []);
-
-  const fetchScanRegistry = useCallback(async () => {
-    setLoadingRegistry(true);
-    try {
-      const res = await api.getAnalysisHistory(100);
-      setScanHistory(res.results || []);
-    } catch {
-      // ignore
-    } finally {
-      setLoadingRegistry(false);
-    }
-  }, []);
-
-  const refreshAll = useCallback(() => {
-    fetchUsers();
-    fetchSecurityData();
-    fetchAuditEvents();
-    fetchScanRegistry();
-  }, [fetchUsers, fetchSecurityData, fetchAuditEvents, fetchScanRegistry]);
-
-  useEffect(() => {
-    refreshAll();
-  }, [refreshAll]);
-
-  // ── Actions ──────────────────────────────────────────────────────────────────
-
-  const handleCreateUser = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    setUserError('');
-    setUserSuccess('');
-    setSubmittingUser(true);
+    setBusy(true);
+    setError('');
     try {
-      await api.createUser({ username: newUsername, password: newPassword, role: newRole });
-      setUserSuccess(`User '${newUsername}' successfully created with role [${newRole.toUpperCase()}].`);
-      setNewUsername('');
-      setNewPassword('');
-      setNewRole('user');
-      setShowCreateModal(false);
-      fetchUsers();
-      fetchAuditEvents();
+      await api.createUser(form);
+      onCreated(`Account ${form.username} created as ${ROLES.find((r) => r.id === form.role).label.toLowerCase()}.`);
     } catch (err) {
-      setUserError(err.message || 'Failed to create user account.');
+      setError(err.message);
     } finally {
-      setSubmittingUser(false);
-    }
-  };
-
-  const handleDeleteUser = async (userId, username) => {
-    if (userId === activeUser?.id) {
-      setUserError('Cannot revoke your own active administrator account.');
-      return;
-    }
-    if (!window.confirm(`Are you sure you want to revoke access for user '${username}'?`)) return;
-    setUserError('');
-    setUserSuccess('');
-    try {
-      await api.deleteUser(userId);
-      setUserSuccess(`Revoked account access for user '${username}'.`);
-      fetchUsers();
-      fetchAuditEvents();
-    } catch (err) {
-      setUserError(err.message || 'Failed to revoke user access.');
-    }
-  };
-
-  const handleTriggerQuarantine = async () => {
-    if (!window.confirm('WARNING: Triggering emergency quarantine will isolate all pending model pipelines and suspend unverified ingestion. Proceed?')) return;
-    setQuarantining(true);
-    setUserError('');
-    try {
-      const res = await api.triggerQuarantine();
-      setQuarantineStatus(res);
-      setUserSuccess('Emergency System Quarantine executed successfully.');
-      fetchAuditEvents();
-    } catch (err) {
-      setUserError(err.message || 'Quarantine trigger failed.');
-    } finally {
-      setQuarantining(false);
-    }
-  };
-
-  const handleResolveHitl = async (caseId, decision) => {
-    try {
-      await api.submitReviewDecision(caseId, decision, activeUser?.name || 'admin');
-      setUserSuccess(`HITL case '${caseId.slice(0, 8)}' resolved with action [${decision.toUpperCase()}].`);
-      fetchSecurityData();
-      fetchAuditEvents();
-    } catch (err) {
-      setUserError(err.message || 'Failed to submit HITL review decision.');
-    }
-  };
-
-  const handleDeleteScanRecord = async (runId) => {
-    if (!window.confirm(`Purge analysis record '${runId.slice(0, 8)}'? This action is permanent.`)) return;
-    try {
-      await api.deleteAnalysisHistory(runId);
-      setUserSuccess(`Purged analysis record '${runId.slice(0, 8)}'.`);
-      fetchScanRegistry();
-      fetchAuditEvents();
-    } catch (err) {
-      setUserError(err.message || 'Failed to purge scan record.');
+      setBusy(false);
     }
   };
 
   return (
-    <div className="p-6 md:p-10 max-w-[1360px] mx-auto space-y-8">
-
-      {/* ── Console Header ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-borderHairline pb-6">
-        <div>
-          <h1 className="font-display font-medium text-[clamp(2.6rem,5.6vw,5rem)] leading-[1] text-textPrimary">
-            Admin <span className="serif-accent">console</span>
-          </h1>
-          <p className="mt-4 max-w-[62ch] text-[17px] leading-relaxed text-textSecondary">
-            Manage accounts, the human-review queue and quarantine, and read the audit log and every stored analysis.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={refreshAll}
-            className="p-3 rounded-2xl bg-bgPanel border border-borderHairline text-textMuted hover:text-textPrimary hover:border-redPrimary/50 transition-all flex items-center gap-2 font-mono text-xs font-semibold"
-            title="Refresh All System Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${loadingUsers || loadingAudit ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 bg-redPrimary text-textPrimary text-xs font-medium px-5 py-3 rounded-2xl hover:bg-redBright shadow-lift transition-all"
-          >
-            <UserPlus className="w-4 h-4" />
-            Provision Account
-          </button>
-        </div>
-      </div>
-
-      {/* ── Notifications ────────────────────────────────────────────────────────── */}
-      {userSuccess && (
-        <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-mono text-xs flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="w-4 h-4 shrink-0" />
-            <span>{userSuccess}</span>
-          </div>
-          <button onClick={() => setUserSuccess('')} className="text-emerald-400 hover:text-textPrimary font-medium">✕</button>
-        </div>
-      )}
-
-      {userError && (
-        <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/40 text-red-400 font-mono text-xs flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-4 h-4 shrink-0 text-redPrimary" />
-            <span>{userError}</span>
-          </div>
-          <button onClick={() => setUserError('')} className="text-red-400 hover:text-textPrimary font-medium">✕</button>
-        </div>
-      )}
-
-      {/* ── Executive Metric Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-textMuted">Total Accounts</span>
-            <Users className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="font-display text-3xl font-medium text-textPrimary">{users.length}</div>
-          <div className="font-mono text-[11px] text-textMuted flex items-center gap-2">
-            <span className="text-amber-400 font-medium">{users.filter((u) => u.role === 'admin').length} Admins</span>
-            <span>•</span>
-            <span className="text-cyan-400 font-medium">{users.filter((u) => u.role !== 'admin').length} Regular</span>
-          </div>
-        </div>
-
-        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-textMuted">Quarantine Mode</span>
-            <Shield className={`w-4 h-4 ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`} />
-          </div>
-          <div className={`font-display text-2xl font-medium ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
-            {quarantineStatus?.active ? 'LOCKDOWN ACTIVE' : 'NOMINAL'}
-          </div>
-          <div className="font-mono text-[11px] text-textMuted">
-            {quarantineStatus?.total_quarantined || 0} Isolated Samples
-          </div>
-        </div>
-
-        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-textMuted">HITL Pending Queue</span>
-            <AlertTriangle className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="font-display text-3xl font-medium text-amber-400">{hitlCases.length}</div>
-          <div className="font-mono text-[11px] text-textMuted">Cases awaiting manual review</div>
-        </div>
-
-        <div className="p-5 rounded-[28px] bg-bgPanel border border-borderHairline space-y-2 relative overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-textMuted">Audit Trail Records</span>
-            <Activity className="w-4 h-4 text-violet" />
-          </div>
-          <div className="font-display text-3xl font-medium text-violet">{auditEvents.length}</div>
-          <div className="font-mono text-[11px] text-textMuted">Persisted security audit logs</div>
-        </div>
-      </div>
-
-      {/* ── Navigation Tabs ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-borderHairline pb-1 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'users' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
-        >
-          <Users className="w-4 h-4" />
-          User Governance ({users.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'security' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
-        >
-          <Shield className="w-4 h-4" />
-          AI Defense & HITL Controls ({hitlCases.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'audit' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
-        >
-          <Activity className="w-4 h-4" />
-          Security Audit Feed ({auditEvents.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab('registry')}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${ activeTab === 'registry' ? 'bg-redPrimary/20 border-redPrimary text-redBright shadow-lift' : 'bg-bgPanel border-borderHairline text-textMuted hover:text-textPrimary' }`}
-        >
-          <Layers className="w-4 h-4" />
-          Asset Scan Registry ({scanHistory.length})
-        </button>
-      </div>
-
-      {/* ── Tab Content 1: User Governance ────────────────────────────────────────── */}
-      {activeTab === 'users' && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-borderHairline pb-4">
-              <div>
-                <h2 className="font-display text-xl font-medium text-textPrimary">Platform User Directory</h2>
-                <p className="font-mono text-xs text-textMuted mt-1">
-                  Manage platform authentication accounts, assign roles, and revoke privileges.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="flex items-center gap-2 bg-redPrimary text-textPrimary text-xs font-medium px-4 py-2.5 rounded-2xl hover:bg-redBright transition-all shadow-lift self-start sm:self-auto"
-              >
-                <UserPlus className="w-4 h-4" />
-                Provision Account
-              </button>
-            </div>
-
-            {loadingUsers ? (
-              <div className="py-16 text-center font-mono text-xs text-textMuted">Loading platform user registry…</div>
-            ) : users.length === 0 ? (
-              <div className="py-16 text-center font-mono text-xs text-textMuted">No user accounts found.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left font-mono text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-borderHairline text-textMuted uppercase text-[10px] tracking-wider bg-bgVoid/50">
-                      <th className="py-3.5 px-4">User Account</th>
-                      <th className="py-3.5 px-4">Role Privilege</th>
-                      <th className="py-3.5 px-4">User ID</th>
-                      <th className="py-3.5 px-4">Provisioned At</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-borderHairline">
-                    {users.map((u) => {
-                      const isSelf = u.id === activeUser?.id;
-                      return (
-                        <tr key={u.id} className="hover:bg-bgSurface/50 transition-colors">
-                          <td className="py-4 px-4 font-semibold text-textPrimary">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`w-9 h-9 rounded-full flex items-center justify-center font-medium uppercase ${ u.role === 'admin' ? 'bg-redPrimary/20 border border-redPrimary/40 text-redBright' : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-400' }`}
-                              >
-                                {u.username.charAt(0)}
-                              </div>
-                              <div>
-                                <div className="text-textPrimary font-medium text-sm flex items-center gap-2">
-                                  {u.username}
-                                  {isSelf && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/30">
-                                      CURRENT SESSION
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span
-                              className={`px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${ u.role === 'admin' ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40 shadow-lift' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' }`}
-                            >
-                              {u.role === 'admin' ? 'ADMINISTRATOR' : 'REGULAR USER'}
-                            </span>
-                          </td>
-                          <td className="py-4 px-4 text-textMuted font-mono text-[11px]">{u.id}</td>
-                          <td className="py-4 px-4 text-textMuted text-[11px]">
-                            {u.created_at ? new Date(u.created_at).toLocaleString() : 'N/A'}
-                          </td>
-                          <td className="py-4 px-4 text-right">
-                            <button
-                              disabled={isSelf}
-                              onClick={() => handleDeleteUser(u.id, u.username)}
-                              className={`p-2 rounded-lg border transition-all ${ isSelf ? 'opacity-30 cursor-not-allowed bg-bgPanelRaised border-borderHairline text-textMuted' : 'bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-redBright border-borderHairline hover:border-redPrimary/40' }`}
-                              title={isSelf ? 'Cannot delete your own active session' : 'Revoke Account Access'}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Tab Content 2: AI Security & Defense Controls ────────────────────────── */}
-      {activeTab === 'security' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Emergency Lockdown Control */}
-          <div className="p-6 rounded-[28px] bg-bgPanel border border-redPrimary/40 shadow-lift space-y-6">
-            <div className="flex items-center gap-3 text-redBright text-xs font-medium">
-              <Lock className="w-5 h-5" />
-              Emergency Administrative Override
-            </div>
+    <motion.form
+      onSubmit={submit}
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
+      className="overflow-hidden"
+    >
+      <div className="glass-card mb-6">
+        <div className="space-y-5 p-6">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="font-display font-medium text-textPrimary text-xl">Emergency System Quarantine</h3>
-              <p className="text-xs font-sans text-textMuted mt-1 leading-relaxed">
-                Instantly trigger a platform-wide security lockdown. Suspends unverified ingestion pipelines and quarantines suspect training data.
-              </p>
+              <h3 className="text-lg font-medium">New account</h3>
+              <p className="mt-1 text-sm text-textSecondary">The person signs in with these details. No confirmation email is sent.</p>
             </div>
-
-            <div className="p-4 rounded-2xl bg-bgVoid border border-borderHairline space-y-2">
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-textMuted">Current Platform Status:</span>
-                <span className={`font-medium ${quarantineStatus?.active ? 'text-redBright' : 'text-emerald-400'}`}>
-                  {quarantineStatus?.active ? 'QUARANTINE ACTIVE' : 'NOMINAL OPERATION'}
-                </span>
-              </div>
-              <div className="flex justify-between text-xs font-mono">
-                <span className="text-textMuted">Quarantined Samples:</span>
-                <span className="text-textPrimary font-medium">{quarantineStatus?.total_quarantined || 0}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleTriggerQuarantine}
-              disabled={quarantining}
-              className="w-full py-4 px-6 rounded-2xl bg-redPrimary hover:bg-redBright text-textPrimary text-xs font-medium transition-all shadow-lift disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <AlertTriangle className="w-5 h-5" />
-              {quarantining ? 'Executing Lockdown...' : 'Trigger System Quarantine Lockdown'}
-            </button>
+            <button type="button" onClick={onClose} aria-label="Close" className="rounded-xl p-1.5 text-textMuted hover:bg-white/[0.06] hover:text-textPrimary"><X className="h-4 w-4" /></button>
           </div>
-
-          {/* Pending HITL Cases Table (Full Width) */}
-          <div className="lg:col-span-2 p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
-            <div className="flex items-center justify-between border-b border-borderHairline pb-4">
-              <div>
-                <h3 className="font-display font-medium text-textPrimary text-lg">HITL Review Queue Escalations</h3>
-                <p className="font-mono text-xs text-textMuted">Cases flagged by proxy disagreement requiring human review</p>
-              </div>
-              <span className="text-xs text-amber-400 bg-amber-950/40 px-3 py-1 rounded-full border border-amber-500/30 font-medium">
-                {hitlCases.length} Pending
-              </span>
-            </div>
-
-            {loadingHitl ? (
-              <div className="py-12 text-center font-mono text-xs text-textMuted">Loading pending review cases…</div>
-            ) : hitlCases.length === 0 ? (
-              <div className="py-12 text-center font-mono text-xs text-textMuted">No pending HITL cases awaiting review.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left font-mono text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-borderHairline text-textMuted uppercase text-[10px] tracking-wider">
-                      <th className="py-3 px-4">Case ID</th>
-                      <th className="py-3 px-4">Suspicion Score</th>
-                      <th className="py-3 px-4">Samples</th>
-                      <th className="py-3 px-4">Flagged At</th>
-                      <th className="py-3 px-4 text-right">Admin Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-borderHairline">
-                    {hitlCases.map((c) => (
-                      <tr key={c.case_id} className="hover:bg-bgSurface/50 transition-colors">
-                        <td className="py-4 px-4 font-medium text-textPrimary">{c.case_id.slice(0, 12)}…</td>
-                        <td className="py-4 px-4 text-amber-400 font-medium">
-                          {((c.suspicion_score || 0) * 100).toFixed(1)}%
-                        </td>
-                        <td className="py-4 px-4 text-textMuted">{c.n_samples}</td>
-                        <td className="py-4 px-4 text-textMuted text-[11px]">
-                          {c.created_at ? new Date(c.created_at).toLocaleString() : 'N/A'}
-                        </td>
-                        <td className="py-4 px-4 text-right space-x-2">
-                          <button
-                            onClick={() => handleResolveHitl(c.case_id, 'approve_quarantine')}
-                            className="px-3 py-1.5 rounded-lg bg-redPrimary/20 text-redBright hover:bg-redPrimary hover:text-textPrimary border border-redPrimary/40 transition-all text-[10px] font-medium"
-                          >
-                            Approve Quarantine
-                          </button>
-                          <button
-                            onClick={() => handleResolveHitl(c.case_id, 'mark_safe')}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-950 text-emerald-400 hover:bg-emerald-600 hover:text-textPrimary border border-emerald-500/30 transition-all text-[10px] font-medium"
-                          >
-                            Mark Safe
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block">
+              <span className="rule-label">Username</span>
+              <input value={form.username} onChange={set('username')} required minLength={3} maxLength={64} autoComplete="off" placeholder="3 to 64 characters" className={`${inputClass} mt-1.5`} />
+            </label>
+            <label className="block">
+              <span className="rule-label">Password</span>
+              <input type="password" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" placeholder="At least 10 characters" className={`${inputClass} mt-1.5`} />
+            </label>
           </div>
+          <fieldset>
+            <legend className="rule-label">Role</legend>
+            <div className="mt-2 grid gap-2 md:grid-cols-3">
+              {ROLES.map((r) => (
+                <label key={r.id} className={`flex cursor-pointer gap-3 rounded-2xl border p-3.5 transition-colors ${form.role === r.id ? 'border-violet bg-violet/[0.08]' : 'border-borderHairline hover:border-borderStrong'}`}>
+                  <input type="radio" name="role" value={r.id} checked={form.role === r.id} onChange={set('role')} className="mt-1 accent-[#B9A3FF]" />
+                  <span><span className="block text-sm font-medium">{r.label}</span><span className="block text-xs text-textMuted">{r.note}</span></span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <ErrorNote>{error}</ErrorNote>
+          <Button type="submit" variant="primary" loading={busy}><UserPlus className="h-4 w-4" /> Create account</Button>
         </div>
-      )}
+      </div>
+    </motion.form>
+  );
+}
 
-      {/* ── Tab Content 3: System Security Audit Feed ────────────────────────────── */}
-      {activeTab === 'audit' && (
-        <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
-          <div className="flex items-center justify-between border-b border-borderHairline pb-4">
-            <div>
-              <h2 className="font-display text-xl font-medium text-textPrimary">Centralized System Security Audit Log</h2>
-              <p className="font-mono text-xs text-textMuted mt-1">
-                Persisted audit records for all user actions, security overrides, scans, and credential updates.
-              </p>
-            </div>
-            <button
-              onClick={fetchAuditEvents}
-              className="p-2.5 rounded-2xl bg-bgVoid border border-borderHairline text-textMuted hover:text-textPrimary transition-all font-mono text-xs"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingAudit ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
-
-          {loadingAudit ? (
-            <div className="py-16 text-center font-mono text-xs text-textMuted">Loading security audit feed…</div>
-          ) : auditEvents.length === 0 ? (
-            <div className="py-16 text-center font-mono text-xs text-textMuted">No security audit events recorded yet.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-borderHairline text-textMuted uppercase text-[10px] tracking-wider bg-bgVoid/50">
-                    <th className="py-3.5 px-4">Timestamp</th>
-                    <th className="py-3.5 px-4">Actor ID</th>
-                    <th className="py-3.5 px-4">Action</th>
-                    <th className="py-3.5 px-4">Resource</th>
-                    <th className="py-3.5 px-4 text-right">Details</th>
+function AccountsTab({ users, loading, me, onChanged, notify, fail }) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <Panel title="Accounts" aside={!adding && <Button variant="primary" className="px-4 py-2.5" onClick={() => setAdding(true)}><UserPlus className="h-4 w-4" /> New account</Button>}>
+      <AnimatePresence>
+        {adding && <NewAccount onClose={() => setAdding(false)} onCreated={(msg) => { setAdding(false); notify(msg); onChanged(); }} />}
+      </AnimatePresence>
+      {loading ? <p className="text-sm text-textMuted" role="status">Loading accounts…</p> : users.length === 0 ? (
+        <p className="text-sm text-textSecondary">No accounts yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] text-sm">
+            <thead>
+              <tr className="rule-label border-b border-borderHairline text-left">
+                <th className="py-3 pr-4 font-normal">Account</th>
+                <th className="py-3 pr-4 font-normal">Role</th>
+                <th className="py-3 pr-4 font-normal">Created</th>
+                <th className="py-3 text-right font-normal"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const self = u.id === me?.id;
+                return (
+                  <tr key={u.id} className="border-b border-borderHairline last:border-0">
+                    <td className="py-3.5 pr-4">
+                      <div className="flex items-center gap-3">
+                        <span className="icon-chip h-9 w-9 text-sm font-medium uppercase">{u.username.charAt(0)}</span>
+                        <div>
+                          <div className="font-medium">{u.username}{self && <span className="ml-2 rounded-lg bg-white/[0.08] px-2 py-0.5 text-[11px] text-textSecondary">you</span>}</div>
+                          <div className="font-mono text-[11px] text-textMuted">{u.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 pr-4">
+                      <span className={`rounded-lg px-2 py-1 text-xs ${u.role === 'admin' ? 'bg-uv/15 text-uv' : 'bg-white/[0.06] text-textSecondary'}`}>
+                        {ROLES.find((r) => r.id === u.role)?.label || u.role}
+                      </span>
+                    </td>
+                    <td className="py-3.5 pr-4 text-textMuted">{when(u.created_at)}</td>
+                    <td className="py-3.5 text-right">
+                      <ConfirmButton
+                        label="Delete"
+                        confirmLabel={`Delete ${u.username}`}
+                        disabled={self}
+                        title={self ? 'You cannot delete the account you are signed in with' : `Delete account ${u.username}`}
+                        onConfirm={async () => {
+                          try { await api.deleteUser(u.id); notify(`Account ${u.username} deleted.`); onChanged(); } catch (e) { fail(e.message); }
+                        }}
+                      />
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-borderHairline">
-                  {auditEvents.map((evt) => (
-                    <tr key={evt.id} className="hover:bg-bgSurface/50 transition-colors">
-                      <td className="py-4 px-4 text-textMuted text-[11px]">
-                        {evt.created_at ? new Date(evt.created_at).toLocaleString() : 'N/A'}
-                      </td>
-                      <td className="py-4 px-4 font-medium text-cyan-400">{evt.actor_id}</td>
-                      <td className="py-4 px-4 font-medium text-textPrimary">
-                        <span className="px-2.5 py-1 rounded bg-bgVoid border border-borderHairline">
-                          {evt.action}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-textMuted uppercase text-[10px]">{evt.resource_type}</td>
-                      <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => setSelectedEvent(evt)}
-                          className="p-2 rounded-lg bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-textPrimary border border-borderHairline transition-all inline-flex items-center gap-1 text-[11px]"
-                        >
-                          <Eye className="w-3.5 h-3.5" /> View JSON
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
+    </Panel>
+  );
+}
 
-      {/* ── Tab Content 4: Global Scan Registry ───────────────────────────────────── */}
-      {activeTab === 'registry' && (
-        <div className="p-6 rounded-[28px] bg-bgPanel border border-borderHairline space-y-6">
-          <div className="flex items-center justify-between border-b border-borderHairline pb-4">
-            <div>
-              <h2 className="font-display text-xl font-medium text-textPrimary">Global Asset & Model Scan Registry</h2>
-              <p className="font-mono text-xs text-textMuted mt-1">
-                Centralized registry of all scanned CSV datasets and Scikit-Learn `.pkl` models across all users.
-              </p>
-            </div>
-            <button
-              onClick={fetchScanRegistry}
-              className="p-2.5 rounded-2xl bg-bgVoid border border-borderHairline text-textMuted hover:text-textPrimary transition-all font-mono text-xs"
-            >
-              <RefreshCw className={`w-4 h-4 ${loadingRegistry ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+// ── Stored analyses ──────────────────────────────────────────────────────────
 
-          {loadingRegistry ? (
-            <div className="py-16 text-center font-mono text-xs text-textMuted">Loading scan registry…</div>
-          ) : scanHistory.length === 0 ? (
-            <div className="py-16 text-center font-mono text-xs text-textMuted">No scan records stored in SQLite database.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left font-mono text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-borderHairline text-textMuted uppercase text-[10px] tracking-wider bg-bgVoid/50">
-                    <th className="py-3.5 px-4">Asset / Filename</th>
-                    <th className="py-3.5 px-4">Source Type</th>
-                    <th className="py-3.5 px-4">Verdict</th>
-                    <th className="py-3.5 px-4">Suspicion Score</th>
-                    <th className="py-3.5 px-4">Scan Date</th>
-                    <th className="py-3.5 px-4 text-right">Admin Purge</th>
+function AnalysesTab({ rows, loading, onChanged, notify, fail }) {
+  return (
+    <Panel title="Every stored analysis" aside={<span className="text-xs text-textMuted">all accounts · newest 100</span>}>
+      <p className="-mt-2 mb-5 max-w-[70ch] text-sm text-textSecondary">Batches and model scans from every account. Deleting one removes it for its owner too, and cannot be undone.</p>
+      {loading ? <p className="text-sm text-textMuted" role="status">Loading…</p> : rows.length === 0 ? (
+        <p className="text-sm text-textSecondary">Nothing stored yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[640px] text-sm">
+            <thead>
+              <tr className="rule-label border-b border-borderHairline text-left">
+                <th className="py-3 pr-4 font-normal">File</th>
+                <th className="py-3 pr-4 font-normal">Source</th>
+                <th className="py-3 pr-4 font-normal">Verdict</th>
+                <th className="py-3 pr-4 font-normal">When</th>
+                <th className="py-3 text-right font-normal"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const v = verdictOf(r.verdict);
+                const name = r.filename || r.model_filename || r.id.slice(0, 8);
+                return (
+                  <tr key={`${r.source}-${r.id}`} className="border-b border-borderHairline last:border-0">
+                    <td className="max-w-[260px] truncate py-3 pr-4 font-mono">{name}</td>
+                    <td className="py-3 pr-4 text-textSecondary">{(r.source || '').replace('_', ' ')}</td>
+                    <td className="py-3 pr-4"><span className="text-xs font-medium" style={{ color: v.color }}>{v.short || v.label}</span></td>
+                    <td className="py-3 pr-4 text-textMuted">{when(r.created_at)}</td>
+                    <td className="py-3 text-right">
+                      <ConfirmButton
+                        label="Delete"
+                        confirmLabel="Delete for good"
+                        title={`Delete ${name}`}
+                        onConfirm={async () => {
+                          try { await api.deleteAnalysisHistory(r.id); notify(`${name} deleted.`); onChanged(); } catch (e) { fail(e.message); }
+                        }}
+                      />
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-borderHairline">
-                  {scanHistory.map((item) => (
-                    <tr key={item.id} className="hover:bg-bgSurface/50 transition-colors">
-                      <td className="py-4 px-4 font-medium text-textPrimary">
-                        {item.filename || item.model_filename || item.id.slice(0, 8)}
-                      </td>
-                      <td className="py-4 px-4 text-textMuted uppercase text-[10px]">{item.source || 'scan'}</td>
-                      <td className="py-4 px-4">
-                        <span
-                          className={`px-2.5 py-1 rounded text-[10px] font-medium uppercase ${ item.verdict === 'POISONED' || item.verdict === 'SUSPECT' ? 'bg-redPrimary/20 text-redBright border border-redPrimary/40' : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' }`}
-                        >
-                          {item.verdict || 'CLEAN'}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 font-medium text-textPrimary">
-                        {item.score !== undefined && item.score !== null ? `${(item.score * 100).toFixed(1)}%` : 'N/A'}
-                      </td>
-                      <td className="py-4 px-4 text-textMuted text-[11px]">
-                        {item.created_at ? new Date(item.created_at).toLocaleString() : 'N/A'}
-                      </td>
-                      <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => handleDeleteScanRecord(item.id)}
-                          className="p-2 rounded-lg bg-bgPanelRaised hover:bg-redPrimary/20 text-textMuted hover:text-redBright border border-borderHairline transition-all"
-                          title="Purge Scan Record"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
+    </Panel>
+  );
+}
 
-      {/* ── Provision User Modal ─────────────────────────────────────────────────── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="w-full max-w-md p-6 rounded-[28px] bg-bgPanel border border-borderHairline shadow-2xl space-y-6 relative">
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="absolute top-4 right-4 text-textMuted hover:text-textPrimary"
-            >
-              <X className="w-5 h-5" />
-            </button>
+// ── Audit log ────────────────────────────────────────────────────────────────
 
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-redPrimary/20 border border-redPrimary/40 flex items-center justify-center text-redBright">
-                <UserPlus className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-display font-medium text-textPrimary text-lg">Provision New Platform Account</h3>
-                <p className="font-mono text-xs text-textMuted">Create regular user or administrator credentials</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-medium text-textMuted mb-1">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="Enter username (min 3 chars)"
-                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-medium text-textMuted mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter password (min 4 chars)"
-                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-medium text-textMuted mb-1">
-                  Role Privilege
-                </label>
-                <select
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full p-3 rounded-2xl bg-bgVoid border border-borderHairline text-textPrimary font-mono text-xs focus:border-redPrimary outline-none"
-                >
-                  <option value="user">Regular User (Standard Access)</option>
-                  <option value="admin">Administrator (Full Access & Overrides)</option>
-                </select>
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
+function AuditTab({ events, loading, users }) {
+  const [open, setOpen] = useState(null);
+  const nameOf = (id) => users.find((u) => u.id === id)?.username || id;
+  return (
+    <Panel title="Audit log" aside={<span className="text-xs text-textMuted">newest 100</span>}>
+      {loading ? <p className="text-sm text-textMuted" role="status">Loading…</p> : events.length === 0 ? (
+        <p className="text-sm text-textSecondary">No events recorded yet.</p>
+      ) : (
+        <ul className="divide-y divide-borderHairline">
+          {events.map((e) => {
+            const expanded = open === e.id;
+            return (
+              <li key={e.id}>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-bgVoid hover:bg-bgSurface text-textMuted text-xs font-medium transition-all"
+                  onClick={() => setOpen(expanded ? null : e.id)}
+                  aria-expanded={expanded}
+                  className="grid w-full grid-cols-[1fr_auto] items-center gap-3 py-3 text-left text-sm hover:bg-white/[0.02] sm:grid-cols-[180px_1fr_160px_auto]"
                 >
-                  Cancel
+                  <span className="text-textMuted">{when(e.created_at)}</span>
+                  <span className="hidden font-mono sm:block">{e.action}</span>
+                  <span className="hidden truncate text-textSecondary sm:block">{nameOf(e.actor_id)}</span>
+                  <ChevronDown className={`h-4 w-4 text-textMuted transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+                  <span className="col-span-2 font-mono text-xs text-textSecondary sm:hidden">{e.action} · {nameOf(e.actor_id)}</span>
                 </button>
-                <button
-                  type="submit"
-                  disabled={submittingUser}
-                  className="flex-1 py-3 px-4 rounded-2xl bg-redPrimary hover:bg-redBright text-textPrimary text-xs font-medium transition-all shadow-lift disabled:opacity-50"
-                >
-                  {submittingUser ? 'Saving...' : 'Provision User'}
-                </button>
-              </div>
-            </form>
+                {expanded && (
+                  <pre className="mb-3 overflow-x-auto rounded-2xl bg-black/40 p-4 font-mono text-xs text-textSecondary">{JSON.stringify(e, null, 2)}</pre>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+// ── Review queue and quarantine (this admin account's own analyses) ──────────
+
+function ReviewTab({ cases, status, loading, onChanged, notify, fail }) {
+  const [busy, setBusy] = useState('');
+  const decide = async (caseId, decision) => {
+    setBusy(caseId);
+    try {
+      await api.submitReviewDecision(caseId, decision);
+      notify(decision === 'approve_quarantine' ? 'Case approved: its rows were quarantined.' : 'Case marked safe.');
+      onChanged();
+    } catch (e) {
+      fail(e.message);
+    } finally {
+      setBusy('');
+    }
+  };
+  return (
+    <div className="space-y-6">
+      <p className="max-w-[75ch] text-sm text-textSecondary">
+        These controls act on analyses run with <span className="text-textPrimary">this admin account</span>. Each analyst's queue and quarantine are on their own Response desk.
+      </p>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <Panel title="Quarantine">
+          <dl className="grid grid-cols-2 gap-5">
+            <div><dt className="rule-label">Rows quarantined</dt><dd className="font-display mt-1 text-3xl font-medium tracking-[-0.04em]">{status?.total_quarantined ?? '—'}</dd></div>
+            <div><dt className="rule-label">Defense actions</dt><dd className="font-display mt-1 text-3xl font-medium tracking-[-0.04em]">{status?.n_defense_actions ?? '—'}</dd></div>
+          </dl>
+          <p className="mt-5 text-sm text-textSecondary">
+            Quarantines the rows your latest dataset analysis flagged, capped at 5% of that batch. It needs a CSV or reference-dataset result with row flags.
+          </p>
+          <div className="mt-5">
+            <ConfirmButtonLarge
+              label="Quarantine flagged rows"
+              confirmLabel="Yes, quarantine them"
+              onConfirm={async () => {
+                try {
+                  const r = await api.triggerQuarantine();
+                  notify(`${r.samples_affected ?? 0} rows quarantined.`);
+                  onChanged();
+                } catch (e) { fail(e.message); }
+              }}
+            />
           </div>
+        </Panel>
+        <Panel title="Review queue" aside={<span className="text-xs text-textMuted">{cases.length} waiting</span>}>
+          {loading ? <p className="text-sm text-textMuted" role="status">Loading…</p> : cases.length === 0 ? (
+            <p className="text-sm text-textSecondary">Nothing waiting. A case opens when a batch lands between suspicious and confirmed.</p>
+          ) : (
+            <ul className="divide-y divide-borderHairline">
+              {cases.map((c) => (
+                <li key={c.case_id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
+                  <div className="min-w-0">
+                    <div className="font-mono text-sm">{c.case_id.slice(0, 12)}…</div>
+                    <div className="text-xs text-textMuted">suspicion {Math.round((c.suspicion_score || 0) * 100)}% · {c.n_samples} rows · {when(c.created_at)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="danger" className="px-4 py-2" disabled={busy === c.case_id} onClick={() => decide(c.case_id, 'approve_quarantine')}>Quarantine</Button>
+                    <Button variant="ghost" className="px-4 py-2" disabled={busy === c.case_id} onClick={() => decide(c.case_id, 'mark_safe')}>Mark safe</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmButtonLarge({ label, confirmLabel, onConfirm }) {
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!asking) return <Button variant="danger" onClick={() => setAsking(true)}><ShieldAlert className="h-4 w-4" /> {label}</Button>;
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="danger" loading={busy} onClick={async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); setAsking(false); } }}>{confirmLabel}</Button>
+      <Button variant="ghost" onClick={() => setAsking(false)}>Cancel</Button>
+    </div>
+  );
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'accounts', label: 'Accounts', icon: Users },
+  { id: 'analyses', label: 'Stored analyses', icon: Database },
+  { id: 'audit', label: 'Audit log', icon: ScrollText },
+  { id: 'review', label: 'Review and quarantine', icon: ShieldAlert },
+];
+
+export default function AdminDashboard() {
+  const { user: me } = useAuth();
+  const [tab, setTab] = useState('accounts');
+  const [users, setUsers] = useState([]);
+  const [analyses, setAnalyses] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [cases, setCases] = useState([]);
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const load = useCallback(() => Promise.all([
+    api.getUsers().then(setUsers),
+    api.getAnalysisHistory(100).then((d) => setAnalyses(d.results || [])),
+    api.getAuditEvents(100).then((d) => setEvents(d.events || [])),
+    api.getPendingReviews().then((d) => setCases(d.cases || [])),
+    api.getDefenseStatus().then(setStatus),
+  ]).catch((e) => setError(e.message)).finally(() => setLoading(false)), []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const notify = (m) => { setError(''); setMessage(m); };
+  const fail = (m) => { setMessage(''); setError(m); };
+  const reload = () => { setLoading(true); load(); };
+  const counts = { accounts: users.length, analyses: analyses.length, audit: events.length, review: cases.length };
+
+  return (
+    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <PageHeader title="Admin" accent="console" lede="Manage accounts, read the audit log and every stored analysis, and work the review queue for this admin account.">
+        <Button variant="ghost" onClick={reload}><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</Button>
+      </PageHeader>
+
+      <section aria-label="Totals" className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Count label="Accounts" value={users.length} note={`${users.filter((u) => u.role === 'admin').length} administrator${users.filter((u) => u.role === 'admin').length === 1 ? '' : 's'}`} />
+        <Count label="Stored analyses" value={analyses.length} note="newest 100 across all accounts" />
+        <Count label="Audit events" value={events.length} note="newest 100" />
+        <Count label="Waiting for review" value={cases.length} note="this admin account" />
+      </section>
+
+      {(message || error) && (
+        <div className="mb-6">
+          {message && <div role="status" className="flex items-center justify-between gap-3 rounded-2xl border border-statusSafe/40 bg-statusSafe/[0.07] px-4 py-3 text-sm text-statusSafe">{message}<button onClick={() => setMessage('')} aria-label="Dismiss"><X className="h-4 w-4" /></button></div>}
+          <ErrorNote>{error}</ErrorNote>
         </div>
       )}
 
-      {/* ── JSON Audit Detail Modal ──────────────────────────────────────────────── */}
-      {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="w-full max-w-lg p-6 rounded-[28px] bg-bgPanel border border-borderHairline shadow-2xl space-y-4 relative">
-            <button
-              onClick={() => setSelectedEvent(null)}
-              className="absolute top-4 right-4 text-textMuted hover:text-textPrimary"
-            >
-              <X className="w-5 h-5" />
-            </button>
+      <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Admin sections">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            aria-pressed={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium transition-colors ${tab === t.id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
+          >
+            <t.icon className="h-4 w-4" aria-hidden /> {t.label} <span className="text-textMuted">{counts[t.id]}</span>
+          </button>
+        ))}
+      </div>
 
-            <h3 className="font-display font-medium text-textPrimary text-base">Audit Event Details</h3>
-            <pre className="p-4 rounded-2xl bg-bgVoid border border-borderHairline font-mono text-xs text-cyan-400 overflow-x-auto max-h-80">
-              {JSON.stringify(selectedEvent, null, 2)}
-            </pre>
-
-            <button
-              onClick={() => setSelectedEvent(null)}
-              className="w-full py-3 rounded-2xl bg-bgVoid hover:bg-bgSurface text-textPrimary text-xs font-medium"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
-
+      {tab === 'accounts' && <AccountsTab users={users} loading={loading} me={me} onChanged={reload} notify={notify} fail={fail} />}
+      {tab === 'analyses' && <AnalysesTab rows={analyses} loading={loading} onChanged={reload} notify={notify} fail={fail} />}
+      {tab === 'audit' && <AuditTab events={events} loading={loading} users={users} />}
+      {tab === 'review' && <ReviewTab cases={cases} status={status} loading={loading} onChanged={reload} notify={notify} fail={fail} />}
+      {!loading && error && users.length === 0 && <Empty title="The console could not load">{error}</Empty>}
     </div>
   );
 }

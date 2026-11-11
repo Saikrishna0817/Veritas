@@ -137,16 +137,3 @@ h1, h2, h3 { text-wrap: balance; }
 }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .animate-fadeInUp { animation: fadeInUp 0.9s var(--ease-out) both; }
-
-/* Recharts */
-.recharts-tooltip-wrapper { z-index: 100; }
-.recharts-default-tooltip {
-  background-color: #1A1A1A !important;
-  border: 1px solid var(--border-strong) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6) !important;
-  color: var(--text-primary) !important;
-}
-.recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line { stroke: rgba(255, 255, 255, 0.07) !important; }
-.recharts-text { fill: var(--text-muted) !important; font-size: 11px; }

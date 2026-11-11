@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -91,6 +91,14 @@ function Rail({ connected }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  // The phone menu covers the page, so Escape closes it.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   const items = user?.role === 'admin' ? ADMIN_NAV_ITEMS : BASE_NAV_ITEMS;
 
   const handleLogout = async () => {

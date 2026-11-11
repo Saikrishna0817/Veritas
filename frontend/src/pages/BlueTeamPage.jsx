@@ -1,394 +1,259 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { RefreshCw, ChevronDown, Bot, UserRound, ShieldCheck, Search, Siren } from 'lucide-react';
 import { api } from '../services/api';
-import { PreviewTag } from '../components/ui';
-import { 
-    ShieldAlert, AlertTriangle, Shield, CheckCircle, 
-    Lock, Zap, ClipboardList, Target, ShieldCheck, 
-    Check, User, Bot, RefreshCw, Radio, BookOpen, Activity 
-} from 'lucide-react';
+import { PageHeader, Panel, Button, ErrorNote, PreviewTag } from '../components/ui';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const THREAT_CONFIG = {
-    CRITICAL: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', border: 'rgba(228,36,43,0.4)', label: 'CRITICAL', icon: ShieldAlert, pulse: true },
-    ELEVATED: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', border: 'rgba(242,184,75,0.4)', label: 'ELEVATED', icon: AlertTriangle, pulse: true },
-    GUARDED: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.4)', label: 'GUARDED', icon: Shield, pulse: false },
-    NOMINAL: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', border: 'rgba(61,220,132,0.4)', label: 'NOMINAL', icon: CheckCircle, pulse: false },
+// Threat level is the backend's reading of the latest batch's suspicion (0.15 / 0.35 / 0.65 cut-offs).
+const LEVELS = {
+  CRITICAL: { label: 'Critical', color: 'var(--status-critical)', note: 'Latest batch is past the confirmed threshold.' },
+  ELEVATED: { label: 'Elevated', color: 'var(--status-warn)', note: 'Latest batch is suspicious.' },
+  GUARDED: { label: 'Guarded', color: 'var(--status-info)', note: 'Latest batch shows weak evidence.' },
+  NOMINAL: { label: 'Nominal', color: 'var(--status-safe)', note: 'Nothing beyond what clean batches show.' },
 };
+const REFRESH_MS = 15000;
 
-const ATTACK_COLORS = {
-    label_flip: 'var(--status-warn)', backdoor: 'var(--status-critical)',
-    clean_label: '#a855f7', gradient_poisoning: '#06b6d4', boiling_frog: 'var(--status-safe)',
-};
+function when(iso, timeOnly = false) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return timeOnly ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleString();
+}
+// Playbook steps arrive with a leading emoji; the icon system is drawn, so drop it.
+const plain = (s) => String(s).replace(/^[^\p{L}\p{N}]+/u, '');
 
-const SEVERITY_CONFIG = {
-    critical: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', label: 'CRITICAL' },
-    high: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', label: 'HIGH' },
-    medium: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', label: 'MEDIUM' },
-    info: { color: 'var(--text-muted)', bg: 'var(--bg-void)', label: 'INFO' },
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StatCard({ icon: Icon, label, value, sub, color = 'var(--red-primary)' }) {
-    return (
-        <div className="bg-bgPanel border rounded-[28px] p-5 flex-1 min-w-[120px] border-borderHairline hover:border-redPrimary/30 transition-colors animate-flipIn">
-            <div className="mb-3">{Icon && <Icon className="w-6 h-6" style={{ color }} />}</div>
-            <div className="text-[40px] font-mono font-medium leading-none tracking-tighter" style={{ color }}>{value}</div>
-            <div className="text-xs text-textSecondary mt-3 font-medium tracking-wide">{label}</div>
-            {sub && <div className="text-[10px] text-textMuted mt-1">{sub}</div>}
-        </div>
-    );
+function Count({ label, value, note }) {
+  return (
+    <div className="rounded-[28px] border border-white/[0.07] bg-[#1A1A1A] p-6">
+      <div className="text-sm font-medium text-textSecondary">{label}</div>
+      <div className="font-display mt-6 text-[clamp(2.2rem,3.2vw,3rem)] font-medium leading-none tracking-[-0.05em] tabular">{value}</div>
+      {note && <div className="mt-2 text-xs text-textMuted">{note}</div>}
+    </div>
+  );
 }
 
-function SectionHeader({ title, icon: Icon }) {
-    return (
-        <div className="text-xs text-redPrimary tracking-wide mb-5 font-medium pb-3 border-b border-borderHairline flex items-center gap-2">
-            {Icon && <Icon className="w-4 h-4" />}
-            {title}
-        </div>
-    );
-}
-
-function ThreatBanner({ status }) {
-    if (!status) return null;
-    const cfg = THREAT_CONFIG[status.threat_level] || THREAT_CONFIG.NOMINAL;
-    const ThreatIcon = cfg.icon;
-    
-    return (
-        <div className="rounded-2xl p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center gap-6 relative overflow-hidden border" style={{ background: cfg.bg, borderColor: cfg.border }}>
-            {cfg.pulse && (
-                <div className="absolute inset-0 bg-redPrimary/5 pointer-events-none animate-pulse" style={{ background: `radial-gradient(ellipse at right, ${cfg.color}15 0%, transparent 70%)` }} />
-            )}
-            <div className={cfg.pulse ? "drop-shadow-lift" : ""}>
-                <ThreatIcon className="w-14 h-14" style={{ color: cfg.color }} />
-            </div>
-            <div className="flex-1 text-center md:text-left z-10">
-                <div className="flex flex-col md:flex-row items-center gap-3 mb-2">
-                    <span className="text-2xl font-medium" style={{ color: cfg.color }}>
-                        THREAT LEVEL: {cfg.label}
-                    </span>
-                    {cfg.pulse && (
-                        <span className="text-[10px] px-3 py-1 rounded-full border tracking-wide font-medium animate-pulse" style={{ background: `${cfg.color}20`, color: cfg.color, borderColor: `${cfg.color}50` }}>
-                            LIVE
-                        </span>
-                    )}
-                </div>
-                <div className="text-sm font-mono text-textSecondary flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
-                    <span>Verdict: <strong style={{ color: cfg.color }}>{status.current_verdict}</strong></span>
-                    <span className="text-borderHairline">|</span>
-                    <span>Suspicion: <strong style={{ color: cfg.color }}>{Math.round((status.suspicion_score || 0) * 100)}%</strong></span>
-                    <span className="text-borderHairline">|</span>
-                    <span>Mode: <strong className="text-textPrimary uppercase">{status.defense_mode}</strong></span>
-                </div>
-            </div>
-            <div className="text-center md:text-right z-10">
-                <div className="text-[10px] text-textMuted tracking-wide font-medium">Updated</div>
-                <div className="text-xs text-textSecondary font-mono mt-1">
-                    {status.updated_at ? new Date(status.updated_at).toLocaleTimeString() : '—'}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function DefenseStats({ status }) {
-    if (!status) return null;
-    return (
-        <div className="flex flex-wrap gap-4 mb-8">
-            <StatCard icon={Lock} label="Total Quarantined" value={status.total_quarantined || 0} color="var(--status-critical)" />
-            <StatCard icon={Zap} label="Defense Actions" value={status.n_defense_actions || 0} color="var(--status-warn)" />
-            <StatCard icon={ClipboardList} label="HITL Queue" value={status.hitl_queue_depth || 0} sub="pending analyst review" color="#a855f7" />
-        </div>
-    );
-}
-
-function HITLQueue({ cases, onDecide }) {
-    if (!cases || cases.length === 0) {
+function ReviewQueue({ cases, onDecide, busy }) {
+  if (!cases.length) {
+    return <p className="text-sm text-textSecondary">Nothing waiting. A case opens when a batch lands between suspicious and confirmed.</p>;
+  }
+  return (
+    <ul className="divide-y divide-borderHairline">
+      {cases.map((c) => {
+        const ev = c.evidence_summary || {};
         return (
-            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-2xl flex flex-col items-center">
-                <CheckCircle className="w-8 h-8 mb-3 opacity-20" />
-                No pending cases — queue is clear
+          <li key={c.case_id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <div className="font-mono text-sm">{c.case_id.slice(0, 12)}…</div>
+              <div className="mt-1 text-xs text-textMuted">
+                {c.n_samples} rows · suspicion {Math.round((c.suspicion_score || 0) * 100)}% · opened {when(c.created_at)}
+              </div>
+              <div className="mt-1 font-mono text-xs text-textSecondary">
+                label −log₁₀ p {Number(ev.label_evidence ?? 0).toFixed(2)} · shift −log₁₀ p {Number(ev.shift_evidence ?? 0).toFixed(2)}
+                {ev.attack_type && ev.attack_type !== 'unknown' && <> · looks like {ev.attack_type.replace(/_/g, ' ')}</>}
+              </div>
             </div>
+            <div className="flex gap-2">
+              <Button variant="danger" className="px-4 py-2" disabled={busy === c.case_id} onClick={() => onDecide(c.case_id, 'approve_quarantine')}>Quarantine rows</Button>
+              <Button variant="ghost" className="px-4 py-2" disabled={busy === c.case_id} onClick={() => onDecide(c.case_id, 'mark_safe')}>Mark safe</Button>
+            </div>
+          </li>
         );
-    }
-    return (
-        <div className="flex flex-col gap-3">
-            {cases.map(c => (
-                <div key={c.case_id} className="bg-bgVoid border border-statusWarn/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="text-sm font-medium text-textPrimary">{c.case_id?.slice(0, 8)}…</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-statusWarn/20 text-statusWarn border border-statusWarn/30 font-medium uppercase tracking-wider">PENDING</span>
-                        </div>
-                        <div className="text-xs font-mono text-textSecondary mb-2 flex gap-3 flex-wrap items-center">
-                            <span>Suspicion: <strong className="text-statusWarn">{Math.round((c.suspicion_score || 0) * 100)}%</strong></span>
-                            <span className="text-borderHairline">|</span>
-                            <span>Samples: <strong>{c.n_samples}</strong></span>
-                            <span className="text-borderHairline">|</span>
-                            <span>Attack: <strong className="capitalize" style={{ color: ATTACK_COLORS[c.evidence_summary?.attack_type] || 'var(--text-muted)' }}>
-                                {(c.evidence_summary?.attack_type || 'unknown').replace(/_/g, ' ')}
-                            </strong></span>
-                        </div>
-                        <div className="text-[11px] font-mono text-textMuted flex gap-3">
-                            <span>KL Div: {c.evidence_summary?.kl_divergence?.toFixed(3) || '—'}</span>
-                            <span className="text-borderHairline">|</span>
-                            <span>Causal: {c.evidence_summary?.causal_effect?.toFixed(3) || '—'}</span>
-                        </div>
-                    </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                        <button onClick={() => onDecide(c.case_id, 'approve_quarantine')}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusCritical/30 bg-statusCritical/10 text-statusCritical text-xs font-medium hover:bg-statusCritical/20 transition-colors uppercase tracking-wider">
-                            <Lock className="w-4 h-4" /> Quarantine
-                        </button>
-                        <button onClick={() => onDecide(c.case_id, 'mark_safe')}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-statusSafe/30 bg-statusSafe/10 text-statusSafe text-xs font-medium hover:bg-statusSafe/20 transition-colors uppercase tracking-wider">
-                            <Check className="w-4 h-4" /> Safe
-                        </button>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
+      })}
+    </ul>
+  );
 }
 
-function IncidentLog({ incidents }) {
-    const [expanded, setExpanded] = useState(null);
-    if (!incidents || incidents.length === 0) {
+function Incidents({ items }) {
+  const [open, setOpen] = useState(null);
+  if (!items.length) return <p className="text-sm text-textSecondary">No actions yet. Automatic quarantines and review decisions are listed here.</p>;
+  return (
+    <ul className="divide-y divide-borderHairline">
+      {items.map((inc, i) => {
+        const human = inc.type === 'human_decision';
+        const expanded = open === i;
+        const Icon = human ? UserRound : Bot;
         return (
-            <div className="p-8 text-center text-textMuted text-sm font-mono border-2 border-dashed border-borderHairline rounded-2xl flex flex-col items-center">
-                <Radio className="w-8 h-8 mb-3 opacity-20" />
-                No incidents logged yet.
-            </div>
+          <li key={`${inc.timestamp}-${i}`}>
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => setOpen(expanded ? null : i)}
+              className="grid w-full grid-cols-[20px_1fr_auto_16px] items-center gap-3 py-3 text-left text-sm hover:bg-white/[0.02]"
+            >
+              <Icon className="h-4 w-4 text-textMuted" aria-label={human ? 'Person' : 'Automatic'} />
+              <span className="min-w-0 truncate">
+                <span className="capitalize">{(inc.action || '').replace(/_/g, ' ')}</span>
+                {inc.samples_affected ? <span className="text-textMuted"> · {inc.samples_affected} rows</span> : null}
+                {inc.reviewer ? <span className="text-textMuted"> · by {inc.reviewer}</span> : null}
+              </span>
+              <span className="text-xs text-textMuted">{when(inc.timestamp, true)}</span>
+              <ChevronDown className={`h-4 w-4 text-textMuted transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+            </button>
+            {expanded && (
+              <div className="mb-3 rounded-2xl bg-white/[0.04] p-4 text-sm text-textSecondary">
+                {inc.reason || 'No reason recorded.'}
+                <div className="mt-2 text-xs text-textMuted">{when(inc.timestamp)}</div>
+              </div>
+            )}
+          </li>
         );
-    }
-    return (
-        <div className="flex flex-col gap-2">
-            {incidents.map((inc, i) => {
-                const sev = SEVERITY_CONFIG[inc.severity] || SEVERITY_CONFIG.info;
-                const isOpen = expanded === i;
-                return (
-                    <div key={i} onClick={() => setExpanded(isOpen ? null : i)} className={`p-3 rounded-lg cursor-pointer transition-all border ${isOpen ? 'bg-bgVoid border-borderHairline' : 'bg-transparent border-transparent hover:bg-bgVoid/50'}`}>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded border uppercase tracking-wider whitespace-nowrap" style={{ background: sev.bg, color: sev.color, borderColor: `${sev.color}40` }}>
-                                {sev.label}
-                            </span>
-                            <span className="text-xs font-mono text-textPrimary flex-1 capitalize flex items-center gap-2">
-                                {inc.type === 'human_decision' ? <User className="w-3 h-3 text-textMuted" /> : <Bot className="w-3 h-3 text-textMuted" />}
-                                {(inc.action || '').replace(/_/g, ' ')}
-                                {inc.samples_affected ? <span className="text-textMuted">— {inc.samples_affected} samples</span> : null}
-                                {inc.reviewer ? <span className="text-redPrimary">by {inc.reviewer}</span> : null}
-                            </span>
-                            <span className="text-[10px] text-textMuted font-mono whitespace-nowrap">
-                                {inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString() : '—'}
-                            </span>
-                        </div>
-                        {isOpen && inc.reason && (
-                            <div className="mt-3 text-xs font-mono text-textSecondary pl-3 border border-redPrimary/50 py-1 bg-redPrimary/5 rounded-r">
-                                {inc.reason}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-        </div>
-    );
+      })}
+    </ul>
+  );
 }
 
-function PlaybookPanel() {
-    const [playbooks, setPlaybooks] = useState([]);
-    const [selected, setSelected] = useState(null);
-    const [detail, setDetail] = useState(null);
-    const [loading, setLoading] = useState(false);
+function Playbooks() {
+  const [list, setList] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [error, setError] = useState('');
 
-    useEffect(() => {
-        api.listPlaybooks().then(d => setPlaybooks(d.playbooks || [])).catch(() => { });
-    }, []);
+  useEffect(() => { api.listPlaybooks().then((d) => setList(d.playbooks || [])).catch((e) => setError(e.message)); }, []);
 
-    const loadPlaybook = async (id) => {
-        if (selected === id) { setSelected(null); setDetail(null); return; }
-        setSelected(id); setLoading(true);
-        try {
-            const d = await api.getPlaybook(id);
-            setDetail(d);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    };
+  const pick = async (id) => {
+    if (selected === id) { setSelected(null); setDetail(null); return; }
+    setSelected(id);
+    setDetail(null);
+    try { setDetail(await api.getPlaybook(id)); } catch (e) { setError(e.message); }
+  };
 
-    return (
-        <div>
-            <div className="flex gap-2 flex-wrap mb-6">
-                {playbooks.map(p => {
-                    const isSelected = selected === p.id;
-                    return (
-                        <button key={p.id} onClick={() => loadPlaybook(p.id)} 
-                            className={`px-4 py-2 rounded-full text-[11px] tracking-wide font-medium border transition-all ${isSelected ? 'bg-redPrimary/20 text-redPrimary border-redPrimary' : 'bg-transparent text-textMuted border-borderHairline hover:border-textMuted hover:text-textSecondary'}`}>
-                            {p.attack}
-                        </button>
-                    );
-                })}
+  return (
+    <div>
+      <ErrorNote>{error}</ErrorNote>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Playbooks">
+        {list.map((p) => (
+          <button
+            key={p.id}
+            aria-pressed={selected === p.id}
+            onClick={() => pick(p.id)}
+            className={`rounded-2xl border px-3.5 py-2 text-sm transition-colors ${selected === p.id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
+          >
+            {p.attack}
+          </button>
+        ))}
+      </div>
+      {!selected && list.length > 0 && <p className="mt-5 text-sm text-textSecondary">Pick an attack pattern to see its response steps.</p>}
+      {selected && !detail && !error && <p className="mt-5 text-sm text-textMuted" role="status">Loading…</p>}
+      {detail && (
+        <motion.div initial={{ opacity: 0.4, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mt-6 space-y-6">
+          <div>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h3 className="text-xl font-medium">{detail.attack}</h3>
+              {detail.severity && <span className="rounded-lg bg-white/[0.06] px-2 py-0.5 text-xs capitalize text-textSecondary">{detail.severity} severity</span>}
             </div>
-
-            {loading && <div className="text-textMuted text-sm font-mono animate-pulse">Loading playbook...</div>}
-
-            {detail && !loading && (
-                <div className="bg-bgVoid border border-redPrimary/30 rounded-2xl p-6 animate-fadeInUp">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="text-lg font-medium tracking-wider text-redPrimary uppercase">{detail.attack}</div>
-                        <span className="text-[9px] px-2 py-0.5 rounded border border-redPrimary/40 bg-redPrimary/10 text-redPrimary tracking-wide font-medium">
-                            {detail.severity}
-                        </span>
-                    </div>
-                    <div className="text-sm font-mono text-textSecondary mb-6 leading-relaxed border border-borderHairline pl-4 italic">
-                        "{detail.description}"
-                    </div>
-
-                    <div className="space-y-6">
-                        {[
-                            { title: 'Immediate Response', key: 'immediate_steps', icon: AlertTriangle },
-                            { title: 'Investigation', key: 'investigation_steps', icon: Activity },
-                            { title: 'Remediation', key: 'remediation', icon: ShieldCheck },
-                        ].map(section => (
-                            <div key={section.key}>
-                                <div className="text-[11px] text-redPrimary font-medium mb-3 tracking-wide flex items-center gap-2">
-                                    <section.icon className="w-3.5 h-3.5" /> {section.title}
-                                </div>
-                                <div className="space-y-2">
-                                    {(detail[section.key] || []).map((step, i) => (
-                                        <div key={i} className="text-xs font-mono text-textPrimary py-1.5 px-3 border border-redPrimary/50 bg-bgPanel rounded-r">
-                                            {step}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {detail.regulatory && (
-                        <div className="mt-6 text-[11px] font-mono text-textSecondary bg-bgPanel rounded-lg p-3 border border-borderHairline flex items-center gap-3">
-                            <BookOpen className="w-4 h-4 text-textMuted" />
-                            {detail.regulatory}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {!detail && !loading && playbooks.length > 0 && (
-                <div className="text-textMuted text-sm font-mono p-4 border-2 border-dashed border-borderHairline rounded-2xl text-center">
-                    Select an attack type above to view the step-by-step response playbook.
-                </div>
-            )}
-        </div>
-    );
+            {detail.description && <p className="mt-2 max-w-[65ch] text-textSecondary">{detail.description}</p>}
+          </div>
+          {[
+            ['Right away', 'immediate_steps', Siren],
+            ['Investigate', 'investigation_steps', Search],
+            ['Fix for next time', 'remediation', ShieldCheck],
+          ].map(([title, key, Icon]) => (detail[key]?.length ? (
+            <div key={key}>
+              <div className="rule-label flex items-center gap-2"><Icon className="h-3.5 w-3.5" aria-hidden /> {title}</div>
+              <ol className="mt-3 space-y-2">
+                {detail[key].map((step, i) => (
+                  <li key={i} className="grid grid-cols-[24px_1fr] gap-2 text-sm">
+                    <span className="font-mono text-textMuted">{i + 1}</span>
+                    <span>{plain(step)}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null))}
+          {detail.regulatory && <p className="text-xs text-textMuted">Framework reference (informational, not compliance): {detail.regulatory}</p>}
+        </motion.div>
+      )}
+    </div>
+  );
 }
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BlueTeamPage() {
-    const [status, setStatus] = useState(null);
-    const [incidents, setIncidents] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [decisionMsg, setDecisionMsg] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [incidents, setIncidents] = useState([]);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState('');
 
-    const loadAll = useCallback(async () => {
-        try {
-            const [s, inc] = await Promise.all([
-                api.getBlueTeamStatus(),
-                api.getBlueTeamIncidents(),
-            ]);
-            setStatus(s);
-            setIncidents(inc.incidents || []);
-        } catch (e) { console.error(e); }
-        finally { setLoading(false); }
-    }, []);
+  const load = useCallback(() => Promise.all([api.getBlueTeamStatus(), api.getBlueTeamIncidents()])
+    .then(([s, inc]) => { setStatus(s); setIncidents(inc.incidents || []); setError(''); })
+    .catch((e) => setError(e.message)), []);
 
-    useEffect(() => { loadAll(); const t = setInterval(loadAll, 15000); return () => clearInterval(t); }, [loadAll]);
+  useEffect(() => {
+    load();
+    const t = setInterval(load, REFRESH_MS);
+    return () => clearInterval(t);
+  }, [load]);
 
-    const handleDecide = async (caseId, decision) => {
-        try {
-            await api.submitReviewDecision(caseId, decision, 'analyst');
-            setDecisionMsg(`Case ${caseId.slice(0, 8)}… → ${decision.replace(/_/g, ' ')}`);
-            setTimeout(() => setDecisionMsg(null), 3000);
-            await loadAll();
-        } catch (e) { console.error(e); }
-    };
-
-    if (loading) {
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)]">
-                <Shield className="w-16 h-16 text-redPrimary animate-pulse mb-6" />
-                <div className="text-textMuted text-sm">Initialising Blue Team SOC...</div>
-            </div>
-        );
+  const decide = async (caseId, decision) => {
+    setBusy(caseId);
+    setMessage('');
+    try {
+      await api.submitReviewDecision(caseId, decision);
+      setMessage(decision === 'approve_quarantine' ? 'Case approved: its rows were quarantined.' : 'Case marked safe.');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy('');
     }
+  };
 
-    return (
-        <div className="relative z-10 px-5 md:px-10 py-10 md:py-14 max-w-[1360px] mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="max-w-3xl">
-                    <h1 className="font-display font-medium text-[clamp(2.2rem,5vw,4.2rem)] leading-[0.95] text-textPrimary">Response <span className="serif-accent">desk</span>{" "}<PreviewTag className="ml-3" /></h1>
-                    <p className="mt-4 text-textSecondary text-[17px] leading-relaxed max-w-[62ch]">Actions taken on flagged batches, the human-review queue and response playbooks. Quarantine and review decisions here are real; threat levels are heuristic.</p>
-                </div>
-                <button onClick={loadAll} className="flex items-center gap-2 px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary text-sm font-medium rounded-2xl hover:bg-redPrimary/20 transition-all">
-                    <RefreshCw className="w-4 h-4" /> Refresh
-                </button>
+  const level = LEVELS[status?.threat_level] || LEVELS.NOMINAL;
+  const cases = status?.pending_cases || [];
+
+  return (
+    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+      <PageHeader
+        title="Response"
+        accent="desk"
+        preview
+        lede="Automatic actions on flagged batches, the human-review queue and response playbooks. Quarantine and review decisions are real; the threat level is a heuristic reading of your latest batch."
+      >
+        <Button variant="ghost" onClick={load}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+      </PageHeader>
+
+      <ErrorNote>{error}</ErrorNote>
+      {message && <div role="status" className="mb-6 rounded-2xl border border-statusSafe/40 bg-statusSafe/[0.07] px-4 py-3 text-sm text-statusSafe">{message}</div>}
+
+      {!status && !error ? (
+        <p className="text-sm text-textMuted" role="status">Loading…</p>
+      ) : status && (
+        <>
+          <section className="edge-card mb-8">
+            <div className="edge-inner relative grid gap-6 p-8 md:grid-cols-[1fr_auto] md:items-end md:p-10">
+              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(50% 90% at 85% 40%, rgba(71,0,214,0.45), transparent 70%)' }} />
+              <div className="relative">
+                <div className="rule-label">Threat level <PreviewTag className="ml-2" /></div>
+                <div className="font-display mt-3 text-[clamp(2.6rem,5vw,4.4rem)] font-medium leading-none tracking-[-0.05em]" style={{ color: level.color }}>{level.label}</div>
+                <p className="mt-3 text-textSecondary">{level.note}</p>
+              </div>
+              <dl className="relative grid grid-cols-3 gap-6 text-sm md:text-right">
+                <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1 font-mono">{(status.current_verdict || '—').replace(/_/g, ' ').toLowerCase()}</dd></div>
+                <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{Math.round((status.suspicion_score || 0) * 100)}%</dd></div>
+                <div><dt className="rule-label">Updated</dt><dd className="mt-1 font-mono">{when(status.updated_at, true)}</dd></div>
+              </dl>
             </div>
+          </section>
 
-            {decisionMsg && (
-                <div className="bg-statusSafe/10 border border-statusSafe/30 rounded-2xl px-5 py-4 text-statusSafe text-sm font-medium flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5" /> Decision recorded: {decisionMsg}
-                </div>
-            )}
+          <section aria-label="Counts" className="mb-8 grid gap-4 sm:grid-cols-3">
+            <Count label="Rows quarantined" value={status.total_quarantined ?? 0} note="across your batches" />
+            <Count label="Defense actions" value={status.n_defense_actions ?? 0} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
+            <Count label="Waiting for review" value={status.hitl_queue_depth ?? cases.length} />
+          </section>
 
-            {/* Threat Banner */}
-            <ThreatBanner status={status} />
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Panel title="Review queue" aside={<span className="text-xs text-textMuted">{cases.length} waiting</span>}>
+              <ReviewQueue cases={cases} onDecide={decide} busy={busy} />
+            </Panel>
+            <Panel title="Actions taken" aside={<span className="text-xs text-textMuted">newest first</span>}>
+              <div className="max-h-[420px] overflow-y-auto pr-1"><Incidents items={incidents} /></div>
+            </Panel>
+          </div>
 
-            {/* Stats Row */}
-            <DefenseStats status={status} />
-
-            {/* Main grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
-                {/* HITL Queue */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
-                    <SectionHeader title={`Human Review Queue (${(status?.pending_cases || []).length} pending)`} icon={ClipboardList} />
-                    <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        <HITLQueue cases={status?.pending_cases || []} onDecide={handleDecide} />
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Incident Log */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
-                    <SectionHeader title={`Defense Incident Log (${incidents.length} events)`} icon={Radio} />
-                    <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        <IncidentLog incidents={incidents} />
-                    </div>
-                </div>
-
-                {/* Playbooks */}
-                <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
-                    <SectionHeader title="Incident Response Playbooks" icon={BookOpen} />
-                    <PlaybookPanel />
-                </div>
-            </div>
-
-            <style>{`
-                @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-                @keyframes flipIn {
-                    0% { transform: perspective(400px) rotateX(90deg); opacity: 0; }
-                    100% { transform: perspective(400px) rotateX(0deg); opacity: 1; }
-                }
-                .animate-flipIn {
-                    animation: flipIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                    opacity: 0;
-                }
-                .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-                .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-void); border-radius: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-hairline); border-radius: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--red-primary); }
-            `}</style>
-        </div>
-    );
+          <Panel title="Response playbooks" className="mt-8">
+            <Playbooks />
+          </Panel>
+        </>
+      )}
+    </div>
+  );
 }
