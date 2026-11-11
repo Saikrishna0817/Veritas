@@ -10,6 +10,10 @@ describe('describeError', () => {
     expect(describeError(err(504, 'Gateway Timeout')).kind).toBe('offline');
   });
 
+  it('names a request that timed out', () => {
+    expect(describeError(err(0, 'The server did not answer within 30 seconds.', { timeout: true }))).toMatchObject({ kind: 'timeout', message: 'The server did not answer within 30 seconds.' });
+  });
+
   it('keeps the server detail for a feature switched off on this deployment', () => {
     const d = describeError(err(501, 'Direct upload needs S3-compatible storage.'));
     expect(d).toMatchObject({ kind: 'unavailable', message: 'Direct upload needs S3-compatible storage.' });

@@ -20,18 +20,29 @@ function handleUnauthorized() {
     if (window.location.pathname !== loginPath) window.location.assign(loginPath);
 }
 
+// How long a request may wait for the server's answer before the page says so. Inline analyses run while the
+// request is open, so they get longer; large files go through background jobs instead (services/uploads.js).
+export const TIMEOUT_MS = { default: 30_000, analysis: 180_000, download: 120_000 };
+
 // A request that never reached the server (offline, DNS, server down) rejects with a bare TypeError such as
 // "Failed to fetch". Give it words a person can act on and mark it, so pages can tell it from a server error.
-async function send(url, init) {
+// A request with no answer within `timeoutMs` is aborted and marked `timeout` the same way.
+async function send(url, init, timeoutMs = TIMEOUT_MS.default) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-        return await fetch(url, init);
+        return await fetch(url, { ...init, signal: controller.signal });
     } catch (e) {
-        if (e?.name === 'AbortError') throw e;
-        const err = new Error("Can't reach the Veritas server. Check your connection, then try again.");
+        const timedOut = controller.signal.aborted;
+        const err = new Error(timedOut
+            ? `The server did not answer within ${Math.round(timeoutMs / 1000)} seconds. Try again; if it keeps happening, the server may be overloaded.`
+            : "Can't reach the Veritas server. Check your connection, then try again.");
         err.status = 0;
-        err.offline = true;
+        if (timedOut) err.timeout = true; else err.offline = true;
         err.cause = e;
         throw err;
+    } finally {
+        clearTimeout(timer);
     }
 }
 
@@ -46,24 +57,24 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
     throw err;
 }
 
-async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
+async function apiFetch(path, { skipAuth = false, headers, timeoutMs, ...options } = {}) {
     const res = await send(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
-    });
+    }, timeoutMs);
     await failIfNotOk(res, 'API error', skipAuth);
     return res.json();
 }
 
-async function apiFormData(path, formData) {
-    const res = await send(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
+async function apiFormData(path, formData, timeoutMs = TIMEOUT_MS.analysis) {
+    const res = await send(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData }, timeoutMs);
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await send(`${BASE_URL}${path}`, { credentials: 'same-origin' });
+    const res = await send(`${BASE_URL}${path}`, { credentials: 'same-origin' }, TIMEOUT_MS.download);
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
@@ -80,7 +91,8 @@ export function createWebSocket(onMessage) {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (onMessage) onMessage(data);
+            // Detection events are { event, data }; control frames such as { type: 'pong' } are not shown.
+            if (data?.event && onMessage) onMessage(data);
         } catch {
             // ignore
         }
@@ -117,9 +129,9 @@ export const api = {
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
 
     // Demo & Real Datasets
-    runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
+    runDemo: () => apiFetch('/demo/run', { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
     getRealDatasets: () => apiFetch('/datasets/real'),
-    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
+    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
     downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
 
     // Forensics (the latest result already carries the narrative and blast radius)
@@ -129,14 +141,15 @@ export const api = {
     triggerQuarantine: () => apiFetch('/defense/quarantine', { method: 'POST' }),
     getDefenseStatus: () => apiFetch('/defense/status'),
     getPendingReviews: () => apiFetch('/defense/hitl/pending'),
-    submitReviewDecision: (caseId, decision, reviewer = 'analyst') =>
+    // The server records the signed-in user as the reviewer; the body carries only the case and the decision.
+    submitReviewDecision: (caseId, decision) =>
         apiFetch('/defense/hitl/decide', {
             method: 'POST',
-            body: JSON.stringify({ case_id: caseId, decision, reviewer }),
+            body: JSON.stringify({ case_id: caseId, decision }),
         }),
 
     // Reports
-    generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
+    generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
 
     // CSV Upload Analysis
     // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order

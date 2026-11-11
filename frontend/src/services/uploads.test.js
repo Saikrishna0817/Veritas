@@ -139,6 +139,41 @@ describe('waitForJob', () => {
     await settled;
     expect(api.getJob).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps watching through a dropped connection, then returns the result', async () => {
+    const offline = Object.assign(new Error("Can't reach the Veritas server."), { status: 0, offline: true });
+    api.getJob
+      .mockRejectedValueOnce(offline)
+      .mockRejectedValueOnce(Object.assign(new Error('Bad Gateway'), { status: 502 }))
+      .mockResolvedValueOnce({ status: 'completed', result: { verdict: 'CLEAN' } });
+    const run = waitForJob('j');
+    await vi.advanceTimersByTimeAsync(20_000);
+    await expect(run).resolves.toEqual({ verdict: 'CLEAN' });
+    expect(api.getJob).toHaveBeenCalledTimes(3);
+  });
+
+  it('gives up after repeated failures and says the job may still finish', async () => {
+    api.getJob.mockRejectedValue(Object.assign(new Error("Can't reach the Veritas server."), { status: 0, offline: true }));
+    const run = waitForJob('j');
+    const settled = expect(run).rejects.toThrow(/may still finish on the server/);
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    await settled;
+    expect(api.getJob).toHaveBeenCalledTimes(6);
+  });
+
+  it('does not retry an answer that will not change, such as an unknown job', async () => {
+    api.getJob.mockRejectedValue(Object.assign(new Error('Job not found.'), { status: 404 }));
+    await expect(waitForJob('j')).rejects.toThrow('Job not found.');
+    expect(api.getJob).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops watching after the wait limit', async () => {
+    api.getJob.mockResolvedValue({ status: 'queued' });
+    const run = waitForJob('j');
+    const settled = expect(run).rejects.toThrow(/Still not finished after 30 minutes/);
+    await vi.advanceTimersByTimeAsync(31 * 60_000);
+    await settled;
+  });
 });
 
 describe('pendingJob', () => {

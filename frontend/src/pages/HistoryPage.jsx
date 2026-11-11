@@ -7,6 +7,7 @@ import {
   EASE, DURATION, orDash,
 } from '../components/ui';
 
+const LIMITS = [50, 100, 200];
 const SOURCES = [
   { id: '', label: 'All' },
   { id: 'upload', label: 'Uploads' },
@@ -74,14 +75,16 @@ export default function HistoryPage() {
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [nonce, setNonce] = useState(0);
+  // GET /history takes a limit (at most 200) but no offset, so "Show more" asks for a longer list.
+  const [limit, setLimit] = useState(LIMITS[0]);
 
   useEffect(() => {
     let live = true;
-    api.getHistory(source || null, 100)
+    api.getHistory(source || null, limit)
       .then((d) => { if (live) { setData(d); setError(null); } })
       .catch((e) => live && setError(e));
     return () => { live = false; };
-  }, [source, nonce]);
+  }, [source, nonce, limit]);
 
   const results = data?.results || [];
   const stats = data?.stats;
@@ -109,7 +112,7 @@ export default function HistoryPage() {
         ))}
       </div>
 
-      <Segmented label="Filter by source" className="mb-6" options={SOURCES} value={source} onChange={(id) => { setSource(id); setSelected(null); }} />
+      <Segmented label="Filter by source" className="mb-6" options={SOURCES} value={source} onChange={(id) => { setSource(id); setSelected(null); setLimit(LIMITS[0]); }} />
 
       {/* Nothing loaded yet: the failure is the page. A failed refresh keeps the rows and says so above them. */}
       {error && !data && <ErrorState error={error} onRetry={() => { setError(null); setNonce((n) => n + 1); }} />}
@@ -150,6 +153,14 @@ export default function HistoryPage() {
               })}
             </tbody>
           </Table>
+          {data && results.length >= limit && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-borderHairline px-3 py-3 text-sm text-textMuted">
+              <span>Showing the newest {results.length} runs.</span>
+              {limit < LIMITS.at(-1)
+                ? <Button variant="ghost" size="sm" onClick={() => setLimit(LIMITS[LIMITS.indexOf(limit) + 1])}>Show more</Button>
+                : <span>That is the most the server returns at once.</span>}
+            </div>
+          )}
         </div>
         <AnimatePresence mode="wait">
           {selected && <Detail key={`${selected.source}-${selected.id}`} row={selected} onClose={() => setSelected(null)} />}

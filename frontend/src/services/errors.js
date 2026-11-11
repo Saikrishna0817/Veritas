@@ -3,11 +3,14 @@
  * errors and marks a request that never reached the server with `offline`. The server's own `detail`
  * (err.message) is kept wherever it says something specific.
  *
- * kind: offline | unavailable | rate_limited | forbidden | not_found | failed
+ * kind: offline | timeout | unavailable | rate_limited | forbidden | not_found | failed
  */
 export function describeError(err) {
   const status = err?.status;
   const detail = err?.message || '';
+  if (err?.timeout) {
+    return { kind: 'timeout', title: 'Veritas took too long', message: detail || 'The server did not answer in time. Try again.' };
+  }
   if (err?.offline || status === 502 || status === 504) {
     return { kind: 'offline', title: "Can't reach Veritas", message: 'The server did not answer. Check your connection, then try again.' };
   }

@@ -74,9 +74,36 @@ describe('errors', () => {
     await expect(api.getUsage()).rejects.toMatchObject({ offline: true, status: 0, message: expect.stringMatching(/can't reach the veritas server/i) });
   });
 
-  it('lets an aborted request stay an abort', async () => {
-    fetch.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
-    await expect(api.getUsage()).rejects.toMatchObject({ name: 'AbortError' });
+  it('gives up on a request with no answer and says it timed out', async () => {
+    vi.useFakeTimers();
+    try {
+      fetch.mockImplementationOnce((url, init) => new Promise((_, reject) => {
+        init.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      }));
+      const call = expect(api.getUsage()).rejects.toMatchObject({ timeout: true, status: 0, message: expect.stringMatching(/did not answer within 30 seconds/) });
+      await vi.advanceTimersByTimeAsync(30_000);
+      await call;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives inline analyses longer than ordinary reads', async () => {
+    vi.useFakeTimers();
+    try {
+      let aborted = false;
+      fetch.mockImplementationOnce((url, init) => new Promise(() => { init.signal.addEventListener('abort', () => { aborted = true; }); }));
+      api.analyzeRealDataset('adult').catch(() => {});
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(aborted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sends only the case and the decision for a review; the server records the reviewer', async () => {
+    await api.submitReviewDecision('case-1', 'mark_safe');
+    expect(JSON.parse(lastCall()[1].body)).toEqual({ case_id: 'case-1', decision: 'mark_safe' });
   });
 
   it('sends an expired session to sign-in', async () => {

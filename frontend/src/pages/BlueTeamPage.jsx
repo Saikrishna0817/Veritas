@@ -155,8 +155,22 @@ export default function BlueTeamPage() {
   const [busy, setBusy] = useState('');
 
   const [loadError, setLoadError] = useState(null);
-  const load = useCallback(() => Promise.all([api.getBlueTeamStatus(), api.getBlueTeamIncidents()])
-    .then(([s, inc]) => { setStatus(s); setIncidents(inc.incidents || []); setError(''); setLoadError(null); })
+  const [incidentTotal, setIncidentTotal] = useState(null);
+  // /blueteam/status answers NOMINAL, CLEAN and 0 when nothing has been analysed, the same as for a clean batch.
+  // The history count tells the two apart; if it cannot load, the status is shown as the server sent it.
+  const [analysed, setAnalysed] = useState(null);
+  // The status embeds only the newest 5 waiting cases; /defense/hitl/pending has the whole queue.
+  const [queue, setQueue] = useState(null);
+  const load = useCallback(() => Promise.all([
+    api.getBlueTeamStatus(),
+    api.getBlueTeamIncidents(),
+    api.getHistory(null, 1).then((h) => h.stats?.total_analyses ?? null).catch(() => null),
+    api.getPendingReviews().then((d) => d.cases || []).catch(() => null),
+  ])
+    .then(([s, inc, n, q]) => {
+      setStatus(s); setIncidents(inc.incidents || []); setIncidentTotal(inc.total ?? null); setAnalysed(n); setQueue(q);
+      setError(''); setLoadError(null);
+    })
     .catch((e) => { setError(e.message); setLoadError(e); }), []);
 
   useEffect(() => {
@@ -179,8 +193,12 @@ export default function BlueTeamPage() {
     }
   };
 
-  const level = levelOf(status?.threat_level);
-  const cases = status?.pending_cases || [];
+  const nothingYet = analysed === 0;
+  const level = nothingYet
+    ? { label: 'No batch yet', color: 'var(--text-muted)', note: 'The threat level reads your latest batch. Examine one, or run a sample batch from the Overview.' }
+    : levelOf(status?.threat_level);
+  const cases = queue ?? status?.pending_cases ?? [];
+  const queueDepth = status?.hitl_queue_depth ?? cases.length;
 
   return (
     <Page>
@@ -211,8 +229,8 @@ export default function BlueTeamPage() {
                 <p className="mt-3 text-textSecondary">{level.note}</p>
               </div>
               <dl className="relative grid grid-cols-3 gap-6 text-sm md:text-right">
-                <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1 font-mono">{(status.current_verdict || '—').replace(/_/g, ' ').toLowerCase()}</dd></div>
-                <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{percent(status.suspicion_score)}</dd></div>
+                <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1 font-mono">{nothingYet ? '—' : (status.current_verdict || '—').replace(/_/g, ' ').toLowerCase()}</dd></div>
+                <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{nothingYet ? '—' : percent(status.suspicion_score)}</dd></div>
                 <div><dt className="rule-label">Updated</dt><dd className="mt-1 font-mono">{when(status.updated_at, true)}</dd></div>
               </dl>
             </div>
@@ -221,14 +239,15 @@ export default function BlueTeamPage() {
           <section aria-label="Counts" className="mb-8 grid gap-4 sm:grid-cols-3">
             <StatCard label="Rows quarantined" value={orDash(status.total_quarantined)} note="across your batches" />
             <StatCard label="Defense actions" value={orDash(status.n_defense_actions)} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
-            <StatCard label="Waiting for review" value={status.hitl_queue_depth ?? cases.length} />
+            <StatCard label="Waiting for review" value={queueDepth} />
           </section>
 
           <div className="grid gap-8 lg:grid-cols-2">
-            <Panel title="Review queue" aside={<span className="text-xs text-textMuted">{cases.length} waiting</span>}>
+            <Panel title="Review queue" aside={<span className="text-xs text-textMuted">{cases.length < queueDepth ? `first ${cases.length} of ${queueDepth}` : `${queueDepth} waiting`}</span>}>
               <ReviewQueue cases={cases} onDecide={decide} busy={busy} />
+              {cases.length < queueDepth && <p className="mt-4 text-xs text-textMuted">The full queue could not load, so these are the newest {cases.length}. Refresh to try again.</p>}
             </Panel>
-            <Panel title="Actions taken" aside={<span className="text-xs text-textMuted">newest first</span>}>
+            <Panel title="Actions taken" aside={<span className="text-xs text-textMuted">{incidentTotal > incidents.length ? `newest ${incidents.length} of ${incidentTotal}` : 'newest first'}</span>}>
               <div className="max-h-[420px] overflow-y-auto pr-1"><Incidents items={incidents} /></div>
             </Panel>
           </div>

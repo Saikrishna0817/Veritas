@@ -10,11 +10,13 @@ import {
 const SOURCES = [
   { id: 'auto', label: 'Latest analysis', desc: 'The newest CSV upload or reference-dataset run. It never falls back to a sample batch.' },
   { id: 'upload', label: 'My latest upload', desc: 'The last CSV you examined.' },
+  { id: 'real_dataset', label: 'Latest reference dataset', desc: 'The last reference dataset you analysed, with its known injected poison.' },
   { id: 'demo', label: 'Latest sample batch', desc: 'The last synthetic sample batch run from the Overview.' },
 ];
 const MISSING = {
   auto: 'Nothing analysed yet. Examine a batch or analyse a reference dataset first.',
   upload: 'No uploaded CSV yet. Examine a batch first.',
+  real_dataset: 'No reference dataset analysed yet. Analyse one on Reference datasets first.',
   demo: 'No sample batch yet. Run one from the Overview.',
 };
 

@@ -82,6 +82,7 @@ export function Unavailable({ title = 'Not available on this server', children, 
 
 const ERROR_LOOK = {
   offline: { icon: CloudOff, iconClass: 'text-textSecondary' },
+  timeout: { icon: Hourglass, iconClass: 'text-textSecondary' },
   unavailable: { icon: ServerOff, iconClass: 'text-textSecondary' },
   rate_limited: { icon: Hourglass, iconClass: 'text-statusWarn' },
   forbidden: { icon: Lock, iconClass: 'text-statusWarn' },
@@ -96,7 +97,7 @@ const ERROR_LOOK = {
  */
 export function ErrorState({ error, onRetry, title, children, className }) {
   const d = describeError(error);
-  if (d.kind === 'unavailable' || d.kind === 'offline') {
+  if (d.kind === 'unavailable' || d.kind === 'offline' || d.kind === 'timeout') {
     return (
       <Unavailable title={title || d.title} icon={ERROR_LOOK[d.kind].icon} className={className}
         action={onRetry && <Button variant="ghost" size="sm" onClick={onRetry}><RotateCw className="h-4 w-4" aria-hidden /> Try again</Button>}>

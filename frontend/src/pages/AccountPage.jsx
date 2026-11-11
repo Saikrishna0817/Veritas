@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Copy, Check, KeyRound, Trash2 } from 'lucide-react';
@@ -229,6 +229,59 @@ function DangerZone() {
   );
 }
 
+// Audit actions the backend records, in words. An action not listed here is shown as its code.
+const ACTIONS = {
+  'account.signup': 'Account created',
+  'account.password_reset': 'Password reset',
+  'account.data_deleted': 'Results deleted',
+  'apikey.created': 'API key created',
+  'apikey.revoked': 'API key revoked',
+  'analysis.uploaded': 'Batch examined',
+  'analysis.model_scanned': 'Model file scanned',
+  'analysis.deleted': 'Stored analysis deleted',
+  'defense.quarantine': 'Rows quarantined',
+  'hitl.decided': 'Review decision made',
+};
+
+function detailOf(e) {
+  const d = e.details || {};
+  return d.filename || d.name || d.decision?.replace(/_/g, ' ') || (d.samples_affected != null ? `${d.samples_affected} rows` : '');
+}
+
+/** GET /audit/events: a regular user gets their own actions; an admin gets everyone's, so it is narrowed to theirs. */
+function Activity({ userId, isAdmin }) {
+  const [events, setEvents] = useState(null);
+  const [error, setError] = useState(null);
+  const load = useCallback(() => api.getAuditEvents(50)
+    .then((d) => { setEvents((d.events || []).filter((e) => !isAdmin || e.actor_id === userId)); setError(null); })
+    .catch(setError), [userId, isAdmin]);
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <Panel title="Recent activity" aside={<span className="text-xs text-textMuted">newest 50, from the audit log</span>}>
+      {error ? (
+        <ErrorState error={error} onRetry={() => { setError(null); load(); }} title="Activity could not load" className="border-0 bg-transparent p-0" />
+      ) : events === null ? (
+        <Loading>Loading activity…</Loading>
+      ) : events.length === 0 ? (
+        <p className="text-sm text-textSecondary">Nothing recorded yet. Examining a batch, scanning a file or managing keys shows up here.</p>
+      ) : (
+        <ul className="divide-y divide-borderHairline">
+          {events.map((e) => (
+            <li key={e.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 py-2.5 text-sm">
+              <span className="min-w-0">
+                <span className={ACTIONS[e.action] ? '' : 'font-mono text-[13px]'}>{ACTIONS[e.action] || e.action}</span>
+                {detailOf(e) && <span className="ml-2 truncate font-mono text-[13px] text-textMuted">{detailOf(e)}</span>}
+              </span>
+              <time className="whitespace-nowrap text-xs text-textMuted" dateTime={e.created_at}>{new Date(e.created_at).toLocaleString()}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 export default function AccountPage() {
   const { user } = useAuth();
   return (
@@ -239,7 +292,10 @@ export default function AccountPage() {
           <Usage />
           <DangerZone />
         </div>
-        <ApiKeys />
+        <div className="space-y-8">
+          <ApiKeys />
+          <Activity userId={user?.id} isAdmin={user?.role === 'admin'} />
+        </div>
       </div>
     </Page>
   );

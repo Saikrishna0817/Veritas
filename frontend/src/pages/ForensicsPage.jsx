@@ -8,11 +8,20 @@ import { PageHeader, Panel, Button, Readout, Empty, ErrorState, PreviewTag, Segm
 const SOURCES = [
   { id: 'auto', label: 'Latest analysis' },
   { id: 'upload', label: 'My latest upload' },
+  { id: 'real_dataset', label: 'Latest reference dataset' },
   { id: 'demo', label: 'Latest sample batch' },
 ];
+// Where to go to create what each source reads.
+const MAKE = {
+  auto: ['/upload', 'Examine a batch →'],
+  upload: ['/upload', 'Examine a batch →'],
+  real_dataset: ['/real-datasets', 'Analyse a reference dataset →'],
+  demo: ['/', 'Go to Overview →'],
+};
 const EMPTY = {
   auto: 'Nothing analysed yet. Examine a batch or analyse a reference dataset first.',
   upload: 'No uploaded CSV yet. Examine a batch first.',
+  real_dataset: 'No reference dataset analysed yet. Analyse one to see what the heuristics make of a known attack.',
   demo: 'No sample batch yet. Run one from the Overview.',
 };
 
@@ -89,9 +98,7 @@ export default function ForensicsPage() {
       {loading && !data && <Loading>Loading the analysis…</Loading>}
       {!loading && error && <ErrorState error={error} onRetry={refresh} />}
       {!loading && missing && (
-        <Empty title="Nothing to read yet" action={source === 'demo'
-          ? <Link to="/" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Go to Overview →</Link>
-          : <Link to="/upload" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Examine a batch →</Link>}>
+        <Empty title="Nothing to read yet" action={<Link to={MAKE[source][0]} className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">{MAKE[source][1]}</Link>}>
           {EMPTY[source]}
         </Empty>
       )}

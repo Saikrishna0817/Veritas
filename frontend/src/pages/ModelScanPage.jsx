@@ -115,7 +115,7 @@ export default function ModelScanPage() {
   const [historyError, setHistoryError] = useState('');
 
   const loadHistory = () => api.getModelScanHistory(8)
-    .then((d) => { setHistory(d.results || d.scans || (Array.isArray(d) ? d : [])); setHistoryError(''); })
+    .then((d) => { setHistory(d.scans || []); setHistoryError(''); })
     .catch((e) => setHistoryError(e.message));
   useEffect(() => { loadHistory(); }, []);
 

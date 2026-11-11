@@ -76,15 +76,41 @@ async function startJob(kind, file, opts, onStage) {
   return res.job_id;
 }
 
-/** Poll until the job finishes. `onJob` receives every status update. Resolves to the analysis result. */
+// A dropped connection or a restarting server should not lose a job that is still running on the server.
+const MAX_POLL_MISSES = 5;                      // consecutive failed polls before giving up
+export const JOB_WAIT_LIMIT_MS = 30 * 60 * 1000; // stop watching after this; the server keeps the job
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const transient = (e) => e?.offline || e?.timeout || e?.status >= 500;
+
+/**
+ * Poll until the job finishes. `onJob` receives every status update. Resolves to the analysis result.
+ * Failed polls caused by the network or a 5xx are retried with backoff; anything else (404, 403) ends it.
+ */
 export async function waitForJob(jobId, { onJob, signal } = {}) {
+  const started = Date.now();
+  let misses = 0;
   for (;;) {
     if (signal?.aborted) throw new DOMException('Stopped watching the job.', 'AbortError');
-    const job = await api.getJob(jobId);
+    if (Date.now() - started > JOB_WAIT_LIMIT_MS) {
+      throw new Error('Still not finished after 30 minutes. It keeps running on the server; the result appears in History when it is done.');
+    }
+    let job;
+    try {
+      job = await api.getJob(jobId);
+      misses = 0;
+    } catch (e) {
+      if (!transient(e)) throw e;
+      misses += 1;
+      if (misses > MAX_POLL_MISSES) {
+        throw new Error(`${e.message} The analysis may still finish on the server; check History in a few minutes.`);
+      }
+      await wait(Math.min(POLL_MS * 2 ** misses, 30_000));
+      continue;
+    }
     onJob?.(job);
     if (job.status === 'completed') return job.result;
     if (job.status === 'failed') throw new Error(job.error || 'The analysis failed on the server.');
-    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    await wait(POLL_MS);
   }
 }
 
