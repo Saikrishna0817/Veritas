@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Copy, Check, KeyRound, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { PageHeader, Panel, Button, ErrorNote } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, Notice, Field, ConfirmButton, Dialog, Loading, Page } from '../components/ui';
 
 const EASE = [0.19, 1, 0.22, 1];
 const USAGE = [
@@ -12,7 +12,6 @@ const USAGE = [
   ['rows', 'Rows checked today', (n) => n.toLocaleString()],
   ['scan_mb', 'Model files scanned today', (n) => `${n.toLocaleString()} MB`],
 ];
-const inputClass = 'w-full rounded-2xl border border-transparent bg-white/[0.06] px-4 py-3 text-[15px] transition-colors focus:border-uv focus:outline-none';
 
 function day(iso) {
   return iso ? new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'never';
@@ -25,7 +24,7 @@ function Usage() {
   return (
     <Panel title="Usage" aside={<span className="text-xs text-textMuted">Resets at 00:00 UTC</span>}>
       <ErrorNote>{error}</ErrorNote>
-      {!data && !error && <p className="text-sm text-textMuted" role="status">Loading…</p>}
+      {!data && !error && <Loading>Loading usage…</Loading>}
       {data && (
         <>
           <div className="space-y-6">
@@ -124,15 +123,12 @@ function ApiKeys() {
       )}
 
       <form onSubmit={create} className="flex flex-col gap-3 sm:flex-row">
-        <label className="flex-1">
-          <span className="sr-only">Key name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name, e.g. ci-pipeline" maxLength={64} required className={inputClass} />
-        </label>
+        <Field label="Key name" hideLabel className="flex-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Key name, e.g. ci-pipeline" maxLength={64} required />
         <Button type="submit" variant="primary" loading={busy} disabled={!name.trim() || active.length >= 10}><KeyRound className="h-4 w-4" /> Create key</Button>
       </form>
       <div className="mt-4"><ErrorNote>{error}</ErrorNote></div>
 
-      {keys === null && !error && <p className="mt-5 text-sm text-textMuted" role="status">Loading…</p>}
+      {keys === null && !error && <Loading className="mt-5">Loading keys…</Loading>}
       {keys && keys.length === 0 && <p className="mt-5 text-sm text-textSecondary">No keys yet. Create one to use the command-line tool.</p>}
       {active.length > 0 && (
         <ul className="mt-5 divide-y divide-borderHairline">
@@ -142,7 +138,7 @@ function ApiKeys() {
                 <div className="truncate font-medium">{k.name}</div>
                 <div className="font-mono text-xs text-textMuted">{k.prefix}… · created {day(k.created_at)} · last used {day(k.last_used_at)}</div>
               </div>
-              <Button variant="danger" className="rounded-2xl px-4 py-2" onClick={() => revoke(k.id)} aria-label={`Revoke key ${k.name}`}>Revoke</Button>
+              <Button variant="danger" size="sm" onClick={() => revoke(k.id)} aria-label={`Revoke key ${k.name}`}>Revoke</Button>
             </li>
           ))}
         </ul>
@@ -157,25 +153,23 @@ function ApiKeys() {
 function DangerZone() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [confirmData, setConfirmData] = useState(false);
   const [dataMsg, setDataMsg] = useState('');
+  const [asking, setAsking] = useState(false);
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
 
   const deleteData = async () => {
-    setBusy('data'); setError(''); setDataMsg('');
+    setError(''); setDataMsg('');
     try {
       const { deleted } = await api.deleteMyData();
       const n = (deleted.analysis_results || 0) + (deleted.model_scans || 0);
       setDataMsg(`Deleted ${n} ${n === 1 ? 'result' : 'results'} and everything attached to them.`);
-      setConfirmData(false);
     } catch (e) {
       setError(e.message);
-    } finally {
-      setBusy('');
     }
   };
+  const closeDialog = () => { setAsking(false); setPassword(''); setError(''); };
 
   const deleteAccount = async (e) => {
     e.preventDefault();
@@ -198,35 +192,38 @@ function DangerZone() {
           <p className="mt-1 max-w-[60ch] text-sm text-textSecondary">
             Erases every analysis, model scan, review case, defense action and usage counter stored for you. Your account and API keys stay. This cannot be undone.
           </p>
-          {dataMsg && <p role="status" className="mt-3 text-sm text-statusSafe">{dataMsg}</p>}
-          <div className="mt-4 flex flex-wrap gap-3">
-            {confirmData ? (
-              <>
-                <Button variant="danger" loading={busy === 'data'} onClick={deleteData}><Trash2 className="h-4 w-4" /> Yes, delete all my results</Button>
-                <Button variant="ghost" onClick={() => setConfirmData(false)}>Keep them</Button>
-              </>
-            ) : (
-              <Button variant="danger" onClick={() => { setConfirmData(true); setDataMsg(''); }}>Delete my results…</Button>
-            )}
+          <Notice tone="safe" className="mt-3">{dataMsg}</Notice>
+          <div className="mt-4">
+            <ConfirmButton label="Delete my results…" confirmLabel="Yes, delete all my results" cancelLabel="Keep them" onConfirm={deleteData} />
           </div>
         </div>
 
         {user?.role !== 'admin' && (
-          <form onSubmit={deleteAccount} className="border-t border-borderHairline pt-8">
+          <div className="border-t border-borderHairline pt-8">
             <div className="font-medium">Delete my account</div>
             <p className="mt-1 max-w-[60ch] text-sm text-textSecondary">
-              Permanently deletes the account <span className="font-mono">{user?.name}</span>, all results, API keys and the audit log. Enter your password to confirm.
+              Permanently deletes the account <span className="font-mono">{user?.name}</span>, all results, API keys and the audit log.
             </p>
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <label className="flex-1 sm:max-w-xs">
-                <span className="sr-only">Password</span>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Your password" autoComplete="current-password" required className={inputClass} />
-              </label>
-              <Button type="submit" variant="danger" loading={busy === 'account'} disabled={!password}>Delete account permanently</Button>
+            <div className="mt-4">
+              <Button variant="danger" onClick={() => setAsking(true)}><Trash2 className="h-4 w-4" /> Delete my account…</Button>
+            </div>
+          </div>
+        )}
+        {!asking && <ErrorNote>{error}</ErrorNote>}
+        <Dialog
+          open={asking}
+          onClose={closeDialog}
+          title="Delete your account?"
+          description={`This deletes ${user?.name || 'the account'}, every result, API key and audit entry for it. It cannot be undone.`}
+        >
+          <form onSubmit={deleteAccount} className="space-y-5">
+            <Field label="Your password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required autoFocus error={error || undefined} />
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button variant="ghost" onClick={closeDialog} disabled={busy === 'account'}>Keep my account</Button>
+              <Button type="submit" variant="danger" loading={busy === 'account'} disabled={!password}>Delete permanently</Button>
             </div>
           </form>
-        )}
-        <ErrorNote>{error}</ErrorNote>
+        </Dialog>
       </div>
     </Panel>
   );
@@ -235,7 +232,7 @@ function DangerZone() {
 export default function AccountPage() {
   const { user } = useAuth();
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader title="Your" accent="account" lede={`Signed in as ${user?.name || 'you'}. Check today's usage, manage keys for the command-line tool, and delete what Veritas stores for you.`} />
       <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="space-y-8">
@@ -244,6 +241,6 @@ export default function AccountPage() {
         </div>
         <ApiKeys />
       </div>
-    </div>
+    </Page>
   );
 }

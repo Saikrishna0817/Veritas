@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { RefreshCw, X, Download } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, ErrorNote, downloadJson } from '../components/ui';
+import {
+  DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, IconButton, ErrorNote, Segmented, Table, VerdictBadge, Loading, Page, downloadJson,
+} from '../components/ui';
 
 const SOURCES = [
-  ['', 'All'],
-  ['upload', 'Uploads'],
-  ['real_dataset', 'Reference datasets'],
-  ['demo', 'Sample batches'],
-  ['model_scan', 'Model scans'],
+  { id: '', label: 'All' },
+  { id: 'upload', label: 'Uploads' },
+  { id: 'real_dataset', label: 'Reference datasets' },
+  { id: 'demo', label: 'Sample batches' },
+  { id: 'model_scan', label: 'Model scans' },
 ];
 
 function verdictOf(v) {
@@ -40,12 +42,12 @@ function Detail({ row, onClose }) {
           <div className="rule-label">{row.source?.replace('_', ' ')}</div>
           <div className="mt-1 break-all font-mono text-sm">{row.filename || row.model_filename}</div>
         </div>
-        <button onClick={onClose} aria-label="Close detail" className="rounded-2xl p-1.5 text-textMuted hover:bg-white/[0.04] hover:text-textPrimary"><X className="h-4 w-4" /></button>
+        <IconButton icon={X} label="Close detail" onClick={onClose} className="-mr-2 -mt-2" />
       </div>
       <div className="mt-5 font-display text-4xl font-medium leading-none" style={{ color: v.color }}>{v.label}</div>
       {v.blurb && <p className="mt-3 text-sm text-textSecondary">{v.blurb}</p>}
       <ErrorNote>{error}</ErrorNote>
-      {!full && !error && <p className="mt-6 text-sm text-textMuted" role="status">Loading the full result…</p>}
+      {!full && !error && <Loading className="mt-6">Loading the full result…</Loading>}
       {full && (
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-borderHairline pt-5 font-mono text-sm">
           {flags && <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-flag">{flags.flagged_indices_incoming?.length ?? 0}</dd></div>}
@@ -81,86 +83,75 @@ export default function HistoryPage() {
   }, [source, nonce]);
 
   const results = data?.results || [];
-  const stats = data?.stats || {};
-  const byVerdict = stats.by_verdict || {};
+  const stats = data?.stats;
+  const byVerdict = stats?.by_verdict || {};
+  const count = (n) => (stats ? n ?? 0 : '—');   // a dash until the numbers arrive, never a made-up 0
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader title="Run" accent="history" lede="Every batch you examined and every file you scanned, newest first. Select a run to see its evidence.">
         <Button variant="ghost" onClick={() => setNonce((n) => n + 1)}><RefreshCw className="h-4 w-4" /> Refresh</Button>
       </PageHeader>
 
       <div className="mb-8 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-borderHairline bg-borderHairline md:grid-cols-5">
         {[
-          ['Batches', stats.total_analyses ?? 0, 'var(--text-primary)'],
-          ['Model scans', stats.model_scans ?? 0, 'var(--text-primary)'],
-          ['Confirmed', byVerdict.CONFIRMED_POISONED ?? 0, DATA_VERDICTS.CONFIRMED_POISONED.color],
-          ['Suspicious', byVerdict.SUSPICIOUS ?? 0, DATA_VERDICTS.SUSPICIOUS.color],
-          ['Clean', byVerdict.CLEAN ?? 0, DATA_VERDICTS.CLEAN.color],
+          ['Batches', count(stats?.total_analyses), 'var(--text-primary)'],
+          ['Model scans', count(stats?.model_scans), 'var(--text-primary)'],
+          ['Confirmed', count(byVerdict.CONFIRMED_POISONED), DATA_VERDICTS.CONFIRMED_POISONED.color],
+          ['Suspicious', count(byVerdict.SUSPICIOUS), DATA_VERDICTS.SUSPICIOUS.color],
+          ['Clean', count(byVerdict.CLEAN), DATA_VERDICTS.CLEAN.color],
         ].map(([l, n, c]) => (
           <div key={l} className="bg-bgPanel px-5 py-4">
             <div className="rule-label">{l}</div>
-            <div className="mt-1 font-mono text-3xl font-bold" style={{ color: c }}>{n}</div>
+            <div className="mt-1 font-mono text-3xl font-bold tabular" style={{ color: c }}>{n}</div>
           </div>
         ))}
       </div>
 
-      <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Filter by source">
-        {SOURCES.map(([id, label]) => (
-          <button
-            key={id || 'all'}
-            aria-pressed={source === id}
-            onClick={() => { setSource(id); setSelected(null); }}
-            className={`rounded-2xl border px-3.5 py-2 text-sm transition-colors ${source === id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <Segmented label="Filter by source" className="mb-6" options={SOURCES} value={source} onChange={(id) => { setSource(id); setSelected(null); }} />
 
       <ErrorNote>{error}</ErrorNote>
 
       <div className={`grid gap-6 ${selected ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}`}>
-        <div className="panel overflow-x-auto">
-          <table className="w-full min-w-[640px] text-sm">
+        <div className="panel min-w-0 px-3 py-2">
+          <Table minWidth={640}>
             <thead>
-              <tr className="rule-label border-b border-borderHairline text-left">
-                <th className="px-5 py-3 font-normal">File</th>
-                <th className="px-3 py-3 font-normal">Source</th>
-                <th className="px-3 py-3 font-normal">Verdict</th>
-                <th className="px-3 py-3 text-right font-normal">Rows</th>
-                <th className="px-5 py-3 text-right font-normal">When</th>
+              <tr>
+                <th>File</th>
+                <th>Source</th>
+                <th>Verdict</th>
+                <th className="num">Rows</th>
+                <th className="num">When</th>
               </tr>
             </thead>
             <tbody>
-              {data === null && !error && <tr><td colSpan={5} className="px-5 py-6 text-textMuted">Loading…</td></tr>}
-              {data && results.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-textSecondary">No runs for this filter yet.</td></tr>}
+              {data === null && !error && <tr><td colSpan={5} className="py-6"><Loading>Loading runs…</Loading></td></tr>}
+              {data && results.length === 0 && <tr><td colSpan={5} className="py-6 text-textSecondary">No runs for this filter yet.</td></tr>}
               {results.map((r) => {
-                const v = verdictOf(r.verdict);
                 const active = selected?.id === r.id && selected?.source === r.source;
                 return (
                   <tr
                     key={`${r.source}-${r.id}`}
                     tabIndex={0}
                     onClick={() => setSelected(r)}
-                    onKeyDown={(e) => e.key === 'Enter' && setSelected(r)}
-                    className={`cursor-pointer border-b border-borderHairline transition-colors last:border-0 ${active ? 'bg-violet/[0.1]' : 'hover:bg-white/[0.02]'}`}
+                    onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), setSelected(r))}
+                    aria-selected={active}
                   >
-                    <td className="max-w-[280px] truncate px-5 py-3 font-mono">{r.filename || r.model_filename || r.id}</td>
-                    <td className="px-3 py-3 text-textSecondary">{r.source?.replace('_', ' ')}</td>
-                    <td className="px-3 py-3"><span className="font-mono text-[11px] font-bold uppercase" style={{ color: v.color }}>{v.short || v.label}</span></td>
-                    <td className="px-3 py-3 text-right font-mono text-textSecondary">{r.n_samples?.toLocaleString() ?? '—'}</td>
-                    <td className="px-5 py-3 text-right font-mono text-xs text-textMuted">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
+                    <td className="max-w-[280px] truncate font-mono">{r.filename || r.model_filename || r.id}</td>
+                    <td className="nowrap text-textSecondary">{r.source?.replace('_', ' ')}</td>
+                    <td><VerdictBadge verdict={r.verdict} kind={r.source === 'model_scan' ? 'model' : 'data'} /></td>
+                    <td className="num font-mono text-textSecondary">{r.n_samples?.toLocaleString() ?? '—'}</td>
+                    <td className="num font-mono text-xs text-textMuted">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
+          </Table>
         </div>
         <AnimatePresence mode="wait">
           {selected && <Detail key={`${selected.source}-${selected.id}`} row={selected} onClose={() => setSelected(null)} />}
         </AnimatePresence>
       </div>
-    </div>
+    </Page>
   );
 }

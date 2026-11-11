@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, PageHeader, Panel, Button, Readout, Empty, PreviewTag } from '../components/ui';
+import { DATA_VERDICTS, PageHeader, Panel, Button, Readout, Empty, PreviewTag, Segmented, Loading, Page } from '../components/ui';
 
 const SOURCES = [
   { id: 'auto', label: 'Latest analysis' },
@@ -73,7 +73,7 @@ export default function ForensicsPage() {
   const pattern = data?.injection_pattern;
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader
         title="Forensics"
         preview
@@ -82,24 +82,13 @@ export default function ForensicsPage() {
         <Button variant="ghost" onClick={refresh} loading={loading}><RefreshCw className="h-4 w-4" /> Refresh</Button>
       </PageHeader>
 
-      <div className="mb-8 flex flex-wrap gap-2" role="group" aria-label="Which analysis">
-        {SOURCES.map((s) => (
-          <button
-            key={s.id}
-            aria-pressed={source === s.id}
-            onClick={() => pick(s.id)}
-            className={`rounded-2xl border px-4 py-2 text-sm font-medium transition-colors ${source === s.id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <Segmented label="Which analysis" className="mb-8" options={SOURCES} value={source} onChange={pick} />
 
-      {loading && !data && <p className="text-sm text-textMuted" role="status">Loading…</p>}
+      {loading && !data && <Loading>Loading the analysis…</Loading>}
       {!loading && missing && (
         <Empty title="Nothing to read yet" action={source === 'demo'
-          ? <Link to="/" className="text-sm text-violet hover:underline">Go to Overview →</Link>
-          : <Link to="/upload" className="text-sm text-violet hover:underline">Examine a batch →</Link>}>
+          ? <Link to="/" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Go to Overview →</Link>
+          : <Link to="/upload" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Examine a batch →</Link>}>
           {EMPTY[source]}
         </Empty>
       )}
@@ -138,6 +127,6 @@ export default function ForensicsPage() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

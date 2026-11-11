@@ -2,7 +2,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, Play, X } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, PageHeader, Button, ErrorNote, Readout } from '../components/ui';
+import { DATA_VERDICTS, PageHeader, Button, IconButton, ErrorNote, Readout, Loading, Page } from '../components/ui';
 
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
 
@@ -22,7 +22,7 @@ function Result({ result, onClose }) {
         <div className="p-6">
           <div className="flex items-start justify-between gap-3">
             <div className="font-display text-4xl font-medium leading-none" style={{ color: v.color }}>{v.label}</div>
-            <button onClick={onClose} aria-label="Close result" className="rounded-2xl p-1.5 text-textMuted hover:bg-white/[0.04] hover:text-textPrimary"><X className="h-4 w-4" /></button>
+            <IconButton icon={X} label="Close result" onClick={onClose} className="-mr-2 -mt-2" />
           </div>
           {result.poison_note && <p className="mt-3 text-sm text-statusWarn">Injected for ground truth: {result.poison_note}</p>}
           <div className="mt-6 grid grid-cols-2 gap-5">
@@ -70,14 +70,14 @@ export default function RealDatasetsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader
         title="Reference" accent="datasets"
         lede="Public datasets with a known amount of poison injected, so you can see what Veritas finds when the answer is known. Analyse one, or download the CSV and run it through Examine a batch."
       />
       <ErrorNote>{error}</ErrorNote>
       <div className="panel mt-6 overflow-hidden">
-        {catalog === null && <div className="p-6 text-sm text-textMuted" role="status">Loading the catalogue…</div>}
+        {catalog === null && <Loading className="p-6">Loading the catalogue…</Loading>}
         {catalog?.length === 0 && !error && <div className="p-6 text-sm text-textSecondary">No reference datasets are configured on this server.</div>}
         <ul className="divide-y divide-borderHairline">
           {catalog?.map((d, i) => (
@@ -116,6 +116,6 @@ export default function RealDatasetsPage() {
           ))}
         </ul>
       </div>
-    </div>
+    </Page>
   );
 }

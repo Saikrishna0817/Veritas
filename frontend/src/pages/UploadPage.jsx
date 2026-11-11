@@ -4,7 +4,8 @@ import { Download, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAnalysisRun } from '../hooks/useAnalysisRun';
 import JobCard from '../components/JobCard';
 import {
-  DATA_VERDICTS, PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, downloadJson,
+  DATA_VERDICTS, PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, Field, RadioCards, Table, Badge, Page,
+  downloadJson,
 } from '../components/ui';
 
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -86,32 +87,30 @@ function RankedRows({ scores, flagged, offset }) {
         Ranked by row evidence: −log₁₀ of the share of clean reference rows that score at least as high. 2.0 means the row is in the clean top 1%.
         Row numbers are positions in your file.
       </p>
-      <div className="relative overflow-x-auto">
-        <table className="w-full min-w-[420px] text-sm">
+      <Table minWidth={420} className="-mx-3">
           <thead>
-            <tr className="rule-label text-left">
-              <th className="py-2 pr-4 font-normal">Rank</th>
-              <th className="py-2 pr-4 font-normal">File row</th>
-              <th className="py-2 pr-4 font-normal">Evidence</th>
-              <th className="py-2 font-normal w-[40%]"><span className="sr-only">Bar</span></th>
+            <tr>
+              <th>Rank</th>
+              <th>File row</th>
+              <th>Evidence</th>
+              <th className="w-[40%]"><span className="sr-only">Evidence bar</span></th>
             </tr>
           </thead>
           <tbody className="font-mono">
             {visible.map((r, k) => (
-              <tr key={r.i} className="border-t border-borderHairline">
-                <td className="py-2 pr-4 text-textMuted">{k + 1}</td>
-                <td className="py-2 pr-4">{(r.i + offset + 1).toLocaleString()}</td>
-                <td className={`py-2 pr-4 ${r.f ? 'text-flag' : 'text-textSecondary'}`}>{r.s.toFixed(2)}{r.f && <span className="ml-2 text-[10px] uppercase">flagged</span>}</td>
+              <tr key={r.i}>
+                <td className="py-2 text-textMuted">{k + 1}</td>
+                <td className="py-2">{(r.i + offset + 1).toLocaleString()}</td>
+                <td className={`py-2 ${r.f ? 'text-flag' : 'text-textSecondary'}`}>{r.s.toFixed(2)}{r.f && <Badge tone="flag" dot={false} className="ml-2 font-sans">flagged</Badge>}</td>
                 <td className="py-2">
                   <div className="h-1.5 rounded-sm bg-ink-950"><div className="h-full rounded-sm" style={{ width: `${(r.s / max) * 100}%`, background: r.f ? 'var(--flag)' : '#4A494B' }} /></div>
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+      </Table>
       {rows.length > 25 && (
-        <button onClick={() => setShowAll((x) => !x)} className="mt-4 text-sm text-violet hover:text-[var(--red-bright)]">
+        <button type="button" onClick={() => setShowAll((x) => !x)} className="mt-2 inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">
           {showAll ? 'Show top 25' : `Show top ${Math.min(rows.length, 200)}`}
         </button>
       )}
@@ -257,7 +256,7 @@ export default function UploadPage() {
   const reset = () => { clearResult(); setFile(null); setReferenceFile(null); };
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader
         title={result ? 'Examination' : 'Examine a'}
         accent={result ? null : 'batch'}
@@ -285,35 +284,14 @@ export default function UploadPage() {
               <h2 className="font-display text-lg font-medium">Which rows do you trust?</h2>
               <p className="mt-1 text-sm text-textSecondary">Everything else is checked against these.</p>
             </div>
-            <div className="space-y-2" role="radiogroup" aria-label="Reference source">
-              {REF_MODES.map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex cursor-pointer gap-3 rounded-2xl border p-3.5 transition-colors ${refMode === m.id ? 'border-violet bg-violet/[0.08]' : 'border-borderHairline hover:border-borderStrong'}`}
-                >
-                  <input type="radio" name="ref" value={m.id} checked={refMode === m.id} onChange={() => setRefMode(m.id)} className="mt-1 accent-[#B9A3FF]" />
-                  <span>
-                    <span className="block text-sm font-semibold">{m.label}</span>
-                    <span className="block text-xs text-textMuted">{m.hint}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
+            <RadioCards name="ref" label="Reference source" hideLabel stacked options={REF_MODES} value={refMode} onChange={setRefMode} />
             {refMode === 'file' && (
               <Dropzone accept=".csv" file={referenceFile} onFile={pick(setReferenceFile)} label="Drop the trusted CSV" />
             )}
             {refMode === 'column' && (
               <div className="grid grid-cols-2 gap-3">
                 {[['Column', splitColumn, setSplitColumn, 'ingested_at'], ['Cutoff', splitCutoff, setSplitCutoff, '2026-03-01']].map(([l, val, set, ph]) => (
-                  <label key={l} className="text-sm">
-                    <span className="rule-label">{l}</span>
-                    <input
-                      value={val}
-                      onChange={(e) => set(e.target.value)}
-                      placeholder={ph}
-                      className="mt-1 w-full rounded-2xl border border-borderStrong bg-ink-950 px-3 py-2.5 font-mono text-sm focus:border-uv focus:outline-none"
-                    />
-                  </label>
+                  <Field key={l} label={l} mono value={val} onChange={(e) => set(e.target.value)} placeholder={ph} />
                 ))}
               </div>
             )}
@@ -323,6 +301,6 @@ export default function UploadPage() {
           </fieldset>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, ChevronDown, Bot, UserRound, ShieldCheck, Search, Siren } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader, Panel, Button, ErrorNote, PreviewTag } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, Notice, PreviewTag, StatCard, Segmented, Loading, Page } from '../components/ui';
 
 // Threat level is the backend's reading of the latest batch's suspicion (0.15 / 0.35 / 0.65 cut-offs).
 const LEVELS = {
@@ -20,16 +20,6 @@ function when(iso, timeOnly = false) {
 }
 // Playbook steps arrive with a leading emoji; the icon system is drawn, so drop it.
 const plain = (s) => String(s).replace(/^[^\p{L}\p{N}]+/u, '');
-
-function Count({ label, value, note }) {
-  return (
-    <div className="rounded-[28px] border border-white/[0.07] bg-[#1A1A1A] p-6">
-      <div className="text-sm font-medium text-textSecondary">{label}</div>
-      <div className="font-display mt-6 text-[clamp(2.2rem,3.2vw,3rem)] font-medium leading-none tracking-[-0.05em] tabular">{value}</div>
-      {note && <div className="mt-2 text-xs text-textMuted">{note}</div>}
-    </div>
-  );
-}
 
 function ReviewQueue({ cases, onDecide, busy }) {
   if (!cases.length) {
@@ -119,20 +109,9 @@ function Playbooks() {
   return (
     <div>
       <ErrorNote>{error}</ErrorNote>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Playbooks">
-        {list.map((p) => (
-          <button
-            key={p.id}
-            aria-pressed={selected === p.id}
-            onClick={() => pick(p.id)}
-            className={`rounded-2xl border px-3.5 py-2 text-sm transition-colors ${selected === p.id ? 'border-uv bg-uv/[0.08] text-uv' : 'border-borderHairline text-textSecondary hover:border-borderStrong hover:text-textPrimary'}`}
-          >
-            {p.attack}
-          </button>
-        ))}
-      </div>
+      {list.length > 0 && <Segmented label="Playbooks" options={list.map((p) => ({ id: p.id, label: p.attack }))} value={selected} onChange={pick} />}
       {!selected && list.length > 0 && <p className="mt-5 text-sm text-textSecondary">Pick an attack pattern to see its response steps.</p>}
-      {selected && !detail && !error && <p className="mt-5 text-sm text-textMuted" role="status">Loading…</p>}
+      {selected && !detail && !error && <Loading className="mt-5">Loading the playbook…</Loading>}
       {detail && (
         <motion.div initial={{ opacity: 0.4, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mt-6 space-y-6">
           <div>
@@ -201,7 +180,7 @@ export default function BlueTeamPage() {
   const cases = status?.pending_cases || [];
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader
         title="Response"
         accent="desk"
@@ -212,10 +191,10 @@ export default function BlueTeamPage() {
       </PageHeader>
 
       <ErrorNote>{error}</ErrorNote>
-      {message && <div role="status" className="mb-6 rounded-2xl border border-statusSafe/40 bg-statusSafe/[0.07] px-4 py-3 text-sm text-statusSafe">{message}</div>}
+      <Notice tone="safe" className="mb-6">{message}</Notice>
 
       {!status && !error ? (
-        <p className="text-sm text-textMuted" role="status">Loading…</p>
+        <Loading>Loading the response desk…</Loading>
       ) : status && (
         <>
           <section className="edge-card mb-8">
@@ -235,9 +214,9 @@ export default function BlueTeamPage() {
           </section>
 
           <section aria-label="Counts" className="mb-8 grid gap-4 sm:grid-cols-3">
-            <Count label="Rows quarantined" value={status.total_quarantined ?? 0} note="across your batches" />
-            <Count label="Defense actions" value={status.n_defense_actions ?? 0} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
-            <Count label="Waiting for review" value={status.hitl_queue_depth ?? cases.length} />
+            <StatCard label="Rows quarantined" value={status.total_quarantined ?? 0} note="across your batches" />
+            <StatCard label="Defense actions" value={status.n_defense_actions ?? 0} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
+            <StatCard label="Waiting for review" value={status.hitl_queue_depth ?? cases.length} />
           </section>
 
           <div className="grid gap-8 lg:grid-cols-2">
@@ -254,6 +233,6 @@ export default function BlueTeamPage() {
           </Panel>
         </>
       )}
-    </div>
+    </Page>
   );
 }

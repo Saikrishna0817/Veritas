@@ -42,14 +42,5 @@ export default function AuthLayout({ title, lede, children, footer, tone = 'anal
   );
 }
 
-export function Field({ label, ...props }) {
-  return (
-    <label className="block">
-      <span className="rule-label">{label}</span>
-      <input
-        {...props}
-        className="mt-1.5 w-full rounded-2xl border border-transparent bg-white/[0.06] px-4 py-3 text-[15px] transition-colors focus:border-uv focus:outline-none"
-      />
-    </label>
-  );
-}
+// The sign-in pages import Field from here; it is the shared control from ui.jsx.
+export { Field } from './ui';

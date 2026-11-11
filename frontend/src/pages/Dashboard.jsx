@@ -1,9 +1,9 @@
-import { createElement, useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, FileCode2, Play, Radio, ScanLine, TriangleAlert, Gauge } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, MODEL_VERDICTS, Button, Reveal, ErrorNote } from '../components/ui';
+import { DATA_VERDICTS, Button, Reveal, ErrorNote, StatCard, VerdictBadge, Loading } from '../components/ui';
 
 // three.js is heavy; the specimen loads after the readout is on screen.
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -127,24 +127,6 @@ function BenchLedger() {
 
 
 /** Stat cards in the style of the reference's dashboard: label, round icon chip, big number with a small unit. */
-function StatCard({ label, icon, value, unit, note, accent }) {
-  return (
-    <div className="flex h-full flex-col rounded-[28px] border border-white/[0.07] bg-[#1A1A1A] p-6">
-      <div className="flex items-start justify-between gap-3">
-        <span className="text-sm font-medium text-textSecondary">{label}</span>
-        {accent && <span className="rounded-lg bg-uv px-2 py-0.5 text-[10px] font-medium text-ink-900">{accent}</span>}
-      </div>
-      <div className="mt-auto flex items-end justify-between gap-3 pt-8">
-        <span className="icon-chip h-11 w-11 shrink-0">{createElement(icon, { className: 'h-4 w-4 text-white', strokeWidth: 1.5, 'aria-hidden': true })}</span>
-        <span className="font-display text-right text-[clamp(2.4rem,3.6vw,3.4rem)] font-medium leading-none tracking-[-0.05em] tabular">
-          {value}{unit && <span className="ml-1 text-[0.42em] tracking-normal text-textSecondary">{unit}</span>}
-        </span>
-      </div>
-      {note && <div className="mt-3 text-right text-xs text-textMuted">{note}</div>}
-    </div>
-  );
-}
-
 function StatRow({ stats, usage }) {
   const verdicts = stats?.by_verdict || {};
   const flaggedBatches = (verdicts.SUSPICIOUS || 0) + (verdicts.CONFIRMED_POISONED || 0);
@@ -262,20 +244,17 @@ export default function Dashboard({ wsEvents = [] }) {
               <Link to="/history" className="-my-3 inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">All history →</Link>
             </div>
             {history === null ? (
-              <div className="p-6 text-sm text-textMuted" role="status">Loading…</div>
+              <Loading className="p-6">Loading recent runs…</Loading>
             ) : history.results?.length ? (
               <ul className="divide-y divide-borderHairline">
                 {history.results.map((r) => {
-                  const v = DATA_VERDICTS[r.verdict] || MODEL_VERDICTS[r.verdict] || { label: r.verdict, color: 'var(--text-secondary)' };
                   return (
                     <li key={`${r.source}-${r.id}`} className="grid grid-cols-[1fr_auto] items-center gap-4 px-6 py-4">
                       <div className="min-w-0">
                         <div className="truncate font-mono text-sm">{r.filename || r.model_filename || r.id}</div>
                         <div className="mt-0.5 text-xs text-textMuted">{r.source?.replace('_', ' ')} · {timeAgo(r.created_at)}</div>
                       </div>
-                      <span className="rounded-lg border px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-wide" style={{ color: v.color, borderColor: v.color }}>
-                        {v.short || v.label}
-                      </span>
+                      <VerdictBadge verdict={r.verdict} kind={r.source === 'model_scan' ? 'model' : 'data'} />
                     </li>
                   );
                 })}

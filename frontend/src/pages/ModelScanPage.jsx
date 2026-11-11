@@ -4,7 +4,7 @@ import { Download, RotateCcw, FileCode2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAnalysisRun } from '../hooks/useAnalysisRun';
 import JobCard from '../components/JobCard';
-import { MODEL_VERDICTS, PageHeader, Button, Panel, Dropzone, ErrorNote, downloadJson, formatBytes } from '../components/ui';
+import { MODEL_VERDICTS, PageHeader, Button, Panel, Dropzone, ErrorNote, Badge, VerdictBadge, Page, downloadJson, formatBytes } from '../components/ui';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
@@ -81,8 +81,8 @@ function Result({ result, onReset }) {
           ) : (
             <ul className="space-y-3">
               {findings.map((f, i) => (
-                <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="grid grid-cols-[72px_1fr] gap-3 text-sm">
-                  <span className="h-fit rounded-lg border px-2 py-0.5 text-center font-mono text-[10px] font-bold uppercase" style={{ color: SEVERITY[f.severity], borderColor: SEVERITY[f.severity] }}>{f.severity}</span>
+                <motion.li key={i} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }} className="grid grid-cols-[84px_1fr] items-start gap-3 text-sm">
+                  <Badge color={SEVERITY[f.severity] || 'var(--text-muted)'} className="justify-self-start">{f.severity}</Badge>
                   <span className="break-words text-textSecondary">{f.detail}</span>
                 </motion.li>
               ))}
@@ -127,7 +127,7 @@ export default function ModelScanPage() {
   const run = () => start(file).then(loadHistory);
 
   return (
-    <div className="mx-auto max-w-[1360px] px-5 py-10 md:px-10 md:py-14">
+    <Page>
       <PageHeader
         title={result ? 'Scan result' : 'Scan a model'}
         accent={result ? null : 'file'}
@@ -162,11 +162,10 @@ export default function ModelScanPage() {
               ) : (
                 <ul className="divide-y divide-borderHairline">
                   {history.map((h) => {
-                    const v = MODEL_VERDICTS[h.verdict] || { label: h.verdict, color: 'var(--text-muted)' };
                     return (
                       <li key={h.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                         <span className="truncate font-mono">{h.model_filename}</span>
-                        <span className="shrink-0 font-mono text-[11px] font-bold uppercase" style={{ color: v.color }}>{v.label}</span>
+                        <VerdictBadge verdict={h.verdict} kind="model" />
                       </li>
                     );
                   })}
@@ -176,6 +175,6 @@ export default function ModelScanPage() {
           </div>
         </div>
       )}
-    </div>
+    </Page>
   );
 }

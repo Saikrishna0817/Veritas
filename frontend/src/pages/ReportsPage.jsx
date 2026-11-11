@@ -1,263 +1,159 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { FileText, Download, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
-import { FileText, Download, CheckCircle, Loader, Upload, Target, Activity, ShieldAlert, AlertTriangle, Shield } from 'lucide-react';
+import {
+  DATA_VERDICTS, PageHeader, Panel, Button, ErrorNote, Segmented, VerdictBadge, Readout, Empty, Loading, Page, downloadJson,
+} from '../components/ui';
 
-const SOURCE_CONFIG = {
-    auto: { label: 'Latest real analysis', icon: Activity, desc: 'Uses the newest CSV upload or real-dataset run. Does not fall back to synthetic demo.' },
-    upload: { label: 'My Uploaded Dataset', icon: Upload, desc: 'Generate report from the CSV you uploaded.' },
-    demo: { label: 'Demo Analysis', icon: Target, desc: 'Generate report from the built-in demo run.' },
+const SOURCES = [
+  { id: 'auto', label: 'Latest analysis', desc: 'The newest CSV upload or reference-dataset run. It never falls back to a sample batch.' },
+  { id: 'upload', label: 'My latest upload', desc: 'The last CSV you examined.' },
+  { id: 'demo', label: 'Latest sample batch', desc: 'The last synthetic sample batch run from the Overview.' },
+];
+const MISSING = {
+  auto: 'Nothing analysed yet. Examine a batch or analyse a reference dataset first.',
+  upload: 'No uploaded CSV yet. Examine a batch first.',
+  demo: 'No sample batch yet. Run one from the Overview.',
 };
 
-export default function ReportsPage() {
-    const [report, setReport] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [source, setSource] = useState('auto');
+function when(iso) {
+  if (!iso) return '—';
+  return new Date(/(Z|[+-]\d\d:\d\d)$/.test(iso) ? iso : `${iso}Z`).toLocaleString();   // the backend sends naive UTC
+}
 
-    const generateReport = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const r = await api.generateReport(source);
-            setReport(r);
-        } catch {
-            setError(
-                source === 'upload'
-                    ? 'No uploaded dataset found. Upload a CSV from the Upload Dataset page first.'
-                    : source === 'demo'
-                        ? 'No demo run found. Click "Run Demo" on the Trust Dashboard first.'
-                        : 'No analysis results found. Upload a CSV or run the demo first.'
-            );
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const downloadReport = () => {
-        if (!report) return;
-        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `forensic_report_${report.report_id?.slice(0, 8)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    const srcCfg = SOURCE_CONFIG[source];
-
-    return (
-        <div className="relative z-10 px-5 md:px-10 py-10 md:py-14 max-w-[1360px] mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div className="max-w-3xl">
-                    <h1 className="font-display font-medium text-[clamp(2.2rem,5vw,4.2rem)] leading-[0.95] text-textPrimary">Evidence <span className="serif-accent">reports</span></h1>
-                    <p className="mt-4 text-textSecondary text-[17px] leading-relaxed max-w-[62ch]">A draft analyst summary of the latest analysis, mapped to NIST AI RMF concepts. Not a certification, attribution or legal evidence.</p>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={generateReport} disabled={loading}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-redPrimary/10 border border-redPrimary/40 text-redPrimary text-sm font-medium rounded-2xl hover:bg-redPrimary/20 transition-all disabled:opacity-50">
-                        {loading ? <Loader className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-                        Generate Report
-                    </button>
-                    {report && (
-                        <button onClick={downloadReport}
-                            className="flex items-center gap-2 px-6 py-2.5 border border-borderHairline text-textSecondary text-sm font-medium rounded-2xl hover:border-textSecondary hover:text-textPrimary transition-all">
-                            <Download className="w-4 h-4" /> Download JSON
-                        </button>
-                    )}
-                </div>
+function Report({ report }) {
+  const summary = report.executive_summary || {};
+  const v = DATA_VERDICTS[summary.verdict];
+  const info = report.dataset_info || {};
+  return (
+    <motion.div initial={{ opacity: 0.4, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.19, 1, 0.22, 1] }} className="space-y-8">
+      <section className="edge-card">
+        <div className="edge-inner relative grid gap-8 p-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:p-10">
+          <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(45% 90% at 90% 40%, rgba(71,0,214,0.38), transparent 70%)' }} />
+          <div className="relative min-w-0">
+            <h2 className="font-display text-[clamp(1.8rem,3.2vw,2.6rem)] font-medium leading-tight">{report.title || 'Evidence summary'}</h2>
+            <p className="mt-3 text-sm text-textSecondary">
+              From {report.data_source || 'the latest analysis'}{info.filename && <> · <span className="font-mono">{info.filename}</span></>}
+              {info.n_rows != null && <> · {info.n_rows.toLocaleString()} rows</>}
+            </p>
+            <p className="mt-1 font-mono text-xs text-textMuted break-all">{report.report_id} · {when(report.generated_at)}</p>
+          </div>
+          <dl className="relative grid grid-cols-2 gap-6 self-end">
+            <div className="col-span-2">
+              <dt className="rule-label">Verdict</dt>
+              <dd className="font-display mt-2 text-[clamp(2rem,3.6vw,3rem)] font-medium leading-none tracking-[-0.05em]" style={{ color: v?.color }}>
+                {v?.label || (summary.verdict ? summary.verdict.replace(/_/g, ' ').toLowerCase() : '—')}
+              </dd>
             </div>
-
-            {/* Source Selector */}
-            <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-6 lg:p-8">
-                <div className="text-xs text-redPrimary font-medium mb-4 flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> Report Data Source
-                </div>
-                <div className="flex gap-3 flex-wrap mb-4">
-                    {Object.entries(SOURCE_CONFIG).map(([id, cfg]) => {
-                        const isSelected = source === id;
-                        const Icon = cfg.icon;
-                        return (
-                            <button key={id} onClick={() => { setSource(id); setReport(null); setError(null); }}
-                                className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-medium transition-all border ${isSelected ? 'bg-redPrimary/10 border-redPrimary/50 text-redPrimary' : 'bg-transparent border-borderHairline text-textMuted hover:border-textMuted hover:text-textSecondary'}`}>
-                                <Icon className="w-4 h-4" />
-                                {cfg.label}
-                            </button>
-                        );
-                    })}
-                </div>
-                <p className="font-mono text-xs text-textSecondary bg-bgVoid px-4 py-3 rounded-lg border border-borderHairline inline-block">{srcCfg.desc}</p>
-            </div>
-
-            {error && (
-                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-2xl p-5 text-sm text-statusWarn font-medium flex items-center gap-3">
-                    <AlertTriangle className="w-5 h-5" /> {error}
-                </div>
-            )}
-
-            {!report && !error && !loading && (
-                <div className="mt-4">
-                    <div className="text-center py-12 text-textMuted text-sm">
-                        Select a data source above and click "Generate Report".
-                    </div>
-                    {/* Skeleton Preview */}
-                    <div className="space-y-6 opacity-30 pointer-events-none filter grayscale">
-                        <div className="h-32 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {loading && (
-                <div className="mt-4">
-                    <div className="text-center py-12 text-redPrimary text-sm animate-pulse flex flex-col items-center justify-center gap-4">
-                        <Loader className="w-8 h-8 animate-spin" />
-                        Generating forensic evidence package...
-                    </div>
-                    {/* Skeleton Preview */}
-                    <div className="space-y-6 opacity-50 pointer-events-none">
-                        <div className="h-32 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse border-redPrimary/20"></div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                            <div className="h-28 bg-bgPanel border border-borderHairline rounded-2xl animate-pulse"></div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {report && (
-                <div className="space-y-6 animate-fadeInUp">
-                    {/* Report Header */}
-                    <div className="bg-bgPanel border border-redPrimary/30 rounded-[28px] p-8 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-redPrimary/5 rounded-full blur-3xl -mr-20 -mt-20"></div>
-                        <div className="flex items-start justify-between mb-4 relative z-10">
-                            <div>
-                                <div className="text-[10px] text-redPrimary font-medium mb-2 px-2 py-0.5 rounded border border-redPrimary/30 bg-redPrimary/10 inline-block">
-                                    {report.platform}
-                                </div>
-                                <h2 className="text-3xl font-medium text-textPrimary tracking-tight mb-2">{report.title}</h2>
-                                <div className="text-[11px] text-textSecondary flex items-center gap-3">
-                                    <span>ID: {report.report_id}</span>
-                                    <span className="text-borderHairline">|</span>
-                                    <span>{report.generated_at ? new Date(/(Z|[+-]\d\d:\d\d)$/.test(report.generated_at) ? report.generated_at : `${report.generated_at}Z`).toLocaleString() : '—'}</span>
-                                </div>
-                                <div className="text-[11px] text-statusSafe mt-2">
-                                    Source: {report.data_source} · {report.dataset_info?.filename || 'demo dataset'}
-                                    {report.dataset_info?.n_rows && ` · ${report.dataset_info.n_rows.toLocaleString()} rows`}
-                                </div>
-                            </div>
-                            <CheckCircle className="w-12 h-12 text-statusSafe drop-shadow-md" />
-                        </div>
-                    </div>
-
-                    {/* Executive Summary */}
-                    <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-8">
-                        <div className="text-xs text-redPrimary font-medium mb-6 flex items-center gap-2">
-                            <Target className="w-4 h-4" /> Executive Summary
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            {[
-                                { label: 'Verdict', value: report.executive_summary?.verdict, color: report.executive_summary?.verdict === 'CONFIRMED_POISONED' ? 'statusCritical' : report.executive_summary?.verdict === 'CLEAN' ? 'statusSafe' : 'statusWarn' },
-                                { label: 'Attack Type', value: (report.executive_summary?.attack_type || '—').replace(/_/g, ' '), color: 'textSecondary' },
-                                { label: 'Confidence', value: `${((report.executive_summary?.confidence || 0) * 100).toFixed(1)}%`, color: 'textPrimary' },
-                            ].map(({ label, value, color }) => (
-                                <div key={label} className="bg-bgVoid border border-borderHairline rounded-2xl p-5 hover:border-redPrimary/20 transition-all">
-                                    <div className="text-[10px] text-textMuted font-medium mb-2">{label}</div>
-                                    <div className={`text-lg font-medium text-${color}`}>{value}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Layer Evidence */}
-                    {report.layer_scores && (
-                        <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-8">
-                            <div className="text-xs text-redPrimary font-medium mb-6 flex items-center gap-2">
-                                <Activity className="w-4 h-4" /> Detection Layer Evidence
-                            </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {Object.entries(report.layer_scores).map(([layer, score]) => {
-                                    const pct = Math.round((score || 0) * 100);
-                                    const color = pct > 70 ? 'var(--status-critical)' : pct > 40 ? 'var(--status-warn)' : 'var(--status-safe)';
-                                    return (
-                                        <div key={layer} className="bg-bgVoid border border-borderHairline rounded-2xl p-5">
-                                            <div className="text-[10px] text-textMuted font-medium mb-3 truncate">{layer.replace(/_/g, ' ')}</div>
-                                            <div className="font-mono text-3xl font-medium mb-4" style={{ color }}>{pct}%</div>
-                                            <div className="h-1.5 bg-bgPanel rounded-full overflow-hidden">
-                                                <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${pct}%`, background: color }} />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Limitations, exactly as the backend states them */}
-                    {report.limitations && (
-                        <div className="bg-bgPanel border border-statusWarn/30 rounded-[28px] p-8">
-                            <div className="text-sm text-statusWarn font-medium mb-4 flex items-center gap-2">
-                                <ShieldAlert className="w-4 h-4" aria-hidden /> What this summary is not
-                            </div>
-                            <p className="text-textSecondary max-w-[75ch]">{report.limitations.notice}</p>
-                            {report.limitations.framework_references && (
-                                <p className="mt-3 text-sm text-textMuted max-w-[75ch]">{report.limitations.framework_references}</p>
-                            )}
-                            {report.limitations.report_reference && (
-                                <div className="mt-5 text-xs text-textMuted">Reference <span className="font-mono break-all">{report.limitations.report_reference}</span></div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Attack Narrative */}
-                    {report.attack_narrative && (
-                        <div className="bg-bgVoid border border-redPrimary/20 rounded-2xl p-8">
-                            <div className="text-xs text-redPrimary font-medium mb-4 flex items-center gap-2">
-                                <FileText className="w-4 h-4" /> Attack Narrative
-                            </div>
-                            <pre className="font-mono text-[13px] text-textSecondary whitespace-pre-wrap leading-loose border border-redPrimary/50 pl-5">
-                                {report.attack_narrative}
-                            </pre>
-                        </div>
-                    )}
-
-                    {/* Defense Actions */}
-                    {report.defense_actions?.length > 0 && (
-                        <div className="bg-bgPanel border border-borderHairline rounded-[28px] p-8">
-                            <div className="text-xs text-redPrimary font-medium mb-6 flex items-center gap-2">
-                                <Shield className="w-4 h-4" /> Defense Actions Taken
-                            </div>
-                            <div className="space-y-4">
-                                {report.defense_actions.map((action, i) => (
-                                    <div key={i} className="bg-bgVoid border border-borderHairline rounded-2xl p-5 hover:border-redPrimary/30 transition-all">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-medium text-redPrimary">{action.action}</span>
-                                            <span className="font-mono text-[10px] text-textMuted">{action.timestamp?.slice(0, 19)}</span>
-                                        </div>
-                                        <div className="font-mono text-sm text-textSecondary mb-2">{action.reason}</div>
-                                        <div className="text-[11px] text-textMuted">
-                                            {action.samples_affected} samples affected
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-            
-            <style>{`
-                @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-            `}</style>
+            <Readout label="Attack pattern" value={summary.attack_type ? summary.attack_type.replace(/_/g, ' ') : '—'} note="heuristic, research preview" />
+            <Readout label="Confidence" value={summary.confidence != null ? `${(summary.confidence * 100).toFixed(1)}%` : '—'} />
+          </dl>
         </div>
-    );
+      </section>
+
+      {report.limitations && (
+        <Panel title={<span className="inline-flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-statusWarn" aria-hidden /> What this summary is not</span>}>
+          <p className="max-w-[75ch] text-textSecondary">{report.limitations.notice}</p>
+          {report.limitations.framework_references && <p className="mt-3 max-w-[75ch] text-sm text-textMuted">{report.limitations.framework_references}</p>}
+          {report.limitations.report_reference && <p className="mt-4 text-xs text-textMuted">Reference <span className="font-mono break-all">{report.limitations.report_reference}</span></p>}
+        </Panel>
+      )}
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        {report.layer_scores && (
+          <Panel title="Evidence by check">
+            <ul className="space-y-5">
+              {Object.entries(report.layer_scores).map(([layer, score]) => {
+                const pct = Math.round((score || 0) * 100);
+                return (
+                  <li key={layer}>
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="text-textSecondary">{layer.replace(/_/g, ' ')}</span>
+                      <span className="font-mono tabular">{pct}%</span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                      <motion.div className="h-full rounded-full bg-violet" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1.2, ease: [0.19, 1, 0.22, 1] }} />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Panel>
+        )}
+        {report.attack_narrative && (
+          <Panel title="Narrative" aside={<VerdictBadge verdict={summary.verdict} />}>
+            <div className="space-y-2 text-textSecondary">
+              {report.attack_narrative.split('\n').filter(Boolean).map((line, i) => <p key={i}>{line}</p>)}
+            </div>
+          </Panel>
+        )}
+      </div>
+
+      {report.defense_actions?.length > 0 && (
+        <Panel title="Defense actions taken" aside={<span className="text-xs text-textMuted">{report.defense_actions.length}</span>}>
+          <ul className="divide-y divide-borderHairline">
+            {report.defense_actions.map((a, i) => (
+              <li key={i} className="grid gap-1 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-4">
+                <div className="min-w-0">
+                  <div className="font-medium">{String(a.action || '').replace(/_/g, ' ')}</div>
+                  <div className="text-sm text-textSecondary">{a.reason}</div>
+                </div>
+                <div className="text-sm text-textMuted sm:text-right">
+                  {a.samples_affected != null && <div>{a.samples_affected.toLocaleString()} rows</div>}
+                  <div className="font-mono text-xs">{when(a.timestamp)}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      )}
+    </motion.div>
+  );
+}
+
+export default function ReportsPage() {
+  const [source, setSource] = useState('auto');
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setReport(await api.generateReport(source));
+    } catch (e) {
+      // A 404 means there is nothing to summarise for this source; say what to do instead of the raw detail.
+      setError(e.status === 404 ? MISSING[source] : e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const pick = (id) => { setSource(id); setReport(null); setError(''); };
+  const current = SOURCES.find((s) => s.id === source);
+
+  return (
+    <Page>
+      <PageHeader title="Evidence" accent="reports" lede="A draft analyst summary of one analysis, mapped to NIST AI RMF concepts. It is not a certification, an attribution or legal evidence.">
+        {report && <Button variant="ghost" onClick={() => downloadJson(report, `veritas_report_${report.report_id?.slice(0, 8) || 'latest'}.json`)}><Download className="h-4 w-4" /> Download JSON</Button>}
+        <Button variant="primary" onClick={generate} loading={loading}>{!loading && <FileText className="h-4 w-4" />} {report ? 'Generate again' : 'Generate report'}</Button>
+      </PageHeader>
+
+      <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <Segmented label="Which analysis to summarise" options={SOURCES} value={source} onChange={pick} />
+        <p className="text-sm text-textMuted md:max-w-[46ch] md:text-right">{current.desc}</p>
+      </div>
+
+      <ErrorNote className="mb-8">{error}</ErrorNote>
+      {loading && !report && <Loading>Putting the report together…</Loading>}
+      {!loading && !report && !error && (
+        <Empty title="No report yet" action={<Link to="/upload" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Examine a batch →</Link>}>
+          Pick which analysis to summarise, then generate the report. It reads the stored result; nothing is re-run.
+        </Empty>
+      )}
+      {report && <Report report={report} />}
+    </Page>
+  );
 }

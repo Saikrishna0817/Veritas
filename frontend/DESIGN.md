@@ -45,5 +45,16 @@ Easing `cubic-bezier(0.19, 1, 0.22, 1)`, 1.4–2s on landing reveals. Landing: h
 - `/` signed out and `/welcome`: public landing page (`pages/LandingPage.jsx`).
 - App shell: left rail with labels (the reference's dashboard mock shows an icon rail; labels are kept for nine destinations).
 
+## Components — `src/components/ui.jsx`
+Pages build from these; no page keeps its own copy of a control.
+- **Layout:** `Page` (1360px container), `PageHeader` (title + grey serif `accent`), `Panel` (28px card), `StatCard` (#1A1A1A step card, display number, optional icon chip), `Reveal`.
+- **Actions:** `Button` (`primary` white · `ghost` 6% fill · `danger` red outline; `size` md/sm; `loading` spinner + `aria-busy`), `IconButton` (label required), `ConfirmButton` (two-step destructive action, no modal).
+- **Choices:** `Segmented` (toggle pills, `aria-pressed`, white sliding highlight) for filters; `Tabs` + `TabPanel` (same look, real tab semantics with arrow/Home/End keys) when a panel swaps; `RadioCards` for choices that need a sentence each.
+- **Forms:** `Field` (label, `hint`, `error` with `aria-invalid`/`aria-describedby`; `as` input/select/textarea; `mono` for data values), styled by `.field-input`.
+- **Data:** `Table` (`.data-table`: lavender header labels, hairline rows, `num` right-aligned tabular cells, selectable rows via `tabIndex` + `aria-selected`), `Readout`, `Badge` (tinted pill + dot by tone), `VerdictBadge` (backend verdict code → label and colour; unknown codes stay neutral, never "clean").
+- **Feedback:** `Notice` (critical/safe/info, optional dismiss), `ErrorNote`, `Loading` (announced), `Empty` (says why and what to do), `PreviewTag`.
+- **Dialog:** native `<dialog>` portalled to `<body>`: blurred backdrop, focus on the first field, Escape and backdrop click close. Only for irreversible actions that also need input (deleting the account).
+- **States:** every control has hover, `:focus-visible` (2px lavender ring), active (1px press), disabled (45% opacity, no press) and, where it waits on the API, loading.
+
 ## Honesty rules
 Heuristic features carry `PreviewTag`. Mock panels on the landing page are labelled "Example run". Benchmark numbers come only from `docs/model-card.md`.

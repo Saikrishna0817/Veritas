@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import AuthLayout, { Field } from '../components/AuthLayout';
-import { Button, ErrorNote } from '../components/ui';
+import { Button, ErrorNote, Notice } from '../components/ui';
 import HumanCheck from '../components/HumanCheck';
 import { TURNSTILE_SITE_KEY } from '../services/config';
 
@@ -73,7 +73,7 @@ export default function AccountFlowPage({ mode }) {
         )}
         {needsCheck && !message && <HumanCheck onToken={setHuman} onError={setError} resetKey={checkRound} />}
         <ErrorNote>{error}</ErrorNote>
-        {message && <div role="status" className="rounded-2xl border border-statusSafe/40 bg-statusSafe/[0.07] px-4 py-3 text-sm text-statusSafe">{message}</div>}
+        <Notice tone="safe">{message}</Notice>
         {mode !== 'verify' && !message && (
           <Button type="submit" variant="uv" loading={busy} disabled={needsCheck && !human} className="w-full py-3.5 text-[15px]">{copy.cta}</Button>
         )}
