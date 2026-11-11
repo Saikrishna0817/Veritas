@@ -1,8 +1,9 @@
-"""Image detector: veritas2's label check plus two gated shift checks, one per view of the data.
+"""Image detector: veritas2's label check plus gated checks on other views of the data.
 
 * label  - GBM on the semantic (ResNet) embedding, always ranks rows.
 * shift  - classifier two-sample test on the semantic embedding (catches duplicates, large distribution changes).
 * pixel  - classifier two-sample test on low-level pixel statistics (catches stamped patches, noise, blending).
+* dup / cell / resid - what poisoned images share: near-copies, a common local patch, a common faint pattern.
 
 Each check becomes an exact tail-test evidence against held-out clean rows. A shift check joins the ranking
 only when its own evidence reaches its ``GATE``; its batch evidence is lowered by ``PENALTY`` (weighted Bonferroni).
@@ -14,9 +15,11 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 
 from app.detection import veritas2 as v2
+from research.mm import shared
 
-GATE = {"shift": 3.0, "pixel": 1.0}  # pixel gate chosen on the dev datasets only (0 / 1 / 2 / 3 compared, 1 best)
-PENALTY = {"label": 0.1, "shift": 1.0, "pixel": 1.0}  # -log10 of each check's share of the false-alarm budget
+# Gates and the component set were chosen on the dev datasets only (shared_study_dev.py, docs/image-benchmark-findings.md).
+GATE = {"shift": 3.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0}
+PENALTY = {"label": 0.1, "shift": 1.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0}  # -log10 share of the false-alarm budget
 
 
 def pixel_component(d: dict):
@@ -28,15 +31,20 @@ def pixel_component(d: dict):
     return p[: len(d["P_cal"])], p[len(d["P_cal"]):]
 
 
+def components(d: dict) -> dict:
+    """name -> (cal, inc) scores. The last three look for what poisoned images share (copies, a patch, a blend)."""
+    return {"label": v2.label_component(d), "shift": v2.shift_component(d), "pixel": pixel_component(d),
+            "dup": shared.duplicate_component(d), "cell": shared.shared_residual_cell_component(d),
+            "resid": shared.shared_residual_component(d)}
+
+
 def veritas_mm(d: dict):
-    comps = {"label": v2.label_component, "shift": v2.shift_component, "pixel": pixel_component}
     rows, ev = [], []
-    for name, component in comps.items():
-        cal, inc = component(d)
+    for name, (cal, inc) in components(d).items():
         e = v2.exact_tail_test(cal, inc)
         ev.append(e - PENALTY[name])
         if name == "label" or e >= GATE[name]:
-            rows.append(v2.neg_log_p(cal, inc))
+            rows.append(shared.extrapolated_neg_log_p(cal, inc))  # rows beyond every clean row keep their margin
     return np.max(rows, axis=0), max(ev)
 
 

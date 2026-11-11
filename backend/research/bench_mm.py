@@ -70,7 +70,8 @@ def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray, pix: np.nd
                         m["calibration_fraction_of_reference"])
     n_cal = int(len(ref) * m["calibration_fraction_of_reference"])
     scaler = StandardScaler().fit(pix[ref][n_cal:])  # pixel views follow the same fit/cal split as the embedding
-    d.update({"P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc)})
+    d.update({"P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc),
+              "R_cal": ds.raw[ref][:n_cal], "R_inc": raw})
     return {"d": d, "mask": mask}
 
 
