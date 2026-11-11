@@ -4,9 +4,8 @@ import { motion } from 'framer-motion';
 import { Copy, Check, KeyRound, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { PageHeader, Panel, Button, ErrorNote, Notice, Field, ConfirmButton, Dialog, Loading, Page } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, Notice, Field, ConfirmButton, Dialog, Loading, Page, EASE } from '../components/ui';
 
-const EASE = [0.19, 1, 0.22, 1];
 const USAGE = [
   ['analyses', 'Analyses today', (n) => n.toLocaleString()],
   ['rows', 'Rows checked today', (n) => n.toLocaleString()],

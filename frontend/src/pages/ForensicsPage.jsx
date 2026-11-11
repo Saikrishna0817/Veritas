@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, PageHeader, Panel, Button, Readout, Empty, PreviewTag, Segmented, Loading, Page } from '../components/ui';
+import { DATA_VERDICTS, PageHeader, Panel, Button, Readout, Empty, PreviewTag, Segmented, Loading, Page, EASE, DURATION } from '../components/ui';
 
 const SOURCES = [
   { id: 'auto', label: 'Latest analysis' },
@@ -40,7 +40,7 @@ function Classification({ c }) {
             <div key={type} className="grid grid-cols-[8.5rem_1fr_3rem] items-center gap-3 text-sm">
               <span className="capitalize text-textSecondary">{type.replace(/_/g, ' ')}</span>
               <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
-                <motion.div className="h-full rounded-full" style={{ background: i === 0 && !insufficient ? 'var(--uv)' : '#4A494B' }} initial={{ width: 0 }} animate={{ width: `${p * 100}%` }} transition={{ duration: 1, delay: i * 0.06, ease: [0.19, 1, 0.22, 1] }} />
+                <motion.div className="h-full rounded-full" style={{ background: i === 0 && !insufficient ? 'var(--uv)' : '#4A494B' }} initial={{ width: 0 }} animate={{ width: `${p * 100}%` }} transition={{ duration: DURATION.grow, delay: i * 0.06, ease: EASE }} />
               </div>
               <span className="text-right font-mono text-textSecondary">{(p * 100).toFixed(0)}%</span>
             </div>

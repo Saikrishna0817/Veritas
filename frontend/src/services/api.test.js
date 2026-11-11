@@ -69,6 +69,16 @@ describe('errors', () => {
     await expect(api.getUsage()).rejects.toMatchObject({ message: 'Bad Gateway', status: 502 });
   });
 
+  it('marks a request that never reached the server, in words a person can act on', async () => {
+    fetch.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(api.getUsage()).rejects.toMatchObject({ offline: true, status: 0, message: expect.stringMatching(/can't reach the veritas server/i) });
+  });
+
+  it('lets an aborted request stay an abort', async () => {
+    fetch.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+    await expect(api.getUsage()).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('sends an expired session to sign-in', async () => {
     fetch.mockResolvedValueOnce(fail(401, { detail: 'Not authenticated' }));
     await expect(api.getHistory()).rejects.toMatchObject({ status: 401 });

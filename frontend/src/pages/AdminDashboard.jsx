@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import {
   PageHeader, Panel, Button, IconButton, ErrorNote, Notice, Empty, Field, Tabs, TabPanel, Table, Badge, VerdictBadge,
-  ConfirmButton, Loading, Page, StatCard, RadioCards,
+  ConfirmButton, Loading, Page, StatCard, RadioCards, EASE, DURATION,
 } from '../components/ui';
 
 const ROLES = [
@@ -45,7 +45,7 @@ function NewAccount({ onCreated, onClose }) {
       initial={{ opacity: 0, height: 0 }}
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
-      transition={{ duration: 0.4, ease: [0.19, 1, 0.22, 1] }}
+      transition={{ duration: DURATION.base, ease: EASE }}
       className="overflow-hidden"
     >
       <div className="glass-card mb-6">

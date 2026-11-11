@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
+import { EASE, DURATION, SPRING } from './components/ui/motion';
 import Footer from './components/Footer';
 import Wordmark from './components/Wordmark';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -73,7 +74,7 @@ function NavItems({ items, onNavigate }) {
             {({ isActive }) => (
               <>
                 {isActive && (
-                  <motion.span layoutId="rail-mark" className="absolute bottom-2 left-0 top-2 w-[2px] rounded bg-uv" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />
+                  <motion.span layoutId="rail-mark" className="absolute bottom-2 left-0 top-2 w-[2px] rounded bg-uv" transition={SPRING} />
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-uv' : ''}`} aria-hidden />
                 <span className="flex-1">{label}</span>
@@ -114,8 +115,8 @@ function Rail({ connected }) {
         <NavItems items={items} onNavigate={() => setOpen(false)} />
       </nav>
       <div className="space-y-4 border-t border-borderHairline p-4">
-        <div className="flex items-center gap-2 font-mono text-[11px] text-textMuted" aria-live="polite">
-          <span className={`h-2 w-2 rounded-full ${connected ? 'animate-pulse bg-statusSafe' : 'bg-textMuted'}`} />
+        <div className="flex items-center gap-2 text-[12px] text-textMuted" aria-live="polite">
+          <span aria-hidden className={`h-2 w-2 rounded-full motion-reduce:animate-none ${connected ? 'animate-pulse bg-statusSafe' : 'bg-textMuted'}`} />
           {connected ? 'Live event stream' : 'Event stream reconnecting'}
         </div>
         {user && (
@@ -127,8 +128,8 @@ function Rail({ connected }) {
               <div className="truncate text-sm font-semibold">{user.name || user.username}</div>
               <div className="text-[12px] text-textMuted">{ROLE_NAMES[user.role] || user.role}</div>
             </div>
-            <button onClick={handleLogout} className="rounded-2xl p-2 text-textMuted hover:bg-white/[0.04] hover:text-textPrimary" aria-label="Sign out" title="Sign out">
-              <LogOut className="h-4 w-4" />
+            <button type="button" onClick={handleLogout} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-textMuted transition-colors hover:bg-white/[0.06] hover:text-textPrimary" aria-label="Sign out" title="Sign out">
+              <LogOut className="h-4 w-4" aria-hidden />
             </button>
           </div>
         )}
@@ -175,7 +176,7 @@ function AnimatedRoutes({ events }) {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: DURATION.fast, ease: EASE }}
       >
         <Suspense fallback={<PageFallback />}>
           <Routes location={location}>

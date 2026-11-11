@@ -38,21 +38,41 @@ Legacy Tailwind names (`redPrimary`, `uv`, `ink-*`) are kept as aliases so older
 ## 3D — `components/Specimen3D.jsx`
 Point cloud of rows: lavender-white points, flagged rows in `--flag`, a sweep line that lifts rows by evidence. Real data comes from `layer_results.row_flags`; otherwise a labelled illustrative specimen. It stands where the reference puts its phone render.
 
-## Motion
-Easing `cubic-bezier(0.19, 1, 0.22, 1)`, 1.4–2s on landing reveals. Landing: hero parallax and fade, word-by-word paragraph fill, parallax step cards (desktop only), sticky stacking cards, bars that grow in view. App: 250ms route fade. Reduced motion collapses durations and freezes the specimen.
+## Motion — `components/ui/motion.js`
+- One easing everywhere: `EASE` = `cubic-bezier(0.19, 1, 0.22, 1)` (also `--ease-out` in CSS). Never a second curve.
+- `DURATION`: `fast` 0.25s (route fade), `base` 0.45s (dialogs, panels opening), `slow` 0.8s (in-view reveals, a result arriving), `grow` 1.2s (bars filling). The landing page alone runs longer, 1.4–2s.
+- `SPRING` for the white highlight that slides between Segmented/Tabs options and the rail marker.
+- Motion explains a change (something arrived, opened, grew); nothing loops except the loading dot and the drop-target sweep.
+- Animate opacity and transform only. Content starts readable (`opacity` from 0.4–0.55, not 0) so a stalled animation never hides it.
+- Landing: hero parallax and fade, word-by-word paragraph fill, parallax step cards (desktop only), sticky stacking cards, bars that grow in view.
+- `MotionConfig reducedMotion="user"` and the CSS reduced-motion rule collapse durations; the 3D specimen freezes.
+
+## Icons
+- lucide-react only, outline style. No emoji, no second icon set.
+- 16px (`h-4 w-4`) inside buttons, nav, badges and chips; 20px (`h-5 w-5`) for the mobile menu toggle; 40px (`h-10 w-10`) only for the Dropzone mark.
+- Inside an `.icon-chip`: 16px, white or a status colour, `strokeWidth={1.5}`.
+- Decorative icons sit next to words and get `aria-hidden`. An icon with no words is an `IconButton`, whose `label` is required.
 
 ## Pages
 - `/` signed out and `/welcome`: public landing page (`pages/LandingPage.jsx`).
 - App shell: left rail with labels (the reference's dashboard mock shows an icon rail; labels are kept for nine destinations).
 
-## Components — `src/components/ui.jsx`
-Pages build from these; no page keeps its own copy of a control.
+## Components — `src/components/ui/`
+Pages build from these and import them from `../components/ui`; no page keeps its own copy of a control.
+Files: `layout.jsx`, `actions.jsx`, `choices.jsx`, `forms.jsx`, `data.jsx`, `feedback.jsx`, `dialog.jsx`, plus `motion.js`, `verdicts.js` (backend verdict codes → words and colours) and `format.js`. `index.js` re-exports them all.
 - **Layout:** `Page` (1360px container), `PageHeader` (title + grey serif `accent`), `Panel` (28px card), `StatCard` (#1A1A1A step card, display number, optional icon chip), `Reveal`.
 - **Actions:** `Button` (`primary` white · `ghost` 6% fill · `danger` red outline; `size` md/sm; `loading` spinner + `aria-busy`), `IconButton` (label required), `ConfirmButton` (two-step destructive action, no modal).
 - **Choices:** `Segmented` (toggle pills, `aria-pressed`, white sliding highlight) for filters; `Tabs` + `TabPanel` (same look, real tab semantics with arrow/Home/End keys) when a panel swaps; `RadioCards` for choices that need a sentence each.
 - **Forms:** `Field` (label, `hint`, `error` with `aria-invalid`/`aria-describedby`; `as` input/select/textarea; `mono` for data values), styled by `.field-input`.
 - **Data:** `Table` (`.data-table`: lavender header labels, hairline rows, `num` right-aligned tabular cells, selectable rows via `tabIndex` + `aria-selected`), `Readout`, `Badge` (tinted pill + dot by tone), `VerdictBadge` (backend verdict code → label and colour; unknown codes stay neutral, never "clean").
-- **Feedback:** `Notice` (critical/safe/info, optional dismiss), `ErrorNote`, `Loading` (announced), `Empty` (says why and what to do), `PreviewTag`.
+- **Feedback:** `Notice` (critical/safe/info, optional dismiss), `ErrorNote` (an action failed; inline), `Loading` (announced), `PreviewTag`.
+- **Page states** share one card (icon chip, title, sentence, one action):
+  - `Empty`: nothing yet. Say why and give the action that fixes it.
+  - `ErrorState`: a load failed and there is nothing else to show. Pass the thrown error; `services/errors.js` picks the words from its status (offline, unavailable, rate limited, no access, not found, failed) and keeps the server's own message. `onRetry` adds Try again.
+  - `Unavailable`: the server can't do this here (feature off on this deployment, 501/503, or not answering). Quiet grey, not red: it is nobody's mistake.
+  - A failed refresh that still has data keeps the data and shows an `ErrorNote` above it.
+  - `PageErrorBoundary` catches a page that fails to render, keeps the shell, and offers Try again.
+- **Errors from the API:** every call goes through `services/api.js`. Server errors carry `status` and the server's `detail` as the message; a request that never reached the server has `offline: true` and a readable message instead of "Failed to fetch".
 - **Dialog:** native `<dialog>` portalled to `<body>`: blurred backdrop, focus on the first field, Escape and backdrop click close. Only for irreversible actions that also need input (deleting the account).
 - **States:** every control has hover, `:focus-visible` (2px lavender ring), active (1px press), disabled (45% opacity, no press) and, where it waits on the API, loading.
 

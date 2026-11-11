@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { RefreshCw, X, Download } from 'lucide-react';
 import { api } from '../services/api';
 import {
-  DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, IconButton, ErrorNote, Segmented, Table, VerdictBadge, Loading, Page, downloadJson,
+  DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, IconButton, ErrorNote, ErrorState, Segmented, Table, VerdictBadge, Loading, Page, downloadJson,
 } from '../components/ui';
 
 const SOURCES = [
@@ -70,15 +70,15 @@ function Detail({ row, onClose }) {
 export default function HistoryPage() {
   const [source, setSource] = useState('');
   const [data, setData] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let live = true;
     api.getHistory(source || null, 100)
-      .then((d) => { if (live) { setData(d); setError(''); } })
-      .catch((e) => live && setError(e.message));
+      .then((d) => { if (live) { setData(d); setError(null); } })
+      .catch((e) => live && setError(e));
     return () => { live = false; };
   }, [source, nonce]);
 
@@ -110,9 +110,11 @@ export default function HistoryPage() {
 
       <Segmented label="Filter by source" className="mb-6" options={SOURCES} value={source} onChange={(id) => { setSource(id); setSelected(null); }} />
 
-      <ErrorNote>{error}</ErrorNote>
+      {/* Nothing loaded yet: the failure is the page. A failed refresh keeps the rows and says so above them. */}
+      {error && !data && <ErrorState error={error} onRetry={() => { setError(null); setNonce((n) => n + 1); }} />}
+      {error && data && <ErrorNote className="mb-6">{error.message}</ErrorNote>}
 
-      <div className={`grid gap-6 ${selected ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}`}>
+      {(data || !error) && <div className={`grid gap-6 ${selected ? 'lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]' : ''}`}>
         <div className="panel min-w-0 px-3 py-2">
           <Table minWidth={640}>
             <thead>
@@ -151,7 +153,7 @@ export default function HistoryPage() {
         <AnimatePresence mode="wait">
           {selected && <Detail key={`${selected.source}-${selected.id}`} row={selected} onClose={() => setSelected(null)} />}
         </AnimatePresence>
-      </div>
+      </div>}
     </Page>
   );
 }

@@ -20,6 +20,21 @@ function handleUnauthorized() {
     if (window.location.pathname !== loginPath) window.location.assign(loginPath);
 }
 
+// A request that never reached the server (offline, DNS, server down) rejects with a bare TypeError such as
+// "Failed to fetch". Give it words a person can act on and mark it, so pages can tell it from a server error.
+async function send(url, init) {
+    try {
+        return await fetch(url, init);
+    } catch (e) {
+        if (e?.name === 'AbortError') throw e;
+        const err = new Error("Can't reach the Veritas server. Check your connection, then try again.");
+        err.status = 0;
+        err.offline = true;
+        err.cause = e;
+        throw err;
+    }
+}
+
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
@@ -32,7 +47,7 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
 }
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await send(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
@@ -42,13 +57,13 @@ async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
 }
 
 async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
+    const res = await send(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' });
+    const res = await send(`${BASE_URL}${path}`, { credentials: 'same-origin' });
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');

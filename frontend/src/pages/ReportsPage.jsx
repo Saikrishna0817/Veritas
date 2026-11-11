@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { FileText, Download, ShieldAlert } from 'lucide-react';
 import { api } from '../services/api';
 import {
-  DATA_VERDICTS, PageHeader, Panel, Button, ErrorNote, Segmented, VerdictBadge, Readout, Empty, Loading, Page, downloadJson,
+  DATA_VERDICTS, PageHeader, Panel, Button, ErrorNote, Segmented, VerdictBadge, Readout, Empty, Loading, Page, downloadJson, EASE, DURATION,
 } from '../components/ui';
 
 const SOURCES = [
@@ -28,7 +28,7 @@ function Report({ report }) {
   const v = DATA_VERDICTS[summary.verdict];
   const info = report.dataset_info || {};
   return (
-    <motion.div initial={{ opacity: 0.4, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.19, 1, 0.22, 1] }} className="space-y-8">
+    <motion.div initial={{ opacity: 0.4, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DURATION.slow, ease: EASE }} className="space-y-8">
       <section className="edge-card">
         <div className="edge-inner relative grid gap-8 p-8 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] md:p-10">
           <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(45% 90% at 90% 40%, rgba(71,0,214,0.38), transparent 70%)' }} />
@@ -74,7 +74,7 @@ function Report({ report }) {
                       <span className="font-mono tabular">{pct}%</span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                      <motion.div className="h-full rounded-full bg-violet" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1.2, ease: [0.19, 1, 0.22, 1] }} />
+                      <motion.div className="h-full rounded-full bg-violet" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: DURATION.grow, ease: EASE }} />
                     </div>
                   </li>
                 );

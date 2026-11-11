@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowUpRight, FileCode2, ScanLine, ShieldCheck, Tags, Waves, Terminal } from 'lucide-react';
 import { LogoMark } from '../components/Wordmark';
+import { EASE } from '../components/ui/motion';
 
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
 
-const EASE = [0.19, 1, 0.22, 1];
 const BENCH = [
   { label: 'Row AUPRC at 5% poison', note: 'random ranking scores 0.05', rows: [['veritas2', 0.69], ['cleanlab', 0.54], ['Two-sample test', 0.49], ['Old Veritas', 0.11]] },
   { label: 'Batches caught at 5% false alarms', note: '12 held-out OpenML datasets', rows: [['veritas2', 0.78], ['cleanlab', 0.55], ['Old Veritas', 0.33], ['Two-sample test', 0.14]] },
