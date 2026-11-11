@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -182,20 +182,93 @@ function Cloud({ scores, flagged, loop, reduced }) {
   );
 }
 
+let webglSupport;
+/** Checked once per page: some browsers, remote desktops and locked-down machines have no WebGL. */
+function canUseWebGL() {
+  if (webglSupport !== undefined) return webglSupport;
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+    webglSupport = !!gl;
+    gl?.getExtension('WEBGL_lose_context')?.loseContext();   // give the test context back
+  } catch {
+    webglSupport = false;
+  }
+  return webglSupport;
+}
+
+const STATIC_POINTS = 900;
+
+/** The same slide drawn flat, for when WebGL is missing or the 3D view fails. */
+function StaticSpecimen({ scores, flagged }) {
+  const dots = useMemo(() => {
+    const flagSet = new Set(flagged);
+    const n = scores.length;
+    const step = Math.max(1, n / STATIC_POINTS);
+    const picked = new Set();
+    for (let k = 0; k < n && picked.size < STATIC_POINTS; k += step) picked.add(Math.floor(k));
+    flagged.forEach((i) => { if (i < n) picked.add(i); });   // every flagged row stays visible
+    const idx = [...picked];
+    const m = idx.length;
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    const max = Math.max(4, ...idx.map((i) => scores[i] || 0));
+    return idx.map((rowIdx, k) => {
+      const r = Math.sqrt((k + 0.5) / m);
+      const a = k * golden;
+      const isFlag = flagSet.has(rowIdx);
+      const lift = isFlag ? (Math.min(scores[rowIdx] || 0, max) / max) * 46 : 0;
+      return { x: 200 + Math.cos(a) * r * 168, y: 150 + Math.sin(a) * r * 62 - lift, flag: isFlag };
+    });
+  }, [scores, flagged]);
+  return (
+    <svg viewBox="0 0 400 240" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+      <ellipse cx="200" cy="150" rx="186" ry="72" fill="#B9A3FF" fillOpacity="0.05" stroke="#B9A3FF" strokeOpacity="0.4" />
+      {dots.map((d, i) => (
+        <circle key={i} cx={d.x} cy={d.y} r={d.flag ? 2.6 : 1.4} fill={d.flag ? '#FF6A4D' : '#BAA3FF'} fillOpacity={d.flag ? 1 : 0.75} />
+      ))}
+    </svg>
+  );
+}
+
+class CanvasBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? this.props.fallback : this.props.children; }
+}
+
 export default function Specimen3D({ scores, flagged, loop = false, className = '' }) {
   const data = useMemo(() => (scores?.length ? { scores, flagged: flagged || [] } : illustrative()), [scores, flagged]);
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const [webgl, setWebgl] = useState(canUseWebGL);
+  const [onScreen, setOnScreen] = useState(true);
+  const box = useRef(null);
+
+  // Stop drawing frames while the specimen is scrolled out of view.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting), { rootMargin: '120px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const fallback = <StaticSpecimen scores={data.scores} flagged={data.flagged} />;
   return (
-    <div className={className} aria-hidden="true">
-      <Canvas
-        dpr={[1, 2]}
-        camera={{ position: [0, 1.35, 3.6], fov: 42 }}
-        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-        frameloop={reduced ? 'demand' : 'always'}
-      >
-        <FitCamera />
-        <Cloud scores={data.scores} flagged={data.flagged} loop={loop} reduced={reduced} />
-      </Canvas>
+    <div ref={box} className={className} aria-hidden="true">
+      {webgl ? (
+        <CanvasBoundary fallback={fallback}>
+          <Canvas
+            dpr={[1, 2]}
+            camera={{ position: [0, 1.35, 3.6], fov: 42 }}
+            gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+            frameloop={reduced ? 'demand' : onScreen ? 'always' : 'never'}
+            onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', () => setWebgl(false), { once: true })}
+          >
+            <FitCamera />
+            <Cloud scores={data.scores} flagged={data.flagged} loop={loop} reduced={reduced} />
+          </Canvas>
+        </CanvasBoundary>
+      ) : fallback}
     </div>
   );
 }

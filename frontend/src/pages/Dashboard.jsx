@@ -224,7 +224,7 @@ export default function Dashboard({ wsEvents = [] }) {
           <button
             onClick={runDemo}
             disabled={demoBusy}
-            className="mt-5 inline-flex items-center gap-2 text-sm text-textMuted underline-offset-4 hover:text-textPrimary hover:underline disabled:opacity-50"
+            className="mt-3 inline-flex min-h-[44px] items-center gap-2 text-sm text-textMuted underline-offset-4 hover:text-textPrimary hover:underline disabled:opacity-50"
           >
             <Play className="h-3.5 w-3.5" /> {demoBusy ? 'Running a synthetic sample batch…' : 'Or run a synthetic sample batch'}
           </button>
@@ -259,7 +259,7 @@ export default function Dashboard({ wsEvents = [] }) {
           <div className="panel h-full">
             <div className="flex items-baseline justify-between border-b border-borderHairline p-6">
               <h2 className="font-display text-xl font-medium">Recent runs</h2>
-              <Link to="/history" className="text-sm text-violet hover:text-[var(--red-bright)]">All history →</Link>
+              <Link to="/history" className="-my-3 inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">All history →</Link>
             </div>
             {history === null ? (
               <div className="p-6 text-sm text-textMuted" role="status">Loading…</div>

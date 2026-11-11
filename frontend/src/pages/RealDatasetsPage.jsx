@@ -91,7 +91,7 @@ export default function RealDatasetsPage() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h2 className="font-display text-lg font-medium">{d.name}</h2>
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-textMuted">{d.domain}</span>
+                    <span className="text-[13px] text-textMuted">{d.domain}</span>
                   </div>
                   <p className="mt-1 text-sm text-textSecondary">{d.description}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">

@@ -28,14 +28,14 @@ export default function AuthLayout({ title, lede, children, footer, tone = 'anal
         <div className="w-full max-w-[400px]">
           <div className="mb-10 lg:hidden"><Wordmark size={22} /></div>
           {tone === 'admin' && (
-            <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-statusCritical/40 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-statusCritical">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-statusCritical/40 px-3 py-1 text-[12px] text-statusCritical">
               Administrator access
             </div>
           )}
           <h1 className="font-display text-[34px] font-medium leading-tight">{title}</h1>
           {lede && <p className="mt-2 text-textSecondary">{lede}</p>}
           <div className="mt-8">{children}</div>
-          {footer && <div className="mt-8 flex justify-between border-t border-borderHairline pt-5 text-sm">{footer}</div>}
+          {footer && <div className="mt-8 flex justify-between border-t border-borderHairline pt-2 text-sm [&_a]:inline-flex [&_a]:min-h-[44px] [&_a]:items-center">{footer}</div>}
         </div>
       </section>
     </main>

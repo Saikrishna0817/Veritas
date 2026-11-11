@@ -36,8 +36,7 @@ export function PreviewTag({ className = '' }) {
   return (
     <span
       title="Heuristic output, not measured on the benchmark"
-      className={`inline-flex items-center gap-1.5 rounded-lg border border-statusWarn/50 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-statusWarn align-middle ${className}`}
-      style={{ fontStretch: 'normal', letterSpacing: '0.08em' }}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-statusWarn/50 px-3 py-1 text-[12px] font-medium text-statusWarn align-middle ${className}`}
     >
       <FlaskConical className="w-3 h-3" aria-hidden /> Research preview
     </span>
@@ -104,7 +103,7 @@ export function Dropzone({ accept, onFile, file, hint, label = 'Drop a file or b
       className={`relative flex min-h-[240px] cursor-pointer flex-col items-center justify-center gap-3 rounded-[28px] border border-dashed p-10 text-center transition-colors duration-300
         ${over ? 'border-uv bg-uv/[0.06] scan-sweep' : file ? 'border-statusSafe/60 bg-statusSafe/[0.04]' : 'border-borderStrong bg-ink-950/50 hover:border-violet hover:bg-violet/[0.05]'}`}
     >
-      <input ref={ref} type="file" accept={accept} className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files[0])} />
+      <input ref={ref} type="file" accept={accept} aria-label="Choose a file" className="sr-only" tabIndex={-1} onChange={(e) => onFile(e.target.files[0])} />
       {/* slide corner marks */}
       {['top-2 left-2 border-l border-t', 'top-2 right-2 border-r border-t', 'bottom-2 left-2 border-l border-b', 'bottom-2 right-2 border-r border-b'].map((c) => (
         <span key={c} className={`absolute h-3 w-3 rounded-[2px] border-uv/70 ${c}`} aria-hidden />

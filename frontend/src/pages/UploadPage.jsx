@@ -86,7 +86,7 @@ function RankedRows({ scores, flagged, offset }) {
         Ranked by row evidence: −log₁₀ of the share of clean reference rows that score at least as high. 2.0 means the row is in the clean top 1%.
         Row numbers are positions in your file.
       </p>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
           <thead>
             <tr className="rule-label text-left">

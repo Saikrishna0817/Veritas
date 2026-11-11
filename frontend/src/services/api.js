@@ -1,4 +1,4 @@
-// API client for AI Trust Forensics Platform
+// Veritas API client. Every page goes through this file; none calls fetch itself.
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -103,29 +103,12 @@ export const api = {
 
     // Demo & Real Datasets
     runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
-    getDemoDataset: () => apiFetch('/datasets/demo'),
-    getDemoSamples: (limit = 50, offset = 0, status = null) => {
-        const params = new URLSearchParams({ limit, offset });
-        if (status) params.append('filter_status', status);
-        return apiFetch(`/datasets/demo/samples?${params}`);
-    },
     getRealDatasets: () => apiFetch('/datasets/real'),
     analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
     downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
 
-    // Detection
-    analyzeDataset: (sampleIds = []) =>
-        apiFetch('/detect/analyze', { method: 'POST', body: JSON.stringify({ sample_ids: sampleIds }) }),
-    getLatestResults: () => apiFetch('/detect/results/latest'),
-
-    // Forensics
+    // Forensics (the latest result already carries the narrative and blast radius)
     getLatestForensics: (source = 'auto') => apiFetch(`/forensics/latest?source=${source}`),
-    getAttackNarrative: (source = 'auto') => apiFetch(`/forensics/narrative?source=${source}`),
-    getAttackTimeline: () => apiFetch('/forensics/timeline'),
-    getBlastRadius: (source = 'auto') => apiFetch(`/blast-radius/latest?source=${source}`),
-
-    // Trust
-    getTrustScore: () => apiFetch('/trust/score'),
 
     // Defense
     triggerQuarantine: () => apiFetch('/defense/quarantine', { method: 'POST' }),
@@ -136,8 +119,6 @@ export const api = {
             method: 'POST',
             body: JSON.stringify({ case_id: caseId, decision, reviewer }),
         }),
-
-    // Federated
 
     // Reports
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
@@ -157,7 +138,6 @@ export const api = {
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
 
     // Model Scan
-    scanModel: (formData) => apiFormData('/analyze/model', formData),
     uploadModel: (file, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('model_file', file);
@@ -178,8 +158,6 @@ export const api = {
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
     deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
     getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
-
-    // Red Team
 
     // Blue Team SOC
     getBlueTeamStatus: () => apiFetch('/blueteam/status'),

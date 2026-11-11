@@ -19,7 +19,7 @@ import Wordmark from './components/Wordmark';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './hooks/useAuth';
 
-// Pages load on demand so the login screen doesn't ship three.js, recharts, etc.
+// Pages load on demand so the sign-in screen doesn't ship three.js.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ForensicsPage = lazy(() => import('./pages/ForensicsPage'));
@@ -36,7 +36,7 @@ const AccountPage = lazy(() => import('./pages/AccountPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 const PageFallback = () => (
-  <div className="p-10 font-mono text-sm text-textMuted" role="status">Preparing slide…</div>
+  <div className="p-10 text-sm text-textMuted" role="status">Loading…</div>
 );
 
 const BASE_NAV_ITEMS = [
@@ -51,6 +51,7 @@ const BASE_NAV_ITEMS = [
   { path: '/account', label: 'Account', icon: UserRound },
 ];
 const ADMIN_NAV_ITEMS = [{ path: '/admin', label: 'Admin console', icon: ShieldCheck }];
+const ROLE_NAMES = { admin: 'Administrator', analyst: 'Analyst', user: 'User' };
 
 function NavItems({ items, onNavigate }) {
   return (
@@ -76,7 +77,7 @@ function NavItems({ items, onNavigate }) {
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-uv' : ''}`} aria-hidden />
                 <span className="flex-1">{label}</span>
-                {preview && <span className="font-mono text-[9px] uppercase tracking-wider text-statusWarn/90" title="Research preview">preview</span>}
+                {preview && <span className="rounded-full border border-statusWarn/40 px-2 py-0.5 text-[11px] text-statusWarn/90" title="Research preview: heuristic output">Preview</span>}
               </>
             )}
           </NavLink>
@@ -124,7 +125,7 @@ function Rail({ connected }) {
             </div>
             <div className="min-w-0 flex-1 leading-tight">
               <div className="truncate text-sm font-semibold">{user.name || user.username}</div>
-              <div className="font-mono text-[10px] uppercase tracking-wider text-textMuted">{user.role === 'admin' ? 'Administrator' : 'Analyst'}</div>
+              <div className="text-[12px] text-textMuted">{ROLE_NAMES[user.role] || user.role}</div>
             </div>
             <button onClick={handleLogout} className="rounded-2xl p-2 text-textMuted hover:bg-white/[0.04] hover:text-textPrimary" aria-label="Sign out" title="Sign out">
               <LogOut className="h-4 w-4" />

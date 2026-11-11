@@ -144,7 +144,7 @@ function AccountsTab({ users, loading, me, onChanged, notify, fail }) {
       {loading ? <p className="text-sm text-textMuted" role="status">Loading accounts…</p> : users.length === 0 ? (
         <p className="text-sm text-textSecondary">No accounts yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="rule-label border-b border-borderHairline text-left">
@@ -205,7 +205,7 @@ function AnalysesTab({ rows, loading, onChanged, notify, fail }) {
       {loading ? <p className="text-sm text-textMuted" role="status">Loading…</p> : rows.length === 0 ? (
         <p className="text-sm text-textSecondary">Nothing stored yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="rule-label border-b border-borderHairline text-left">
