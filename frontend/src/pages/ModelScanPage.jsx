@@ -4,7 +4,7 @@ import { Download, RotateCcw, FileCode2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAnalysisRun } from '../hooks/useAnalysisRun';
 import JobCard from '../components/JobCard';
-import { MODEL_VERDICTS, PageHeader, Button, Panel, Dropzone, ErrorNote, Badge, VerdictBadge, Page, downloadJson, formatBytes } from '../components/ui';
+import { MODEL_VERDICTS, PageHeader, Button, Panel, Dropzone, ErrorNote, Badge, VerdictBadge, Loading, Page, downloadJson, formatBytes, EASE, verdictInfo } from '../components/ui';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
@@ -45,7 +45,7 @@ function ByteTape({ file, active }) {
 
 function Result({ result, onReset }) {
   const scan = result.scan || {};
-  const v = MODEL_VERDICTS[result.verdict] || MODEL_VERDICTS.REVIEW;
+  const v = verdictInfo(result.verdict, 'model');
   const findings = scan.findings || [];
   return (
     <div className="space-y-8">
@@ -55,7 +55,7 @@ function Result({ result, onReset }) {
         <motion.div
           initial={{ opacity: 0, clipPath: 'inset(0 100% 0 0)' }}
           animate={{ opacity: 1, clipPath: 'inset(0 0% 0 0)' }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.9, ease: EASE }}
           className="mt-3 font-display text-[clamp(2.2rem,5vw,4.4rem)] font-medium leading-[0.92]"
           style={{ color: v.color }}
         >
@@ -111,9 +111,12 @@ function Result({ result, onReset }) {
 export default function ModelScanPage() {
   const [file, setFile] = useState(null);
   const { run: start, loading, job, result, error, setError, reset: clearResult } = useAnalysisRun('model');
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(null);
+  const [historyError, setHistoryError] = useState('');
 
-  const loadHistory = () => api.getModelScanHistory(8).then((d) => setHistory(d.results || d.scans || (Array.isArray(d) ? d : []))).catch(() => {});
+  const loadHistory = () => api.getModelScanHistory(8)
+    .then((d) => { setHistory(d.results || d.scans || (Array.isArray(d) ? d : [])); setHistoryError(''); })
+    .catch((e) => setHistoryError(e.message));
   useEffect(() => { loadHistory(); }, []);
 
   const pick = (f) => {
@@ -157,7 +160,11 @@ export default function ModelScanPage() {
               </ul>
             </Panel>
             <Panel title="Recent scans">
-              {history.length === 0 ? (
+              {history === null && historyError ? (
+                <p className="text-sm text-textSecondary">Recent scans could not load: {historyError} <button type="button" onClick={loadHistory} className="inline-flex min-h-[44px] items-center text-violet hover:underline">Try again</button></p>
+              ) : history === null ? (
+                <Loading>Loading recent scans…</Loading>
+              ) : history.length === 0 ? (
                 <p className="text-sm text-textSecondary">No scans yet.</p>
               ) : (
                 <ul className="divide-y divide-borderHairline">

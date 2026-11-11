@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, PageHeader, Panel, Button, Readout, Empty, PreviewTag, Segmented, Loading, Page, EASE, DURATION } from '../components/ui';
+import { PageHeader, Panel, Button, Readout, Empty, ErrorState, PreviewTag, Segmented, Loading, Page, EASE, DURATION, verdictInfo, orDash, percent } from '../components/ui';
 
 const SOURCES = [
   { id: 'auto', label: 'Latest analysis' },
@@ -29,7 +29,7 @@ function Classification({ c }) {
           <div className="font-display text-3xl font-medium capitalize tracking-[-0.04em]">{c.attack_type.replace(/_/g, ' ')}</div>
           {c.description && <p className="mt-2 text-textSecondary">{c.description}</p>}
           <dl className="mt-6 grid grid-cols-2 gap-5">
-            <Readout label="Heuristic confidence" value={`${Math.round((c.confidence || 0) * 100)}%`} />
+            <Readout label="Heuristic confidence" value={percent(c.confidence)} />
             <Readout label="Typical severity" value={c.severity} />
           </dl>
         </>
@@ -57,18 +57,20 @@ export default function ForensicsPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
+  const [error, setError] = useState(null);
 
   // Callers set `loading` before calling, so the effect below never sets state synchronously.
   const load = useCallback((src) => api.getLatestForensics(src)
-    .then((d) => { setData(d); setMissing(false); })
-    .catch(() => { setData(null); setMissing(true); })
+    .then((d) => { setData(d); setMissing(false); setError(null); })
+    // 404: nothing analysed for this source yet. Anything else is a failure, not "nothing to read".
+    .catch((e) => { setData(null); setMissing(e.status === 404); setError(e.status === 404 ? null : e); })
     .finally(() => setLoading(false)), []);
 
   useEffect(() => { load(source); }, [source, load]);
   const pick = (id) => { if (id !== source) { setLoading(true); setSource(id); } };
   const refresh = () => { setLoading(true); load(source); };
 
-  const v = data ? DATA_VERDICTS[data.verdict] : null;
+  const v = data ? verdictInfo(data.verdict) : null;
   const info = data?.dataset_info;
   const pattern = data?.injection_pattern;
 
@@ -85,6 +87,7 @@ export default function ForensicsPage() {
       <Segmented label="Which analysis" className="mb-8" options={SOURCES} value={source} onChange={pick} />
 
       {loading && !data && <Loading>Loading the analysis…</Loading>}
+      {!loading && error && <ErrorState error={error} onRetry={refresh} />}
       {!loading && missing && (
         <Empty title="Nothing to read yet" action={source === 'demo'
           ? <Link to="/" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">Go to Overview →</Link>
@@ -104,7 +107,7 @@ export default function ForensicsPage() {
                 {v?.blurb && <p className="mt-3 max-w-[46ch] text-textSecondary">{v.blurb}</p>}
               </div>
               <dl className="relative grid grid-cols-2 gap-6 self-end sm:grid-cols-4">
-                <Readout label="Flagged rows" value={pattern?.n_poisoned_samples ?? 0} color="var(--flag)" />
+                <Readout label="Flagged rows" value={orDash(pattern?.n_poisoned_samples)} color="var(--flag)" />
                 <Readout label="Rows in file" value={info?.n_rows?.toLocaleString() ?? '—'} />
                 <Readout label="Features" value={info?.n_features ?? '—'} />
                 <Readout label="Source" value={(data.source || '—').replace('_', ' ')} />

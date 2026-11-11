@@ -4,8 +4,8 @@ import { Users, UserPlus, RefreshCw, ShieldAlert, ScrollText, Database, ChevronD
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import {
-  PageHeader, Panel, Button, IconButton, ErrorNote, Notice, Empty, Field, Tabs, TabPanel, Table, Badge, VerdictBadge,
-  ConfirmButton, Loading, Page, StatCard, RadioCards, EASE, DURATION,
+  PageHeader, Panel, Button, IconButton, ErrorNote, ErrorState, Notice, Field, Tabs, TabPanel, Table, Badge, VerdictBadge,
+  ConfirmButton, Loading, Page, StatCard, RadioCards, EASE, DURATION, percent,
 } from '../components/ui';
 
 const ROLES = [
@@ -255,7 +255,7 @@ function ReviewTab({ cases, status, loading, onChanged, notify, fail }) {
               onConfirm={async () => {
                 try {
                   const r = await api.triggerQuarantine();
-                  notify(`${r.samples_affected ?? 0} rows quarantined.`);
+                  notify(r.samples_affected != null ? `${r.samples_affected} rows quarantined.` : 'Quarantine ran.');
                   onChanged();
                 } catch (e) { fail(e.message); }
               }}
@@ -271,7 +271,7 @@ function ReviewTab({ cases, status, loading, onChanged, notify, fail }) {
                 <li key={c.case_id} className="flex flex-wrap items-center justify-between gap-3 py-3.5">
                   <div className="min-w-0">
                     <div className="font-mono text-sm">{c.case_id.slice(0, 12)}…</div>
-                    <div className="text-xs text-textMuted">suspicion {Math.round((c.suspicion_score || 0) * 100)}% · {c.n_samples} rows · {when(c.created_at)}</div>
+                    <div className="text-xs text-textMuted">suspicion {percent(c.suspicion_score)} · {c.n_samples} rows · {when(c.created_at)}</div>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="danger" size="sm" disabled={busy === c.case_id} onClick={() => decide(c.case_id, 'approve_quarantine')}>Quarantine</Button>
@@ -307,6 +307,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);       // counts stay a dash until one load has succeeded
+  const [loadError, setLoadError] = useState(null);
 
   const load = useCallback(() => Promise.all([
     api.getUsers().then(setUsers),
@@ -314,14 +316,15 @@ export default function AdminDashboard() {
     api.getAuditEvents(100).then((d) => setEvents(d.events || [])),
     api.getPendingReviews().then((d) => setCases(d.cases || [])),
     api.getDefenseStatus().then(setStatus),
-  ]).catch((e) => setError(e.message)).finally(() => setLoading(false)), []);
+  ]).then(() => { setLoaded(true); setLoadError(null); }).catch(setLoadError).finally(() => setLoading(false)), []);
 
   useEffect(() => { load(); }, [load]);
 
   const notify = (m) => { setError(''); setMessage(m); };
   const fail = (m) => { setMessage(''); setError(m); };
   const reload = () => { setLoading(true); load(); };
-  const counts = { accounts: users.length, analyses: analyses.length, audit: events.length, review: cases.length };
+  const counts = loaded ? { accounts: users.length, analyses: analyses.length, audit: events.length, review: cases.length } : {};
+  const admins = users.filter((u) => u.role === 'admin').length;
 
   return (
     <Page>
@@ -330,12 +333,13 @@ export default function AdminDashboard() {
       </PageHeader>
 
       <section aria-label="Totals" className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Accounts" value={users.length} note={`${users.filter((u) => u.role === 'admin').length} administrator${users.filter((u) => u.role === 'admin').length === 1 ? '' : 's'}`} />
-        <StatCard label="Stored analyses" value={analyses.length} note="newest 100 across all accounts" />
-        <StatCard label="Audit events" value={events.length} note="newest 100" />
-        <StatCard label="Waiting for review" value={cases.length} note="this admin account" />
+        <StatCard label="Accounts" value={counts.accounts ?? '—'} note={loaded ? `${admins} administrator${admins === 1 ? '' : 's'}` : null} />
+        <StatCard label="Stored analyses" value={counts.analyses ?? '—'} note="newest 100 across all accounts" />
+        <StatCard label="Audit events" value={counts.audit ?? '—'} note="newest 100" />
+        <StatCard label="Waiting for review" value={counts.review ?? '—'} note="this admin account" />
       </section>
 
+      {loaded && loadError && <ErrorNote className="mb-6">Refresh failed: {loadError.message}</ErrorNote>}
       {(message || error) && (
         <div className="mb-6">
           <Notice tone="safe" onDismiss={() => setMessage('')}>{message}</Notice>
@@ -343,6 +347,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {!loaded && loadError ? (
+        <ErrorState error={loadError} onRetry={reload} title="The console could not load" />
+      ) : <>
       <Tabs
         idBase="admin"
         label="Admin sections"
@@ -358,7 +365,7 @@ export default function AdminDashboard() {
         {tab === 'audit' && <AuditTab events={events} loading={loading} users={users} />}
         {tab === 'review' && <ReviewTab cases={cases} status={status} loading={loading} onChanged={reload} notify={notify} fail={fail} />}
       </TabPanel>
-      {!loading && error && users.length === 0 && <Empty title="The console could not load">{error}</Empty>}
+      </>}
     </Page>
   );
 }

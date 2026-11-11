@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, FileCode2, Play, Radio, ScanLine, TriangleAlert, Gauge } from 'lucide-react';
 import { api } from '../services/api';
-import { DATA_VERDICTS, Button, Reveal, ErrorNote, StatCard, VerdictBadge, Loading } from '../components/ui';
+import { Button, Reveal, ErrorNote, ErrorState, StatCard, VerdictBadge, Loading, EASE, DURATION, verdictInfo, orDash } from '../components/ui';
 
 // three.js is heavy; the specimen loads after the readout is on screen.
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -16,7 +16,7 @@ const BENCH = [
 const EVENT_COPY = {
   sample_analyzed: (d) => `Batch scored · ${d?.n_samples ?? '?'} rows · suspicion ${pct(d?.suspicion_score)}`,
   attack_confirmed: (d) => `Evidence above threshold${d?.attack_type ? ` · pattern: ${d.attack_type.replace(/_/g, ' ')}` : ''}`,
-  defense_triggered: (d) => `${(d?.action || 'action').replace(/_/g, ' ')} · ${d?.samples_affected ?? 0} rows held back`,
+  defense_triggered: (d) => `${(d?.action || 'action').replace(/_/g, ' ')} · ${d?.samples_affected ?? '?'} rows held back`,
   human_review_required: () => 'Case opened for human review',
 };
 
@@ -33,7 +33,16 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
-function VerdictReadout({ latest }) {
+function VerdictReadout({ latest, error }) {
+  if (error) {
+    return (
+      <div>
+        <div className="rule-label">Latest batch</div>
+        <p className="mt-4 font-display text-[clamp(2.2rem,4.2vw,3.9rem)] font-medium leading-[0.92]">The latest result<br /><span className="serif-accent">could not load.</span></p>
+        <p className="mt-5 max-w-[46ch] text-textSecondary">{error.message} The specimen shown is illustrative until it does.</p>
+      </div>
+    );
+  }
   if (!latest) {
     return (
       <div>
@@ -41,7 +50,7 @@ function VerdictReadout({ latest }) {
         <motion.p
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: DURATION.slow, ease: EASE }}
           className="mt-4 font-display text-[clamp(2.2rem,4.2vw,3.9rem)] font-medium leading-[0.92]"
         >
           Put the batch on the slide.<br /><span className="serif-accent">Watch what glows.</span>
@@ -52,7 +61,7 @@ function VerdictReadout({ latest }) {
       </div>
     );
   }
-  const v = DATA_VERDICTS[latest.verdict] || DATA_VERDICTS.SUSPICIOUS;
+  const v = verdictInfo(latest.verdict);
   const flags = latest.layer_results?.row_flags;
   return (
     <div>
@@ -60,7 +69,7 @@ function VerdictReadout({ latest }) {
       <motion.div
         initial={{ opacity: 0, letterSpacing: '0.08em' }}
         animate={{ opacity: 1, letterSpacing: '-0.02em' }}
-        transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: DURATION.grow, ease: EASE }}
         className="mt-3 font-display text-[clamp(2.6rem,6vw,5.4rem)] font-medium leading-[0.9]"
         style={{ color: v.color }}
       >
@@ -69,8 +78,8 @@ function VerdictReadout({ latest }) {
       <p className="mt-4 max-w-[46ch] text-textSecondary">{v.blurb}</p>
       <dl className="mt-6 grid grid-cols-3 gap-6 border-t border-borderHairline pt-5 font-mono">
         <div><dt className="rule-label">Evidence</dt><dd className="mt-1 whitespace-nowrap text-lg">{v.p}</dd></div>
-        <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-lg text-flag">{flags?.flagged_indices_incoming?.length ?? 0}</dd></div>
-        <div><dt className="rule-label">Rows checked</dt><dd className="mt-1 text-lg">{(latest.n_samples ?? 0).toLocaleString()}</dd></div>
+        <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-lg text-flag">{orDash(flags?.flagged_indices_incoming?.length)}</dd></div>
+        <div><dt className="rule-label">Rows checked</dt><dd className="mt-1 text-lg">{orDash(latest.n_samples, (n) => n.toLocaleString())}</dd></div>
       </dl>
     </div>
   );
@@ -110,7 +119,7 @@ function BenchLedger() {
                         initial={{ width: 0 }}
                         whileInView={{ width: `${val * 100}%` }}
                         viewport={{ once: true }}
-                        transition={{ duration: 1.1, delay: ri * 0.15 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                        transition={{ duration: DURATION.grow, delay: ri * 0.15 + i * 0.08, ease: EASE }}
                       />
                     </div>
                     <span className={`text-right font-mono ${ours ? 'text-uv' : 'text-textSecondary'}`}>{val.toFixed(2)}</span>
@@ -137,7 +146,7 @@ function StatRow({ stats, usage }) {
   const dash = '—';
   return (
     <section aria-label="Your numbers" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Batches examined" icon={ScanLine} value={loading ? dash : (stats.total_analyses ?? 0)} note="uploads, reference datasets and sample batches" />
+      <StatCard label="Batches examined" icon={ScanLine} value={loading ? dash : orDash(stats.total_analyses)} note="uploads, reference datasets and sample batches" />
       <StatCard
         label="Batches flagged"
         icon={TriangleAlert}
@@ -145,7 +154,7 @@ function StatRow({ stats, usage }) {
         note="suspicious or confirmed"
         accent={!loading && stats.total_analyses ? `${Math.round((flaggedBatches / stats.total_analyses) * 100)}%` : null}
       />
-      <StatCard label="Model files scanned" icon={FileCode2} value={loading ? dash : (stats.model_scans ?? 0)} />
+      <StatCard label="Model files scanned" icon={FileCode2} value={loading ? dash : orDash(stats.model_scans)} />
       <StatCard
         label="Daily quota used"
         icon={Gauge}
@@ -164,11 +173,15 @@ export default function Dashboard({ wsEvents = [] }) {
   const [usage, setUsage] = useState(null);
   const [demoBusy, setDemoBusy] = useState(false);
   const [error, setError] = useState('');
+  // A 404 from "latest" means nothing examined yet; anything else is a failure and says so, never "nothing yet".
+  const [latestError, setLatestError] = useState(null);
+  const [historyError, setHistoryError] = useState(null);
 
   const load = () => {
-    api.getLatestUpload().then(setLatest).catch(() => setLatest(null));
-    api.getHistory(null, 8).then(setHistory).catch(() => setHistory({ results: [], stats: {} }));
-    api.getUsage().then(setUsage).catch(() => setUsage(null));
+    api.getLatestUpload().then((d) => { setLatest(d); setLatestError(null); })
+      .catch((e) => { setLatest(null); setLatestError(e.status === 404 ? null : e); });
+    api.getHistory(null, 8).then((d) => { setHistory(d); setHistoryError(null); }).catch(setHistoryError);
+    api.getUsage().then(setUsage).catch(() => setUsage(null));   // the quota card shows a dash
   };
   useEffect(load, []);
 
@@ -194,7 +207,7 @@ export default function Dashboard({ wsEvents = [] }) {
       <section className="relative grid items-center gap-6 py-10 xl:min-h-screen xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-0">
         <div className="relative z-10">
           <h1 className="sr-only">Veritas overview</h1>
-          <VerdictReadout latest={latest} />
+          <VerdictReadout latest={latest} error={latestError} />
           <div className="mt-10 flex flex-wrap gap-3">
             <Button onClick={() => navigate('/upload')} variant="uv" className="px-6 py-3.5 text-[15px]">
               Examine a batch <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -243,7 +256,9 @@ export default function Dashboard({ wsEvents = [] }) {
               <h2 className="font-display text-xl font-medium">Recent runs</h2>
               <Link to="/history" className="-my-3 inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">All history →</Link>
             </div>
-            {history === null ? (
+            {history === null && historyError ? (
+              <ErrorState error={historyError} onRetry={load} className="m-2 border-0 bg-transparent p-4" />
+            ) : history === null ? (
               <Loading className="p-6">Loading recent runs…</Loading>
             ) : history.results?.length ? (
               <ul className="divide-y divide-borderHairline">
@@ -264,8 +279,8 @@ export default function Dashboard({ wsEvents = [] }) {
             )}
             {history && (
               <div className="flex gap-8 border-t border-borderHairline px-6 py-4 font-mono text-xs text-textMuted">
-                <span>{stats.total_analyses ?? 0} batches</span>
-                <span>{stats.model_scans ?? 0} model scans</span>
+                <span>{orDash(stats.total_analyses)} batches</span>
+                <span>{orDash(stats.model_scans)} model scans</span>
               </div>
             )}
           </div>

@@ -15,6 +15,7 @@ import {
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import { EASE, DURATION, SPRING } from './components/ui/motion';
+import { Loading } from './components/ui';
 import Footer from './components/Footer';
 import Wordmark from './components/Wordmark';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -35,10 +36,9 @@ const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
 const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
-const PageFallback = () => (
-  <div className="p-10 text-sm text-textMuted" role="status">Loading…</div>
-);
+const PageFallback = () => <Loading className="p-10">Loading…</Loading>;
 
 const BASE_NAV_ITEMS = [
   { path: '/', label: 'Overview', icon: LayoutGrid },
@@ -190,7 +190,7 @@ function AnimatedRoutes({ events }) {
             <Route path="/reports" element={<PageErrorBoundary name="Evidence reports"><ReportsPage /></PageErrorBoundary>} />
             <Route path="/history" element={<PageErrorBoundary name="History"><HistoryPage /></PageErrorBoundary>} />
             <Route path="/account" element={<PageErrorBoundary name="Account"><AccountPage /></PageErrorBoundary>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </motion.div>

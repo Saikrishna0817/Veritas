@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Copy, Check, KeyRound, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { PageHeader, Panel, Button, ErrorNote, Notice, Field, ConfirmButton, Dialog, Loading, Page, EASE } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, Field, ConfirmButton, Dialog, Loading, Page, EASE } from '../components/ui';
 
 const USAGE = [
   ['analyses', 'Analyses today', (n) => n.toLocaleString()],
@@ -18,11 +18,12 @@ function day(iso) {
 
 function Usage() {
   const [data, setData] = useState(null);
-  const [error, setError] = useState('');
-  useEffect(() => { api.getUsage().then(setData).catch((e) => setError(e.message)); }, []);
+  const [error, setError] = useState(null);
+  const load = () => api.getUsage().then((d) => { setData(d); setError(null); }).catch(setError);
+  useEffect(() => { load(); }, []);
   return (
     <Panel title="Usage" aside={<span className="text-xs text-textMuted">Resets at 00:00 UTC</span>}>
-      <ErrorNote>{error}</ErrorNote>
+      {error && <ErrorState error={error} onRetry={() => { setError(null); load(); }} title="Usage could not load" className="border-0 bg-transparent p-0" />}
       {!data && !error && <Loading>Loading usage…</Loading>}
       {data && (
         <>

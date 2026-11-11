@@ -4,6 +4,7 @@ import { RefreshCw, X, Download } from 'lucide-react';
 import { api } from '../services/api';
 import {
   DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, IconButton, ErrorNote, ErrorState, Segmented, Table, VerdictBadge, Loading, Page, downloadJson,
+  EASE, DURATION, orDash,
 } from '../components/ui';
 
 const SOURCES = [
@@ -33,7 +34,7 @@ function Detail({ row, onClose }) {
       initial={{ opacity: 0, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: DURATION.fast, ease: EASE }}
       className="panel sticky top-6 h-fit p-6"
       aria-label="Run detail"
     >
@@ -50,12 +51,12 @@ function Detail({ row, onClose }) {
       {!full && !error && <Loading className="mt-6">Loading the full result…</Loading>}
       {full && (
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-borderHairline pt-5 font-mono text-sm">
-          {flags && <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-flag">{flags.flagged_indices_incoming?.length ?? 0}</dd></div>}
+          {flags && <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-flag">{orDash(flags.flagged_indices_incoming?.length)}</dd></div>}
           {full.n_samples != null && <div><dt className="rule-label">Rows checked</dt><dd className="mt-1">{full.n_samples.toLocaleString()}</dd></div>}
           {full.layer_results?.label_check && <div><dt className="rule-label">Label evidence</dt><dd className="mt-1">{full.layer_results.label_check.evidence?.toFixed(2)}</dd></div>}
           {full.layer_results?.shift_check && <div><dt className="rule-label">Shift evidence</dt><dd className="mt-1">{full.layer_results.shift_check.evidence?.toFixed(2)}</dd></div>}
           {scan && <div><dt className="rule-label">Format</dt><dd className="mt-1">{scan.format}</dd></div>}
-          {scan && <div><dt className="rule-label">Findings</dt><dd className="mt-1">{scan.findings?.length ?? 0}</dd></div>}
+          {scan && <div><dt className="rule-label">Findings</dt><dd className="mt-1">{orDash(scan.findings?.length)}</dd></div>}
         </dl>
       )}
       {full && (

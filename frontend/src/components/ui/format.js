@@ -10,3 +10,14 @@ export function downloadJson(obj, name) {
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
 }
+
+/** A value from the API, or "—" when it is missing. Never a made-up 0. */
+export function orDash(value, format) {
+  if (value == null || Number.isNaN(value)) return '—';
+  return format ? format(value) : value;
+}
+
+/** A 0–1 share as a whole percent, or "—" when it is missing. */
+export function percent(share) {
+  return orDash(share, (s) => `${Math.round(s * 100)}%`);
+}

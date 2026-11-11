@@ -12,3 +12,14 @@ export const MODEL_VERDICTS = {
   NO_CODE_EXECUTION_FOUND: { label: 'No code execution found', color: 'var(--status-info)', blurb: 'Every import is a known data container. That is not a guarantee of safety.' },
   SAFE_FORMAT: { label: 'Safe format', color: 'var(--status-safe)', blurb: 'This format stores weights only and cannot contain code.' },
 };
+
+/**
+ * The display entry for a verdict code. A code the interface does not know (a newer backend, a typo, a
+ * missing value) gets a neutral entry with the raw code: never another verdict's words or colour.
+ */
+export function verdictInfo(code, kind = 'data') {
+  const known = (kind === 'model' ? MODEL_VERDICTS : DATA_VERDICTS)[code];
+  if (known) return known;
+  const label = code ? String(code).replace(/_/g, ' ').toLowerCase() : 'No verdict';
+  return { label, short: label, color: 'var(--text-muted)', p: '—', blurb: 'This verdict is not one the interface recognises. Open the raw result to read it.' };
+}

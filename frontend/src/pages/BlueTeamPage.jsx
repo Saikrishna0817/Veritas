@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, ChevronDown, Bot, UserRound, ShieldCheck, Search, Siren } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader, Panel, Button, ErrorNote, Notice, PreviewTag, StatCard, Segmented, Loading, Page } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, PreviewTag, StatCard, Segmented, Loading, Page, orDash, percent, DURATION, EASE } from '../components/ui';
 
 // Threat level is the backend's reading of the latest batch's suspicion (0.15 / 0.35 / 0.65 cut-offs).
 const LEVELS = {
@@ -11,6 +11,8 @@ const LEVELS = {
   GUARDED: { label: 'Guarded', color: 'var(--status-info)', note: 'Latest batch shows weak evidence.' },
   NOMINAL: { label: 'Nominal', color: 'var(--status-safe)', note: 'Nothing beyond what clean batches show.' },
 };
+// A level the interface does not know is shown as itself, never as Nominal.
+const levelOf = (code) => LEVELS[code] || { label: code ? String(code).toLowerCase() : 'Not reported', color: 'var(--text-muted)', note: 'The server did not report a level the interface recognises.' };
 const REFRESH_MS = 15000;
 
 function when(iso, timeOnly = false) {
@@ -34,10 +36,10 @@ function ReviewQueue({ cases, onDecide, busy }) {
             <div className="min-w-0">
               <div className="font-mono text-sm">{c.case_id.slice(0, 12)}…</div>
               <div className="mt-1 text-xs text-textMuted">
-                {c.n_samples} rows · suspicion {Math.round((c.suspicion_score || 0) * 100)}% · opened {when(c.created_at)}
+                {c.n_samples} rows · suspicion {percent(c.suspicion_score)} · opened {when(c.created_at)}
               </div>
               <div className="mt-1 font-mono text-xs text-textSecondary">
-                label −log₁₀ p {Number(ev.label_evidence ?? 0).toFixed(2)} · shift −log₁₀ p {Number(ev.shift_evidence ?? 0).toFixed(2)}
+                label −log₁₀ p {orDash(ev.label_evidence, (n) => Number(n).toFixed(2))} · shift −log₁₀ p {orDash(ev.shift_evidence, (n) => Number(n).toFixed(2))}
                 {ev.attack_type && ev.attack_type !== 'unknown' && <> · looks like {ev.attack_type.replace(/_/g, ' ')}</>}
               </div>
             </div>
@@ -113,7 +115,7 @@ function Playbooks() {
       {!selected && list.length > 0 && <p className="mt-5 text-sm text-textSecondary">Pick an attack pattern to see its response steps.</p>}
       {selected && !detail && !error && <Loading className="mt-5">Loading the playbook…</Loading>}
       {detail && (
-        <motion.div initial={{ opacity: 0.4, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mt-6 space-y-6">
+        <motion.div initial={{ opacity: 0.4, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DURATION.base, ease: EASE }} className="mt-6 space-y-6">
           <div>
             <div className="flex flex-wrap items-baseline gap-3">
               <h3 className="text-xl font-medium">{detail.attack}</h3>
@@ -152,9 +154,10 @@ export default function BlueTeamPage() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState('');
 
+  const [loadError, setLoadError] = useState(null);
   const load = useCallback(() => Promise.all([api.getBlueTeamStatus(), api.getBlueTeamIncidents()])
-    .then(([s, inc]) => { setStatus(s); setIncidents(inc.incidents || []); setError(''); })
-    .catch((e) => setError(e.message)), []);
+    .then(([s, inc]) => { setStatus(s); setIncidents(inc.incidents || []); setError(''); setLoadError(null); })
+    .catch((e) => { setError(e.message); setLoadError(e); }), []);
 
   useEffect(() => {
     load();
@@ -176,7 +179,7 @@ export default function BlueTeamPage() {
     }
   };
 
-  const level = LEVELS[status?.threat_level] || LEVELS.NOMINAL;
+  const level = levelOf(status?.threat_level);
   const cases = status?.pending_cases || [];
 
   return (
@@ -190,10 +193,12 @@ export default function BlueTeamPage() {
         <Button variant="ghost" onClick={load}><RefreshCw className="h-4 w-4" /> Refresh</Button>
       </PageHeader>
 
-      <ErrorNote>{error}</ErrorNote>
+      {status && <ErrorNote className="mb-6">{error}</ErrorNote>}
       <Notice tone="safe" className="mb-6">{message}</Notice>
 
-      {!status && !error ? (
+      {!status && error ? (
+        <ErrorState error={loadError} onRetry={load} title="The response desk could not load" />
+      ) : !status ? (
         <Loading>Loading the response desk…</Loading>
       ) : status && (
         <>
@@ -207,15 +212,15 @@ export default function BlueTeamPage() {
               </div>
               <dl className="relative grid grid-cols-3 gap-6 text-sm md:text-right">
                 <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1 font-mono">{(status.current_verdict || '—').replace(/_/g, ' ').toLowerCase()}</dd></div>
-                <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{Math.round((status.suspicion_score || 0) * 100)}%</dd></div>
+                <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{percent(status.suspicion_score)}</dd></div>
                 <div><dt className="rule-label">Updated</dt><dd className="mt-1 font-mono">{when(status.updated_at, true)}</dd></div>
               </dl>
             </div>
           </section>
 
           <section aria-label="Counts" className="mb-8 grid gap-4 sm:grid-cols-3">
-            <StatCard label="Rows quarantined" value={status.total_quarantined ?? 0} note="across your batches" />
-            <StatCard label="Defense actions" value={status.n_defense_actions ?? 0} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
+            <StatCard label="Rows quarantined" value={orDash(status.total_quarantined)} note="across your batches" />
+            <StatCard label="Defense actions" value={orDash(status.n_defense_actions)} note={status.defense_mode ? `defense mode: ${status.defense_mode}` : null} />
             <StatCard label="Waiting for review" value={status.hitl_queue_depth ?? cases.length} />
           </section>
 

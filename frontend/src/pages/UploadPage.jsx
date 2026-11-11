@@ -4,8 +4,8 @@ import { Download, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAnalysisRun } from '../hooks/useAnalysisRun';
 import JobCard from '../components/JobCard';
 import {
-  DATA_VERDICTS, PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, Field, RadioCards, Table, Badge, Page,
-  downloadJson,
+  PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, Field, RadioCards, Table, Badge, Page,
+  downloadJson, EASE, verdictInfo, orDash,
 } from '../components/ui';
 
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -37,7 +37,8 @@ function StageTicker() {
 }
 
 function EvidenceBar({ name, check, score }) {
-  const ev = check?.evidence ?? 0;
+  const reported = check?.evidence != null;
+  const ev = reported ? check.evidence : 0;
   const ran = check?.ran !== false;
   const width = Math.min(ev / 8, 1) * 100;
   return (
@@ -45,7 +46,7 @@ function EvidenceBar({ name, check, score }) {
       <div className="flex items-baseline justify-between gap-3">
         <span className="font-semibold">{name}</span>
         <span className="font-mono text-sm text-textSecondary">
-          {ran ? <>−log₁₀ p = <span className={check?.alarm ? 'text-flag' : ''}>{ev.toFixed(2)}</span></> : 'skipped (one label value)'}
+          {!ran ? 'skipped (one label value)' : !reported ? 'not reported' : <>−log₁₀ p = <span className={check?.alarm ? 'text-flag' : ''}>{ev.toFixed(2)}</span></>}
         </span>
       </div>
       <div className="relative mt-2 h-3 rounded-sm bg-ink-950">
@@ -57,7 +58,7 @@ function EvidenceBar({ name, check, score }) {
           style={{ background: check?.alarm ? 'var(--flag)' : 'var(--violet)' }}
           initial={{ width: 0 }}
           animate={{ width: `${width}%` }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 1.2, ease: EASE }}
         />
       </div>
       <div className="relative mt-1 h-4 font-mono text-[10px] text-textMuted">
@@ -119,7 +120,7 @@ function RankedRows({ scores, flagged, offset }) {
 }
 
 function Result({ result, onReset }) {
-  const v = DATA_VERDICTS[result.verdict] || DATA_VERDICTS.SUSPICIOUS;
+  const v = verdictInfo(result.verdict);
   const lr = result.layer_results || {};
   const flags = lr.row_flags || {};
   const info = result.dataset_info || {};
@@ -135,7 +136,7 @@ function Result({ result, onReset }) {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.8, delay: 1.2, ease: EASE }}
             className="mt-3 font-display text-[clamp(2.4rem,5vw,4.4rem)] font-medium leading-[0.9]"
             style={{ color: v.color }}
           >
@@ -144,7 +145,7 @@ function Result({ result, onReset }) {
           <p className="mt-4 max-w-[46ch] text-textSecondary">{v.blurb}</p>
           <div className="mt-8 grid grid-cols-2 gap-6">
             <Readout label="Batch evidence" value={v.p} />
-            <Readout label="Flagged rows" value={(flags.flagged_indices_incoming || []).length} color="var(--flag)" note={`of ${(result.n_samples || 0).toLocaleString()} checked`} />
+            <Readout label="Flagged rows" value={(flags.flagged_indices_incoming || []).length} color="var(--flag)" note={`of ${orDash(result.n_samples, (n) => n.toLocaleString())} checked`} />
             <Readout label="Mode" value={result.detection_mode === 'supervised' || info.has_labels ? 'Labelled' : 'Unlabelled'} note={info.label_column ? `label: ${info.label_column}` : 'shift check only'} />
             <Readout label="Time" value={result.elapsed_ms ? (result.elapsed_ms / 1000).toFixed(1) : '—'} unit="s" />
           </div>
