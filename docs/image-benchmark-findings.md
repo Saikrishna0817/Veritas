@@ -83,3 +83,51 @@ At 5%: fused 0.72, lead 0.72, label 0.33, shift 0.20, pixel 0.54, dup 0.17, cell
 - Batch verdict at the fixed 1.3 cut-off: 26% of attacked batches at 1% poison, 79% at 5%.
 - Class-noise at 1% is at chance on every check.
 - 14 s per batch for all eight outputs (components are computed once per batch).
+
+## v6: full reference set, several tail sizes, chroma check (2026-11-13)
+
+Why the batch verdict was weak at 1%: each batch has 1200 incoming rows but only 540 clean calibration rows. With 12
+poisoned rows ranked above every clean row, the exact tail test tops out at 12 * log10(1740/1200) = 1.94, below the
+1.3 cut-off after the 1.0 penalty. Only the label check needs held-out rows, so:
+
+- every other check now compares incoming rows with all 1800 reference rows (ceiling 4.8);
+- the label check is cross-fitted (5 folds) so every reference row has a held-out score; incoming rows get the mean of the fold models;
+- batch evidence is the best exact tail test over the top 0.03%, 0.1%, 0.3% and 1%, minus log10(4);
+- a seventh check, `chroma`: colour noise (high-pass residual of R-G and G-B) in the quietest 4x4 block of each image.
+  Natural images have almost none; per-channel noise patterns and blends lift it.
+
+All chosen on dev (`research/mm/weak_study_dev.py`, `research/mm/ref_study_dev.py`; dev fused AUPRC at 1% 0.46 -> 0.78,
+batch flagged at 1% 27% -> 70%, clean flagged 4.7% -> 1.4%).
+
+Held-out test (CIFAR-10, GTSRB), row AUPRC:
+
+| Attack | v5 fused 1% | v6 fused 1% | v5 fused 5% | v6 fused 5% |
+|---|---|---|---|---|
+| Random label flip | 0.33 | 0.48 | 0.56 | 0.73 |
+| Targeted label flip | 0.41 | 0.45 | 0.45 | 0.57 |
+| Patch backdoor | 0.80 | 0.95 | 0.97 | 0.98 |
+| Blended backdoor | 0.68 | 1.00 | 0.94 | 1.00 |
+| Clean-label backdoor | 0.65 | 0.99 | 0.97 | 0.98 |
+| Duplicate flood | 0.92 | 0.92 | 0.91 | 0.91 |
+| Class-noise | 0.02 | 0.99 | 0.24 | 0.99 |
+| Mean | 0.55 | 0.83 | 0.72 | 0.88 |
+
+The label check's own list scores 0.58 (random) and 0.48 (targeted) at 1%.
+
+Batch verdict (evidence >= 1.3), share of attacked batches flagged:
+
+| Rate | v5 | v6 |
+|---|---|---|
+| 1% | 26% | 73% |
+| 3% | 71% | 83% |
+| 5% | 79% | 91% |
+| 10% | 91% | 90% |
+
+At 1%: patch, blended, duplicates, class-noise 100%; clean-label 90%; random and targeted label flips 10%.
+
+- Clean test batches (n = 240): 2.1% reach 1.3 (nominal 5%), 0.8% reach 2.0 (nominal 1%), 0.4% (one batch, the shift check) reach 4.0 (nominal 0.01%).
+- Label flips at batch level are still weak at 1% (10%) and slightly worse than v5 at 3% (random 0.50 vs 0.60). The cross-fitted label
+  check never fired on a clean batch (dev or test), so it is over-cautious; scoring incoming rows with one fold model instead of the mean
+  of five is the next thing to try.
+- The chroma check is blind to noise that is identical across colour channels, and to greyscale data with greyscale noise.
+- 36 s per batch (was 14 s); the cross-fitted label check is most of it (5 GBM fits, slow with 100 classes).

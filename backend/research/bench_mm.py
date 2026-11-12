@@ -32,7 +32,7 @@ from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
 
 ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm, "mm_lead": mm_lead,
-                 **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid")}}
+                 **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid", "chroma")}}
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_MM_MANIFEST", "manifest-mm-images-v2.json")
@@ -72,7 +72,8 @@ def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray, pix: np.nd
     n_cal = int(len(ref) * m["calibration_fraction_of_reference"])
     scaler = StandardScaler().fit(pix[ref][n_cal:])  # pixel views follow the same fit/cal split as the embedding
     d.update({"P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc),
-              "R_cal": ds.raw[ref][:n_cal], "R_inc": raw})
+              "R_cal": ds.raw[ref][:n_cal], "R_inc": raw,
+              "P_fit": scaler.transform(pix[ref][n_cal:]), "R_fit": ds.raw[ref][n_cal:]})
     return {"d": d, "mask": mask}
 
 

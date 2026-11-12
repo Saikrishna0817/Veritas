@@ -94,3 +94,15 @@ NEW = {"dup": duplicate_component,
        "cell8_k8": lambda d: shared_residual_cell_component(d, k=8, cell=8),    # k=8: a group of >=9 shares the pattern
        "cell16_k8": lambda d: shared_residual_cell_component(d, k=8, cell=16),  # larger cells suit 32px blends
        "noise": noise_level_component}
+
+
+def chroma_floor_component(d, block=4):
+    """Quietest 4x4 block of the high-pass residual of the colour differences R-G and G-B (independent per-channel noise lifts it)."""
+    r = _residual(_pool(d)); n, h, w, _ = r.shape; H, W = h // block * block, w // block * block
+    blocks = lambda a: (a[:, :H, :W] ** 2).reshape(n, H // block, block, W // block, block).mean(axis=(2, 4)).reshape(n, -1)
+    return _split(d, ((blocks(r[..., 0] - r[..., 1]) + blocks(r[..., 1] - r[..., 2])) / 2).min(1))
+
+
+def multi_tail_test(cal, inc, fracs):
+    """Largest exact tail-test evidence over several tail sizes, Bonferroni-corrected for the number tried."""
+    return max(max(v2.exact_tail_test(cal, inc, 1 - f) for f in fracs) - np.log10(len(fracs)), 0.0)
