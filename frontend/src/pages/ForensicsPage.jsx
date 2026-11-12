@@ -1,238 +1,142 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { RefreshCw } from 'lucide-react';
 import { api } from '../services/api';
-import { Search, Upload, Target, ShieldAlert, Activity, Check, HelpCircle, Folder, AlertTriangle, Fingerprint, Bug, BrainCircuit } from 'lucide-react';
+import { PageHeader, Panel, Button, Readout, Empty, ErrorState, PreviewTag, Segmented, Loading, Page, EASE, DURATION, verdictInfo, orDash, percent } from '../components/ui';
 
-function NarrativeBox({ narrative }) {
-    if (!narrative) return null;
-    return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 font-mono text-sm relative overflow-hidden group">
-            <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary shadow-red-glow"></div>
-            <div className="text-redPrimary uppercase tracking-widest mb-4 text-xs font-bold flex items-center gap-2">
-                <Search className="w-4 h-4" /> Heuristic Investigation Summary
-            </div>
-            <pre className="text-textSecondary whitespace-pre-wrap leading-relaxed bg-bgVoid p-4 rounded-lg border border-borderHairline">{narrative}</pre>
-        </div>
-    );
-}
-
-function AttackClassCard({ classification }) {
-    if (!classification) return null;
-    const severityColor = {
-        critical: 'text-statusCritical', high: 'text-statusWarn', medium: 'text-yellow-500', low: 'text-statusSafe'
-    }[classification.severity] || 'text-textMuted';
-
-    return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
-            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
-                <Bug className="w-4 h-4" /> Classification
-            </div>
-            <div className="space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
-                    <span className="font-mono text-xs text-textMuted">Attack Type</span>
-                    <span className="font-mono text-sm font-bold text-statusCritical capitalize">
-                        {classification.attack_type?.replace(/_/g, ' ')}
-                    </span>
-                </div>
-                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
-                    <span className="font-mono text-xs text-textMuted">Subtype</span>
-                    <span className="font-mono text-xs text-textSecondary capitalize">
-                        {classification.attack_subtype?.replace(/_/g, ' ')}
-                    </span>
-                </div>
-                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
-                    <span className="font-mono text-xs text-textMuted">Confidence</span>
-                    <span className="font-mono text-xs font-bold text-redPrimary">
-                        {(classification.confidence * 100).toFixed(1)}%
-                    </span>
-                </div>
-                <div className="flex justify-between items-center pb-3 border-b border-borderHairline">
-                    <span className="font-mono text-xs text-textMuted">Severity</span>
-                    <span className={`font-mono text-xs font-bold ${severityColor} uppercase`}>
-                        {classification.severity}
-                    </span>
-                </div>
-                <div className="pt-2">
-                    <div className="font-mono text-xs text-textMuted mb-3">Probability Distribution</div>
-                    {Object.entries(classification.probabilities || {}).map(([type, prob]) => (
-                        <div key={type} className="mb-2.5">
-                            <div className="flex justify-between font-mono text-[11px] mb-1">
-                                <span className="text-textSecondary capitalize">{type.replace(/_/g, ' ')}</span>
-                                <span className="text-textPrimary">{(prob * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="h-1.5 bg-bgVoid rounded-full overflow-hidden">
-                                <div className="h-full bg-redPrimary shadow-red-glow rounded-full transition-all"
-                                    style={{ width: `${prob * 100}%` }} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function PatternCard({ pattern }) {
-    if (!pattern) return null;
-    return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl p-6 hover:border-redPrimary/30 transition-colors">
-            <div className="font-mono text-xs text-redPrimary uppercase tracking-widest mb-6 font-bold flex items-center gap-2">
-                <Fingerprint className="w-4 h-4" /> Flagged Rows
-            </div>
-            <div className="space-y-0 font-mono text-xs">
-                {[
-                    { label: 'Poisoned Samples', value: pattern.n_poisoned_samples },
-                    { label: 'Sigma Shift', value: pattern.sigma_shift != null ? `${pattern.sigma_shift}σ` : null },
-                ].map(({ label, value }) => value != null && (
-                    <div key={label} className="flex justify-between py-3 border-b border-borderHairline last:border-0 items-center">
-                        <span className="text-textMuted">{label}</span>
-                        <span className="text-textPrimary font-bold bg-bgVoid px-2 py-1 rounded">{value}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function VerdictBadge({ verdict, score }) {
-    const cfg = {
-        CONFIRMED_POISONED: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-6 h-6 text-[var(--status-critical)]" /> },
-        SUSPICIOUS: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <Activity className="w-6 h-6 text-[var(--status-warn)]" /> },
-        LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-6 h-6 text-blue-500" /> },
-        CLEAN: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-6 h-6 text-[var(--status-safe)]" /> },
-    }[verdict] || { color: 'var(--text-muted)', bg: 'var(--bg-panel)', icon: <HelpCircle className="w-6 h-6 text-textMuted" /> };
-
-    return (
-        <div className="flex items-center gap-4 px-5 py-3 rounded-xl border" style={{ background: cfg.bg, borderColor: `${cfg.color}40` }}>
-            {cfg.icon}
-            <div>
-                <div className="text-sm font-bold font-mono tracking-wide" style={{ color: cfg.color }}>{verdict}</div>
-                {score != null && <div className="text-[10px] font-mono text-textMuted uppercase tracking-widest mt-1">Suspicion: {(score * 100).toFixed(1)}%</div>}
-            </div>
-        </div>
-    );
-}
-
-function DatasetInfoBanner({ info, dataSource }) {
-    if (!info) return null;
-    return (
-        <div className="bg-bgPanel border border-borderHairline rounded-xl px-5 py-4 text-xs font-mono text-textSecondary flex gap-6 flex-wrap items-center">
-            <span className="flex items-center gap-2"><Folder className="w-4 h-4 text-redPrimary" /> <strong className="text-textPrimary">{info.filename}</strong></span>
-            <span className="text-borderHairline">|</span>
-            <span>Rows: <strong className="text-textPrimary">{info.n_rows?.toLocaleString()}</strong></span>
-            <span className="text-borderHairline">|</span>
-            <span>Features: <strong className="text-textPrimary">{info.n_features}</strong></span>
-            <span className="text-borderHairline">|</span>
-            <span>Mode: <strong className="text-redPrimary">{info.detection_mode}</strong></span>
-            {dataSource && (
-                <>
-                    <span className="text-borderHairline">|</span>
-                    <span>Source: <strong className="text-redPrimary">{dataSource}</strong></span>
-                </>
-            )}
-        </div>
-    );
-}
-
-const TABS = [
-    { id: 'auto', label: 'Latest (Auto)', icon: Target },
-    { id: 'demo', label: 'Demo Analysis', icon: Target },
-    { id: 'upload', label: 'My Upload', icon: Upload },
+const SOURCES = [
+  { id: 'auto', label: 'Latest analysis' },
+  { id: 'upload', label: 'My latest upload' },
+  { id: 'real_dataset', label: 'Latest reference dataset' },
+  { id: 'demo', label: 'Latest sample batch' },
 ];
+// Where to go to create what each source reads.
+const MAKE = {
+  auto: ['/upload', 'Examine a batch →'],
+  upload: ['/upload', 'Examine a batch →'],
+  real_dataset: ['/real-datasets', 'Analyse a reference dataset →'],
+  demo: ['/', 'Go to Overview →'],
+};
+const EMPTY = {
+  auto: 'Nothing analysed yet. Examine a batch or analyse a reference dataset first.',
+  upload: 'No uploaded CSV yet. Examine a batch first.',
+  real_dataset: 'No reference dataset analysed yet. Analyse one to see what the heuristics make of a known attack.',
+  demo: 'No sample batch yet. Run one from the Overview.',
+};
+
+function Classification({ c }) {
+  if (!c) return null;
+  const insufficient = c.classification_status === 'insufficient_evidence' || c.attack_type === 'unknown';
+  const probs = Object.entries(c.probabilities || {}).sort(([, a], [, b]) => b - a);
+  return (
+    <Panel title="Which pattern the flagged rows resemble" aside={<PreviewTag />}>
+      {insufficient ? (
+        <p className="text-textSecondary">{c.description || 'The signals do not point to a specific attack pattern.'}</p>
+      ) : (
+        <>
+          <div className="font-display text-3xl font-medium capitalize tracking-[-0.04em]">{c.attack_type.replace(/_/g, ' ')}</div>
+          {c.description && <p className="mt-2 text-textSecondary">{c.description}</p>}
+          <dl className="mt-6 grid grid-cols-2 gap-5">
+            <Readout label="Heuristic confidence" value={percent(c.confidence)} />
+            <Readout label="Typical severity" value={c.severity} />
+          </dl>
+        </>
+      )}
+      {probs.length > 0 && (
+        <div className="mt-6 space-y-3">
+          {probs.map(([type, p], i) => (
+            <div key={type} className="grid grid-cols-[8.5rem_1fr_3rem] items-center gap-3 text-sm">
+              <span className="capitalize text-textSecondary">{type.replace(/_/g, ' ')}</span>
+              <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
+                <motion.div className="h-full origin-left rounded-full" style={{ width: `${p * 100}%`, background: i === 0 && !insufficient ? 'var(--uv)' : '#4A494B' }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: DURATION.grow, delay: i * 0.06, ease: EASE }} />
+              </div>
+              <span className="text-right font-mono text-textSecondary">{(p * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-6 text-xs text-textMuted">A rule-based reading of the two checks' signals. It is not measured on the benchmark and is not attribution.</p>
+    </Panel>
+  );
+}
 
 export default function ForensicsPage() {
-    const [activeTab, setActiveTab] = useState('auto');   // 'auto' | 'demo' | 'upload'
-    const [forensics, setForensics] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
+  const [source, setSource] = useState('auto');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [missing, setMissing] = useState(false);
+  const [error, setError] = useState(null);
 
-    const load = useCallback(async (src = activeTab) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const data = await api.getLatestForensics(src);
-            setForensics(data);
-        } catch {
-            setError(
-                src === 'upload'
-                    ? 'No uploaded dataset analysis found. Upload a CSV first from the Upload Dataset page.'
-                    : 'No forensic data yet. Run the demo from the Trust Dashboard first.'
-            );
-        } finally {
-            setLoading(false);
-        }
-    }, [activeTab]);
+  // Callers set `loading` before calling, so the effect below never sets state synchronously.
+  const load = useCallback((src) => api.getLatestForensics(src)
+    .then((d) => { setData(d); setMissing(false); setError(null); })
+    // 404: nothing analysed for this source yet. Anything else is a failure, not "nothing to read".
+    .catch((e) => { setData(null); setMissing(e.status === 404); setError(e.status === 404 ? null : e); })
+    .finally(() => setLoading(false)), []);
 
-    useEffect(() => { load(activeTab); }, [activeTab, load]);
+  useEffect(() => { load(source); }, [source, load]);
+  const pick = (id) => { if (id !== source) { setLoading(true); setSource(id); } };
+  const refresh = () => { setLoading(true); load(source); };
 
-    return (
-        <div className="relative z-10 px-6 md:px-12 py-12 max-w-6xl mx-auto flex flex-col gap-8 min-h-[calc(100vh-80px)] animate-fadeInUp">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <div className="font-mono text-xs text-redPrimary tracking-widest uppercase mb-3 flex items-center gap-2 font-bold">
-                        <Search className="w-4 h-4" /> Forensic Analysis
-                    </div>
-                    <h1 className="text-[48px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
-                        Poisoning <span className="text-redPrimary">Investigation</span>
-                    </h1>
-                    <p className="font-mono text-[13px] text-textMuted mt-4 uppercase tracking-widest">
-                        Heuristic pattern analysis // Threat signals
-                    </p>
-                </div>
-                <button onClick={() => load(activeTab)} disabled={loading}
-                    className="px-6 py-2.5 border border-redPrimary/30 bg-redPrimary/10 text-redPrimary font-mono text-sm font-bold rounded-xl hover:bg-redPrimary/20 transition-all uppercase tracking-widest disabled:opacity-50">
-                    {loading ? 'Analyzing...' : 'Refresh Scan'}
-                </button>
+  const v = data ? verdictInfo(data.verdict) : null;
+  const info = data?.dataset_info;
+  const pattern = data?.injection_pattern;
+
+  return (
+    <Page>
+      <PageHeader
+        title="Forensics"
+        preview
+        lede="A heuristic reading of a flagged batch: which attack pattern the flagged rows resemble and how they differ from the rest. Treat it as a lead to check, not a finding."
+      >
+        <Button variant="ghost" onClick={refresh} loading={loading}><RefreshCw className="h-4 w-4" /> Refresh</Button>
+      </PageHeader>
+
+      <Segmented label="Which analysis" className="mb-8" options={SOURCES} value={source} onChange={pick} />
+
+      {loading && !data && <Loading>Loading the analysis…</Loading>}
+      {!loading && error && <ErrorState error={error} onRetry={refresh} />}
+      {!loading && missing && (
+        <Empty title="Nothing to read yet" action={<Link to={MAKE[source][0]} className="inline-flex min-h-[44px] items-center text-sm text-violet hover:underline">{MAKE[source][1]}</Link>}>
+          {EMPTY[source]}
+        </Empty>
+      )}
+
+      {data && (
+        <div className="space-y-8">
+          <section className="edge-card">
+            <div className="edge-inner relative grid gap-6 p-8 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:p-10">
+              <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(45% 90% at 90% 50%, rgba(71,0,214,0.4), transparent 70%)' }} />
+              <div className="relative">
+                <div className="rule-label break-all">{info?.filename || data.source}</div>
+                <div className="font-display mt-3 text-[clamp(2.4rem,4.6vw,4rem)] font-medium leading-none tracking-[-0.05em]" style={{ color: v?.color }}>{v?.label || data.verdict}</div>
+                {v?.blurb && <p className="mt-3 max-w-[46ch] text-textSecondary">{v.blurb}</p>}
+              </div>
+              <dl className="relative grid grid-cols-2 gap-6 self-end sm:grid-cols-4">
+                <Readout label="Flagged rows" value={orDash(pattern?.n_poisoned_samples)} color="var(--flag)" />
+                <Readout label="Rows in file" value={info?.n_rows?.toLocaleString() ?? '—'} />
+                <Readout label="Features" value={info?.n_features ?? '—'} />
+                <Readout label="Source" value={(data.source || '—').replace('_', ' ')} />
+              </dl>
             </div>
+          </section>
 
-            {/* Source Tabs */}
-            <div className="flex gap-3 overflow-x-auto pb-2 border-b border-borderHairline/50">
-                {TABS.map((tab) => {
-                    const TabIcon = tab.icon;
-                    return (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-t-xl font-mono text-xs uppercase tracking-widest font-bold transition-all
-                            ${activeTab === tab.id 
-                                ? 'bg-redPrimary/10 text-redPrimary border-b-2 border-redPrimary' 
-                                : 'bg-transparent text-textMuted hover:text-textPrimary hover:bg-bgPanel'}`}>
-                            <TabIcon className="w-4 h-4" /> {tab.label}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {error && (
-                <div className="bg-statusWarn/10 border border-statusWarn/30 rounded-xl p-5 font-mono text-sm text-statusWarn flex items-center gap-3">
-                    <AlertTriangle className="w-5 h-5" /> {error}
+          <div className="grid gap-8 lg:grid-cols-2">
+            <Panel title="What stands out" aside={<PreviewTag />}>
+              {pattern?.narrative ? (
+                <div className="space-y-2 text-textSecondary">
+                  {pattern.narrative.split('\n').filter(Boolean).map((line, i) => <p key={i}>{line}</p>)}
                 </div>
-            )}
-
-            {!forensics && !error && !loading && (
-                <div className="flex flex-col items-center justify-center py-32 text-textMuted font-mono text-sm border-2 border-dashed border-borderHairline rounded-2xl">
-                    <Search className="w-12 h-12 mb-4 opacity-20" />
-                    No forensic data yet. Run the demo or upload a CSV first.
-                </div>
-            )}
-
-            {forensics && (
-                <div className="space-y-6">
-                    {/* Verdict + dataset info */}
-                    <div className="flex gap-4 items-center flex-wrap">
-                        <VerdictBadge verdict={forensics.verdict} score={forensics.overall_suspicion_score} />
-                        <DatasetInfoBanner info={forensics.dataset_info} dataSource={forensics.source} />
-                    </div>
-
-                    {/* Attack Narrative */}
-                    <NarrativeBox narrative={forensics.injection_pattern?.narrative} />
-
-                    {/* Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <AttackClassCard classification={forensics.attack_classification} />
-                        <PatternCard pattern={forensics.injection_pattern} />
-                    </div>
-                </div>
-            )}
-            
-            <style>{`@keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }`}</style>
+              ) : <p className="text-textSecondary">No summary for this analysis.</p>}
+              {pattern?.sigma_shift != null && (
+                <div className="mt-6"><Readout label="Average feature shift of flagged rows" value={pattern.sigma_shift} unit="σ" /></div>
+              )}
+            </Panel>
+            <Classification c={data.attack_classification} />
+          </div>
         </div>
-    );
+      )}
+    </Page>
+  );
 }

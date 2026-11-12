@@ -2,11 +2,13 @@ import { useAuth } from '../hooks/useAuth';
 import { ShieldAlert } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
+const ROLE_NAMES = { admin: 'administrator', analyst: 'analyst', user: 'user' };
+
 export default function ProtectedRoute({ children, fallback, requiredRole }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="p-8 text-textMuted font-mono text-sm">Checking session…</div>;
+    return <div className="p-8 text-sm text-textMuted" role="status">Checking your session…</div>;
   }
 
   if (!user) {
@@ -17,25 +19,25 @@ export default function ProtectedRoute({ children, fallback, requiredRole }) {
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    const isTargetingAdmin = requiredRole === 'admin';
+    const needsAdmin = requiredRole === 'admin';
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-bgVoid text-textPrimary">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-bgPanel border border-redPrimary/30 shadow-red-glow text-center space-y-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
-            <ShieldAlert className="w-7 h-7 text-redPrimary" />
+      <div className="flex min-h-[70vh] items-center justify-center p-6 text-textPrimary">
+        <div className="edge-card w-full max-w-md">
+          <div className="edge-inner space-y-6 p-8 text-center">
+            <span className="icon-chip mx-auto"><ShieldAlert className="h-5 w-5 text-uv" aria-hidden /></span>
+            <div>
+              <h1 className="font-display text-[28px] font-medium leading-tight tracking-tight">This page is for {ROLE_NAMES[requiredRole] || requiredRole}s</h1>
+              <p className="mt-2 text-sm text-textSecondary">
+                You're signed in as {user.name || user.username || 'this account'}, with the {ROLE_NAMES[user.role] || user.role} role.
+              </p>
+            </div>
+            <Link
+              to={needsAdmin ? '/' : '/admin'}
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-6 py-3.5 text-sm font-medium text-ink-900 transition-colors hover:bg-[#EDC5FC]"
+            >
+              {needsAdmin ? 'Back to the overview' : 'Back to the admin console'}
+            </Link>
           </div>
-          <div>
-            <h2 className="font-display text-2xl font-bold tracking-tight text-white mb-2">403 Access Denied</h2>
-            <p className="text-sm font-mono text-textMuted leading-relaxed">
-              This module requires <span className="text-redPrimary font-bold uppercase">{requiredRole}</span> privilege. Your active role is <span className="text-textPrimary font-bold uppercase">{user.role}</span>.
-            </p>
-          </div>
-          <Link
-            to={isTargetingAdmin ? '/' : '/admin'}
-            className="inline-block w-full py-3 px-6 rounded-xl bg-redPrimary text-white font-mono text-xs font-bold uppercase tracking-wider hover:bg-redBright transition-all shadow-red-glow"
-          >
-            {isTargetingAdmin ? 'Return to User Dashboard' : 'Return to Admin Console'}
-          </Link>
         </div>
       </div>
     );
@@ -43,4 +45,3 @@ export default function ProtectedRoute({ children, fallback, requiredRole }) {
 
   return children;
 }
-

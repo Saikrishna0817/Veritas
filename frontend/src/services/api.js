@@ -1,4 +1,4 @@
-// API client for AI Trust Forensics Platform
+// Veritas API client. Every page goes through this file; none calls fetch itself.
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -20,31 +20,61 @@ function handleUnauthorized() {
     if (window.location.pathname !== loginPath) window.location.assign(loginPath);
 }
 
+// How long a request may wait for the server's answer before the page says so. Inline analyses run while the
+// request is open, so they get longer; large files go through background jobs instead (services/uploads.js).
+export const TIMEOUT_MS = { default: 30_000, analysis: 180_000, download: 120_000 };
+
+// A request that never reached the server (offline, DNS, server down) rejects with a bare TypeError such as
+// "Failed to fetch". Give it words a person can act on and mark it, so pages can tell it from a server error.
+// A request with no answer within `timeoutMs` is aborted and marked `timeout` the same way.
+async function send(url, init, timeoutMs = TIMEOUT_MS.default) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } catch (e) {
+        const timedOut = controller.signal.aborted;
+        const err = new Error(timedOut
+            ? `The server did not answer within ${Math.round(timeoutMs / 1000)} seconds. Try again; if it keeps happening, the server may be overloaded.`
+            : "Can't reach the Veritas server. Check your connection, then try again.");
+        err.status = 0;
+        if (timedOut) err.timeout = true; else err.offline = true;
+        err.cause = e;
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || fallback);
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    // FastAPI validation errors carry a list in `detail`; show the first message instead of [object Object].
+    const detail = Array.isArray(body.detail) ? body.detail[0]?.msg : body.detail;
+    const err = new Error(detail || fallback);
+    err.status = res.status;
+    throw err;
 }
 
-async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
-    const res = await fetch(`${BASE_URL}${path}`, {
+async function apiFetch(path, { skipAuth = false, headers, timeoutMs, ...options } = {}) {
+    const res = await send(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
-    });
+    }, timeoutMs);
     await failIfNotOk(res, 'API error', skipAuth);
     return res.json();
 }
 
-async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
+async function apiFormData(path, formData, timeoutMs = TIMEOUT_MS.analysis) {
+    const res = await send(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData }, timeoutMs);
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' });
+    const res = await send(`${BASE_URL}${path}`, { credentials: 'same-origin' }, TIMEOUT_MS.download);
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
@@ -61,7 +91,8 @@ export function createWebSocket(onMessage) {
     ws.onmessage = (event) => {
         try {
             const data = JSON.parse(event.data);
-            if (onMessage) onMessage(data);
+            // Detection events are { event, data }; control frames such as { type: 'pong' } are not shown.
+            if (data?.event && onMessage) onMessage(data);
         } catch {
             // ignore
         }
@@ -80,13 +111,14 @@ export const api = {
 
     me: () => apiFetch('/auth/me', { skipAuth: true }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
-    signup: (username, email, password) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password }) }),
+    signup: (username, email, password, turnstileToken) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token: turnstileToken || undefined }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
-    resendVerification: (email) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
-    requestPasswordReset: (email) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    resendVerification: (email, turnstileToken) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token: turnstileToken || undefined }) }),
+    requestPasswordReset: (email, turnstileToken) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token: turnstileToken || undefined }) }),
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
+    deleteAccount: (password) => apiFetch('/account/delete', { method: 'POST', skipAuth: true, body: JSON.stringify({ password }) }),
     listApiKeys: () => apiFetch('/account/api-keys'),
     createApiKey: (name) => apiFetch('/account/api-keys', { method: 'POST', body: JSON.stringify({ name }) }),
     revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),
@@ -97,49 +129,31 @@ export const api = {
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
 
     // Demo & Real Datasets
-    runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
-    getDemoDataset: () => apiFetch('/datasets/demo'),
-    getDemoSamples: (limit = 50, offset = 0, status = null) => {
-        const params = new URLSearchParams({ limit, offset });
-        if (status) params.append('filter_status', status);
-        return apiFetch(`/datasets/demo/samples?${params}`);
-    },
+    runDemo: () => apiFetch('/demo/run', { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
     getRealDatasets: () => apiFetch('/datasets/real'),
-    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST' }),
+    analyzeRealDataset: (name) => apiFetch(`/datasets/real/${name}/analyze`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
     downloadRealDataset: (name) => downloadFile(`/datasets/real/${name}/download`, `${name}.csv`),
 
-    // Detection
-    analyzeDataset: (sampleIds = []) =>
-        apiFetch('/detect/analyze', { method: 'POST', body: JSON.stringify({ sample_ids: sampleIds }) }),
-    getLatestResults: () => apiFetch('/detect/results/latest'),
-
-    // Forensics
+    // Forensics (the latest result already carries the narrative and blast radius)
     getLatestForensics: (source = 'auto') => apiFetch(`/forensics/latest?source=${source}`),
-    getAttackNarrative: (source = 'auto') => apiFetch(`/forensics/narrative?source=${source}`),
-    getAttackTimeline: () => apiFetch('/forensics/timeline'),
-    getBlastRadius: (source = 'auto') => apiFetch(`/blast-radius/latest?source=${source}`),
-
-    // Trust
-    getTrustScore: () => apiFetch('/trust/score'),
 
     // Defense
     triggerQuarantine: () => apiFetch('/defense/quarantine', { method: 'POST' }),
     getDefenseStatus: () => apiFetch('/defense/status'),
     getPendingReviews: () => apiFetch('/defense/hitl/pending'),
-    submitReviewDecision: (caseId, decision, reviewer = 'analyst') =>
+    // The server records the signed-in user as the reviewer; the body carries only the case and the decision.
+    submitReviewDecision: (caseId, decision) =>
         apiFetch('/defense/hitl/decide', {
             method: 'POST',
-            body: JSON.stringify({ case_id: caseId, decision, reviewer }),
+            body: JSON.stringify({ case_id: caseId, decision }),
         }),
 
-    // Federated
-
     // Reports
-    generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
+    generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
 
     // CSV Upload Analysis
     // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order
-    uploadCSV: (file, opts = {}) => {
+    uploadCSV: (file, opts = {}, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('file', file);
         if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
@@ -147,17 +161,21 @@ export const api = {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);
         }
-        return apiFormData('/analyze/upload', formData);
+        return apiFormData(`/analyze/upload${background ? '?background=true' : ''}`, formData);
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
 
     // Model Scan
-    scanModel: (formData) => apiFormData('/analyze/model', formData),
-    uploadModel: (file) => {
+    uploadModel: (file, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('model_file', file);
-        return apiFormData('/analyze/model', formData);
+        return apiFormData(`/analyze/model${background ? '?background=true' : ''}`, formData);
     },
+
+    // Background jobs and direct-to-storage uploads
+    getJob: (jobId) => apiFetch(`/jobs/${jobId}`),
+    presignUpload: (role, filename, size) => apiFetch('/uploads/presign', { method: 'POST', body: JSON.stringify({ role, filename, size }) }),
+    completeUpload: (body) => apiFetch('/uploads/complete', { method: 'POST', body: JSON.stringify(body) }),
     getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 
@@ -168,8 +186,6 @@ export const api = {
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
     deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
     getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
-
-    // Red Team
 
     // Blue Team SOC
     getBlueTeamStatus: () => apiFetch('/blueteam/status'),

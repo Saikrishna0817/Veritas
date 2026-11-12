@@ -1,91 +1,182 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Wix+Madefor+Display:wght@400..800&family=Tiro+Kannada:ital@1&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Veritas — near-black canvas, white type, purple light, large cards with a thin glowing edge. */
 :root {
-  /* Base surfaces */
-  --bg-void: #000000; /* true black — outer frame, deepest backgrounds */
-  --bg-surface: #0A0A0C; /* main page background, slightly lifted off pure black */
-  --bg-panel: #131316; /* cards, panels, the terminal-style blocks */
-  --bg-panel-raised: #1B1B1F; /* hovered/active card state */
-  --border-hairline: rgba(255,255,255,0.08);
+  --bg-void: #080708;
+  --bg-surface: #0C0B0C;
+  --bg-panel: #141314;
+  --bg-panel-raised: #1A1A1A;
+  --bg-card-deep: #0F0D10;
+  --border-hairline: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --edge: #4A494B;
 
-  /* Brand red */
-  --red-primary: #E4242B; /* primary CTAs, active states, key accents */
-  --red-bright: #FF3B3B; /* hover state, glow highlights */
-  --red-dim: #7A1418; /* subtle backgrounds behind red text, tag fills */
-  --red-glow: rgba(228,36,43,0.35); /* box-shadow / rim-light glow */
+  /* Legacy token names kept so older pages follow the palette: "red" is the periwinkle action colour. */
+  --red-primary: #B9A3FF;
+  --red-bright: #D3C6FF;
+  --red-dim: #2A2140;
+  --red-glow: rgba(71, 0, 214, 0.45);
 
-  /* Semantic status (KEEP — do not replace with red) */
-  --status-safe: #3DDC84; /* CLEAN / nominal */
-  --status-warn: #F2B84B; /* elevated / review needed */
-  --status-critical: #E4242B;/* matches brand red — critical alerts reinforce the brand */
+  --uv: #DDB5FC;            /* lavender accent: labels, active marks, focus */
+  --violet: #B9A3FF;
+  --violet-deep: #4700D6;
+  --flag: #FF6A4D;          /* flagged rows and alarms */
 
-  /* Text */
-  --text-primary: #F5F5F7;
-  --text-secondary: #9A9AA2;
-  --text-muted: #5C5C63;
+  --status-safe: #6EE7A0;
+  --status-info: #9DB8FF;
+  --status-warn: #FFB86B;
+  --status-critical: #FF2327;
+
+  --text-primary: #FFFFFF;
+  --text-secondary: #CFCED0;
+  --text-muted: #9A989C;
+
+  --ease-out: cubic-bezier(0.19, 1, 0.22, 1);
+  color-scheme: dark;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-html {
-  scroll-behavior: smooth;
-}
-
-/* Outer frame - solid black */
 body {
-  background-color: var(--bg-void);
+  background-color: var(--bg-surface);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Wix Madefor Display', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   overflow-x: hidden;
-  padding: 20px; /* Outer frame width */
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Inner content area with rounded corners */
-#root {
-  background-color: var(--bg-surface);
+#root { min-height: 100vh; position: relative; background: var(--bg-surface); }
+
+::selection { background: var(--uv); color: #0C0B0C; }
+:focus-visible { outline: 2px solid var(--uv); outline-offset: 3px; border-radius: 8px; }
+input, select, textarea, button { font: inherit; color: inherit; }
+input::placeholder { color: var(--text-muted); }
+input, textarea { caret-color: var(--uv); }
+a { text-underline-offset: 3px; }
+.tabular, td, .font-mono { font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: #2C2C2C; border-radius: 6px; border: 2px solid var(--bg-void); }
+::-webkit-scrollbar-thumb:hover { background: var(--violet); }
+html { scrollbar-color: #2C2C2C var(--bg-void); }
+
+/* Display voice: medium weight, very tight tracking. One grey italic serif word per headline. */
+.font-display { font-family: 'Wix Madefor Display', system-ui, sans-serif; letter-spacing: -0.05em; }
+.serif-accent { font-family: 'Tiro Kannada', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.03em; color: #7C7A7E; }
+h1, h2, h3 { text-wrap: balance; }
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hairline);
   border-radius: 28px;
-  min-height: calc(100vh - 40px);
-  overflow-x: hidden;
+}
+/* Labels are words, never code: the family is set so a label inside a data (mono) block keeps the sans voice. */
+.rule-label { font-family: 'Wix Madefor Display', system-ui, sans-serif; font-size: 12px; font-weight: 500; color: var(--uv); letter-spacing: 0; }
+
+/* Large card with the thin gradient edge: grey -> red -> violet -> grey. */
+.edge-card {
   position: relative;
+  border-radius: 28px;
+  padding: 1.4px;
+  background: linear-gradient(78deg, #4A494B 5%, #E73825 19%, #FF1900 37%, #4700D6 69%, #4A494B);
 }
+.edge-card > .edge-inner { border-radius: 26.6px; background: var(--bg-card-deep); overflow: hidden; height: 100%; }
+.edge-card.quiet { background: linear-gradient(126deg, #DDB5FC, #2a2a2a 45%, #4A494B); }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
+/* Small glass step card */
+.glass-card {
+  border-radius: 28px;
+  padding: 1.4px;
+  background: linear-gradient(126deg, #DDB5FC, #1A1A1A 50%);
 }
-::-webkit-scrollbar-track {
-  background: var(--bg-void);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--bg-panel-raised);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--red-primary);
-}
+.glass-card > div { border-radius: 26.6px; background: #1A1A1A; height: 100%; }
+.icon-chip { display: inline-flex; align-items: center; justify-content: center; border-radius: 9999px; background: #2C2C2C; border: 2.4px solid #000; }
 
-/* Recharts Custom Styling for Dark Theme */
-.recharts-tooltip-wrapper {
-  z-index: 100;
+/* Page ground: purple light from the top and a faint starfield. */
+.uv-ground {
+  background:
+    radial-gradient(1100px 620px at 70% -12%, rgba(71, 0, 214, 0.38), transparent 62%),
+    radial-gradient(700px 500px at 105% 40%, rgba(185, 163, 255, 0.08), transparent 60%),
+    var(--bg-surface);
 }
-.recharts-default-tooltip {
-  background-color: var(--bg-panel-raised) !important;
-  border: 1px solid var(--border-hairline) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
-  color: var(--text-primary) !important;
+.stars::before {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none; opacity: 0.7;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 27% 62%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 41% 31%, #cfc4ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 58% 77%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 66% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 79% 48%, #cfc4ff 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 84%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 94% 26%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 6% 88%, #fff 50%, transparent 51%),
+    radial-gradient(1px 1px at 49% 55%, #fff 50%, transparent 51%);
+  background-size: 620px 620px;
 }
-.recharts-cartesian-grid-horizontal line,
-.recharts-cartesian-grid-vertical line {
-  stroke: rgba(255, 255, 255, 0.05) !important;
+.grain::after { content: none; }
+
+/* ── Shared controls ─────────────────────────────────────────────────────────
+   Fields: 6% white fill, no visible border until focus (lavender) or error (red). */
+.field-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.75rem 1rem;
+  font-size: 15px;
+  transition: border-color 0.2s var(--ease-out), background-color 0.2s var(--ease-out);
 }
+.field-input:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+.field-input:focus { outline: none; border-color: var(--uv); background: rgba(255, 255, 255, 0.08); }
+.field-input:focus-visible { outline: none; }
+.field-input[aria-invalid='true'] { border-color: rgba(255, 35, 39, 0.7); }
+.field-input:disabled { opacity: 0.5; cursor: not-allowed; }
+select.field-input { appearance: none; padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239A989C' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; }
+select.field-input option { background: var(--bg-panel); }
+textarea.field-input { min-height: 7rem; resize: vertical; }
+
+/* Data tables: lavender header labels, hairline rows, tabular numerals. */
+.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.data-table th { padding: 0.75rem; text-align: left; font-size: 12px; font-weight: 500; color: var(--uv); white-space: nowrap; }
+.data-table td { padding: 0.75rem; border-top: 1px solid var(--border-hairline); vertical-align: middle; }
+.data-table th.num, .data-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data-table td.nowrap { white-space: nowrap; }
+.data-table tbody tr { transition: background-color 0.2s var(--ease-out); }
+.data-table tbody tr[tabindex]:hover { background: rgba(255, 255, 255, 0.025); cursor: pointer; }
+.data-table tbody tr[tabindex]:focus-visible { outline: 2px solid var(--uv); outline-offset: -2px; border-radius: 0; }
+.data-table tbody tr[aria-selected='true'] { background: rgba(185, 163, 255, 0.1); }
+
+/* Dialog: dimmed, softly blurred page behind so focus sits on the one decision. */
+.veritas-dialog { margin: auto; max-width: min(30rem, calc(100vw - 2rem)); width: 100%; border: 0; padding: 0; background: transparent; color: inherit; overflow: visible; }
+.veritas-dialog::backdrop { background: rgba(8, 7, 8, 0.72); backdrop-filter: blur(6px); }
+.veritas-dialog[open] { animation: dialogIn 0.45s var(--ease-out) both; }
+.veritas-dialog[open]::backdrop { animation: fadeIn 0.3s var(--ease-out) both; }
+@keyframes dialogIn { from { opacity: 0; transform: translateY(10px) scale(0.98); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes sweep { from { transform: translateY(-100%); } to { transform: translateY(100%); } }
+.scan-sweep { position: relative; overflow: hidden; }
+.scan-sweep::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, transparent 45%, rgba(221, 181, 252, 0.16) 50%, transparent 55%);
+  animation: sweep 2.4s var(--ease-out) infinite;
+}
+/* Route change: the page is there at once and settles in. Starts readable, so a paused animation never hides it. */
+@keyframes routeIn { from { opacity: 0.45; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.route-in { animation: routeIn 0.25s var(--ease-out) both; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.animate-fadeInUp { animation: fadeInUp 0.9s var(--ease-out) both; }

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -6,15 +6,22 @@ import {
   NavLink,
   Navigate,
   useNavigate,
+  useLocation,
 } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { LogOut, Lock, Globe, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  LogOut, Menu, X, LayoutGrid, ScanLine, FileCode2, Database, History, Microscope, Siren, FileText, ShieldCheck, UserRound,
+} from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
+import { EASE, DURATION, SPRING } from './components/ui/motion';
+import { Loading } from './components/ui';
+import Footer from './components/Footer';
+import Wordmark from './components/Wordmark';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuth } from './hooks/useAuth';
 
-// Pages load on demand so the login screen doesn't ship three.js, recharts, etc.
+// Pages load on demand so the sign-in screen doesn't ship three.js.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ForensicsPage = lazy(() => import('./pages/ForensicsPage'));
@@ -27,200 +34,240 @@ const BlueTeamPage = lazy(() => import('./pages/BlueTeamPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
 const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
-const PageFallback = () => (
-  <div className="p-8 text-textMuted font-mono text-sm">Loading…</div>
-);
+const PageFallback = () => <Loading className="p-10">Loading…</Loading>;
 
 const BASE_NAV_ITEMS = [
-  { path: '/', label: 'Dashboard' },
-  { path: '/upload', label: 'Upload' },
-  { path: '/real-datasets', label: 'Datasets' },
-  { path: '/model-scan', label: 'Scanner' },
-  { path: '/forensics', label: 'Forensics' },
-  { path: '/history', label: 'History' },
-  { path: '/blue-team', label: 'SOC' },
-  { path: '/reports', label: 'Reports' },
+  { path: '/', label: 'Overview', icon: LayoutGrid },
+  { path: '/upload', label: 'Examine a batch', icon: ScanLine },
+  { path: '/model-scan', label: 'Scan a model file', icon: FileCode2 },
+  { path: '/real-datasets', label: 'Reference datasets', icon: Database },
+  { path: '/history', label: 'History', icon: History },
+  { path: '/reports', label: 'Evidence reports', icon: FileText },
+  { path: '/forensics', label: 'Forensics', icon: Microscope, preview: true },
+  { path: '/blue-team', label: 'Response desk', icon: Siren, preview: true },
+  { path: '/account', label: 'Account', icon: UserRound },
 ];
+const ADMIN_NAV_ITEMS = [{ path: '/admin', label: 'Admin console', icon: ShieldCheck }];
+const ROLE_NAMES = { admin: 'Administrator', analyst: 'Analyst', user: 'User' };
 
-// ── Top Navigation ────────────────────────────────────────────────────────────
+// One browser title per page, so tabs, history and screen readers can tell pages apart.
+const BASE_TITLE = 'Veritas · training-data and model-file checks';
+const PAGE_TITLES = {
+  ...Object.fromEntries([...BASE_NAV_ITEMS, ...ADMIN_NAV_ITEMS].map((i) => [i.path, i.label])),
+  '/login': 'Sign in',
+  '/admin/login': 'Admin sign in',
+  '/signup': 'Create an account',
+  '/verify-email': 'Confirm your email',
+  '/resend-verification': 'Confirm your email',
+  '/forgot-password': 'Reset your password',
+  '/reset-password': 'Choose a new password',
+};
 
-function TopNav() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+function PageTitle() {
+  const { pathname } = useLocation();
+  const { user, loading } = useAuth();
+  useEffect(() => {
+    if (loading) return;
+    // The signed-out "/" and "/welcome" are the landing page; any other unknown path is the not-found page.
+    const landing = pathname === '/welcome' || (pathname === '/' && !user);
+    const name = landing ? null : PAGE_TITLES[pathname] || 'Page not found';
+    document.title = name ? `${name} · Veritas` : BASE_TITLE;
+  }, [pathname, user, loading]);
+  return null;
+}
 
-  const navItems = user?.role === 'admin'
-    ? [{ path: '/admin', label: 'Admin Console' }]
-    : BASE_NAV_ITEMS;
-
-  const handleLogout = () => {
-    const wasAdmin = user?.role === 'admin';
-    logout();
-    if (wasAdmin) {
-      navigate('/admin/login', { replace: true });
-    } else {
-      navigate('/login', { replace: true });
-    }
-  };
-
-
+function NavItems({ items, onNavigate }) {
   return (
-    <nav className="sticky top-0 z-50 w-full bg-bgVoid/80 backdrop-blur-md border-b border-borderHairline px-6 py-4 flex items-center justify-between">
-      {/* Logo button (Navigates to Homepage) */}
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className="flex items-center gap-3 group text-left cursor-pointer bg-transparent border-0 p-0 focus:outline-none"
-        title="Return to Homepage"
-        aria-label="SPECTRA Homepage"
-      >
-        <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/20 flex items-center justify-center group-hover:bg-redPrimary/20 group-hover:border-redPrimary/40 transition-all">
-          <Lock className="w-5 h-5 text-redPrimary group-hover:scale-105 transition-transform" />
-        </div>
-        <div className="font-display font-bold text-lg tracking-tight text-textPrimary group-hover:text-redBright transition-colors">
-          SPECTRA
-        </div>
-      </button>
-
-      {/* Pill Links */}
-      <div className="hidden md:flex items-center gap-1 bg-bgPanel p-1 rounded-full border border-borderHairline">
-        {navItems.map((item) => (
+    <ul className="flex flex-col gap-0.5">
+      {items.map((item) => {
+        const { path, label, preview } = item;
+        return (
+        <li key={path}>
           <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.path === '/'}
+            to={path}
+            end={path === '/'}
+            onClick={onNavigate}
             className={({ isActive }) =>
-              `relative px-4 py-2 rounded-full text-sm font-medium transition-colors z-10 ${
-                isActive ? 'text-redBright tracking-wide' : 'text-textMuted hover:text-textPrimary'
+              `relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium transition-colors ${
+                isActive ? 'bg-white/[0.08] text-textPrimary' : 'text-textSecondary hover:bg-white/[0.03] hover:text-textPrimary'
               }`
             }
           >
             {({ isActive }) => (
               <>
                 {isActive && (
-                  <motion.div
-                    layoutId="nav-indicator"
-                    className="absolute inset-0 bg-redDim/30 border border-redPrimary/20 rounded-full shadow-red-glow z-[-1]"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                  />
+                  <motion.span layoutId="rail-mark" className="absolute bottom-2 left-0 top-2 w-[2px] rounded bg-uv" transition={SPRING} />
                 )}
-                {item.label}
+                <item.icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-uv' : ''}`} aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{label}</span>
+                {preview && <span className="shrink-0 rounded-full border border-statusWarn/40 px-1.5 py-px text-[11px] leading-4 text-statusWarn/90" title="Research preview: heuristic output">Preview</span>}
               </>
             )}
           </NavLink>
-        ))}
-      </div>
-
-      {/* Right Actions */}
-      <div className="flex items-center gap-4">
-        <button className="hidden sm:flex items-center gap-2 text-sm font-medium text-textMuted hover:text-textPrimary transition-colors">
-          <Globe className="w-4 h-4" /> EN
-        </button>
-
-        {user ? (
-          <>
-            {/* User badge */}
-            <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-bgPanel border ${
-              user.role === 'admin'
-                ? 'border-redPrimary/40 shadow-red-glow'
-                : 'border-borderHairline'
-            }`}>
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold uppercase ${
-                user.role === 'admin'
-                  ? 'bg-redPrimary/20 border border-redPrimary/40 text-redBright'
-                  : 'bg-white/5 border border-white/10 text-textPrimary'
-              }`}>
-                {user.name?.charAt(0) || '?'}
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="text-xs font-semibold text-textPrimary">{user.name}</span>
-                <span className={`text-[9px] font-mono font-extrabold uppercase tracking-wider ${
-                  user.role === 'admin' ? 'text-redBright' : 'text-textMuted'
-                }`}>
-                  {user.role === 'admin' ? 'ADMINISTRATOR' : 'REGULAR USER'}
-                </span>
-              </div>
-            </div>
-
-            {/* Log Out button */}
-            <button
-              onClick={handleLogout}
-              className="group flex items-center gap-2 bg-bgPanelRaised hover:bg-redPrimary text-textMuted hover:text-white px-4 py-2.5 rounded-full text-sm font-semibold border border-borderHairline hover:border-redPrimary transition-all"
-            >
-              <LogOut className="w-4 h-4" />
-              Log Out
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => navigate('/login')}
-            className="group flex items-center gap-2 bg-redPrimary text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-redBright hover:shadow-red-glow transition-all"
-          >
-            Sign In
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-        )}
-      </div>
-    </nav>
+        </li>
+        );
+      })}
+    </ul>
   );
 }
 
-import Footer from './components/Footer';
+function Rail({ connected }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
 
-// ── Protected app shell ────────────────────────────────────────────────────────
+  // The phone menu covers the page, so Escape closes it.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+  const items = user?.role === 'admin' ? ADMIN_NAV_ITEMS : BASE_NAV_ITEMS;
 
-function AppShell() {
-  const { events } = useWebSocket();
+  const handleLogout = async () => {
+    const wasAdmin = user?.role === 'admin';
+    await logout();
+    navigate(wasAdmin ? '/admin/login' : '/login', { replace: true });
+  };
+
+  const body = (
+    <>
+      <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
+        <NavItems items={items} onNavigate={() => setOpen(false)} />
+      </nav>
+      <div className="space-y-4 border-t border-borderHairline p-4">
+        <div className="flex items-center gap-2 text-[12px] text-textMuted" aria-live="polite">
+          <span aria-hidden className={`h-2 w-2 rounded-full motion-reduce:animate-none ${connected ? 'animate-pulse bg-statusSafe' : 'bg-textMuted'}`} />
+          {connected ? 'Live event stream' : 'Event stream reconnecting'}
+        </div>
+        {user && (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-borderStrong font-display text-sm font-bold uppercase text-uv">
+              {(user.name || user.username || '?').charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="truncate text-sm font-semibold">{user.name || user.username}</div>
+              <div className="text-[12px] text-textMuted">{ROLE_NAMES[user.role] || user.role}</div>
+            </div>
+            <button type="button" onClick={handleLogout} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-textMuted transition-colors hover:bg-white/[0.06] hover:text-textPrimary" aria-label="Sign out" title="Sign out">
+              <LogOut className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
 
   return (
-    <div className="flex flex-col min-h-screen bg-bgSurface text-textPrimary relative">
+    <>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[248px] flex-col border-r border-borderHairline bg-ink-950/70 backdrop-blur-xl lg:flex">
+        <button type="button" onClick={() => navigate('/')} className="px-6 pb-4 pt-6 text-left" aria-label="Veritas overview">
+          <Wordmark />
+        </button>
+        {body}
+      </aside>
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-borderHairline bg-ink-950/90 px-4 py-3 backdrop-blur-md lg:hidden">
+        <button type="button" onClick={() => navigate('/')} aria-label="Veritas overview" className="inline-flex min-h-[44px] items-center"><Wordmark /></button>
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="phone-menu" aria-label={open ? 'Close menu' : 'Open menu'}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-borderStrong transition-colors hover:bg-white/[0.06]">
+          {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+        </button>
+      </header>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            id="phone-menu"
+            initial={{ opacity: 0.4, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: DURATION.fast, ease: EASE }}
+            className="fixed inset-x-0 bottom-0 top-[69px] z-40 flex flex-col bg-ink-950 lg:hidden"
+          >
+            {body}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
 
-      <TopNav />
-      <main className="flex-1 w-full relative z-10">
-        <Suspense fallback={<PageFallback />}>
-        <Routes>
-          <Route path="/" element={<PageErrorBoundary name="Trust Dashboard"><Dashboard wsEvents={events} /></PageErrorBoundary>} />
-          <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}><PageErrorBoundary name="Admin Console"><AdminDashboard /></PageErrorBoundary></ProtectedRoute>} />
-          <Route path="/upload" element={<PageErrorBoundary name="Upload Dataset"><UploadPage /></PageErrorBoundary>} />
-          <Route path="/model-scan" element={<PageErrorBoundary name="Model Scanner"><ModelScanPage /></PageErrorBoundary>} />
-          <Route path="/real-datasets" element={<PageErrorBoundary name="Real Datasets"><RealDatasetsPage /></PageErrorBoundary>} />
-          <Route path="/forensics" element={<PageErrorBoundary name="Poison Forensics"><ForensicsPage /></PageErrorBoundary>} />
-          <Route path="/blue-team" element={<PageErrorBoundary name="Blue Team SOC"><BlueTeamPage /></PageErrorBoundary>} />
-          <Route path="/reports" element={<PageErrorBoundary name="Evidence Reports"><ReportsPage /></PageErrorBoundary>} />
-          <Route path="/history" element={<PageErrorBoundary name="Analysis History"><HistoryPage /></PageErrorBoundary>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+// The new page mounts at once and fades in with CSS. No exit animation: waiting for the old page to leave
+// left the main area blank whenever animation frames stalled (a background tab, quick clicks).
+function AnimatedRoutes({ events }) {
+  const location = useLocation();
+  return (
+    <div key={location.pathname} className="route-in">
+      <Suspense fallback={<PageFallback />}>
+        <Routes location={location}>
+          <Route path="/" element={<PageErrorBoundary name="Overview"><Dashboard wsEvents={events} /></PageErrorBoundary>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}><PageErrorBoundary name="Admin console"><AdminDashboard /></PageErrorBoundary></ProtectedRoute>} />
+          <Route path="/upload" element={<PageErrorBoundary name="Examine a batch"><UploadPage /></PageErrorBoundary>} />
+          <Route path="/model-scan" element={<PageErrorBoundary name="Model scanner"><ModelScanPage /></PageErrorBoundary>} />
+          <Route path="/real-datasets" element={<PageErrorBoundary name="Reference datasets"><RealDatasetsPage /></PageErrorBoundary>} />
+          <Route path="/forensics" element={<PageErrorBoundary name="Forensics"><ForensicsPage /></PageErrorBoundary>} />
+          <Route path="/blue-team" element={<PageErrorBoundary name="Response desk"><BlueTeamPage /></PageErrorBoundary>} />
+          <Route path="/reports" element={<PageErrorBoundary name="Evidence reports"><ReportsPage /></PageErrorBoundary>} />
+          <Route path="/history" element={<PageErrorBoundary name="History"><HistoryPage /></PageErrorBoundary>} />
+          <Route path="/account" element={<PageErrorBoundary name="Account"><AccountPage /></PageErrorBoundary>} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
-        </Suspense>
-      </main>
-      <Footer />
+      </Suspense>
     </div>
   );
 }
 
-// ── Root App ──────────────────────────────────────────────────────────────────
+function AppShell() {
+  const { events, connected } = useWebSocket();
+  return (
+    <div className="uv-ground min-h-screen text-textPrimary">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded focus:bg-uv focus:px-3 focus:py-2 focus:text-ink-950">
+        Skip to content
+      </a>
+      <Rail connected={connected} />
+      <div className="flex min-h-screen flex-col lg:pl-[248px]">
+        <main id="main" className="w-full flex-1">
+          <AnimatedRoutes events={events} />
+        </main>
+        <Footer />
+      </div>
+    </div>
+  );
+}
+
+/** Signed-out visitors see the public landing page at "/"; every other path asks them to sign in. */
+function Gate() {
+  const { user, loading } = useAuth();
+  const { pathname } = useLocation();
+  if (!loading && !user && pathname === '/') return <LandingPage />;
+  return (
+    <ProtectedRoute fallback={<Navigate to="/login" replace />}>
+      <AppShell />
+    </ProtectedRoute>
+  );
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <PageTitle />
       <Suspense fallback={<PageFallback />}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/signup" element={<AccountFlowPage mode="signup" />} />
-        <Route path="/verify-email" element={<AccountFlowPage mode="verify" />} />
-        <Route path="/forgot-password" element={<AccountFlowPage mode="forgot" />} />
-        <Route path="/reset-password" element={<AccountFlowPage mode="reset" />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute fallback={<Navigate to="/login" replace />}>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route path="/signup" element={<AccountFlowPage mode="signup" />} />
+          <Route path="/verify-email" element={<AccountFlowPage mode="verify" />} />
+          <Route path="/forgot-password" element={<AccountFlowPage mode="forgot" />} />
+          <Route path="/reset-password" element={<AccountFlowPage mode="reset" />} />
+          <Route path="/resend-verification" element={<AccountFlowPage mode="resend" />} />
+          <Route path="/welcome" element={<LandingPage />} />
+          <Route path="/*" element={<Gate />} />
+        </Routes>
       </Suspense>
     </BrowserRouter>
   );
 }
-
