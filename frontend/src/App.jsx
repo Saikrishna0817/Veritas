@@ -54,6 +54,32 @@ const BASE_NAV_ITEMS = [
 const ADMIN_NAV_ITEMS = [{ path: '/admin', label: 'Admin console', icon: ShieldCheck }];
 const ROLE_NAMES = { admin: 'Administrator', analyst: 'Analyst', user: 'User' };
 
+// One browser title per page, so tabs, history and screen readers can tell pages apart.
+const BASE_TITLE = 'Veritas · training-data and model-file checks';
+const PAGE_TITLES = {
+  ...Object.fromEntries([...BASE_NAV_ITEMS, ...ADMIN_NAV_ITEMS].map((i) => [i.path, i.label])),
+  '/login': 'Sign in',
+  '/admin/login': 'Admin sign in',
+  '/signup': 'Create an account',
+  '/verify-email': 'Confirm your email',
+  '/resend-verification': 'Confirm your email',
+  '/forgot-password': 'Reset your password',
+  '/reset-password': 'Choose a new password',
+};
+
+function PageTitle() {
+  const { pathname } = useLocation();
+  const { user, loading } = useAuth();
+  useEffect(() => {
+    if (loading) return;
+    // The signed-out "/" and "/welcome" are the landing page; any other unknown path is the not-found page.
+    const landing = pathname === '/welcome' || (pathname === '/' && !user);
+    const name = landing ? null : PAGE_TITLES[pathname] || 'Page not found';
+    document.title = name ? `${name} · Veritas` : BASE_TITLE;
+  }, [pathname, user, loading]);
+  return null;
+}
+
 function NavItems({ items, onNavigate }) {
   return (
     <ul className="flex flex-col gap-0.5">
@@ -228,6 +254,7 @@ function Gate() {
 export default function App() {
   return (
     <BrowserRouter>
+      <PageTitle />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

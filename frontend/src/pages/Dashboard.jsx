@@ -65,7 +65,7 @@ function VerdictReadout({ latest, error }) {
   const flags = latest.layer_results?.row_flags;
   return (
     <div>
-      <div className="rule-label">Latest batch · {latest.dataset_info?.filename || latest.source}</div>
+      <div className="rule-label">{latest.source === 'demo' ? 'Synthetic sample batch · just run' : `Latest batch · ${latest.dataset_info?.filename || latest.source}`}</div>
       {/* Transform and opacity only: animating letter-spacing re-laid the page every frame and could wrap the title onto a third line mid-way. */}
       <motion.div
         initial={{ opacity: 0.5, y: 18 }}
@@ -178,11 +178,14 @@ export default function Dashboard({ wsEvents = [] }) {
   const [latestError, setLatestError] = useState(null);
   const [historyError, setHistoryError] = useState(null);
 
+  const loadCounts = () => {
+    api.getHistory(null, 8).then((d) => { setHistory(d); setHistoryError(null); }).catch(setHistoryError);
+    api.getUsage().then(setUsage).catch(() => setUsage(null));   // the quota card shows a dash
+  };
   const load = () => {
     api.getLatestUpload().then((d) => { setLatest(d); setLatestError(null); })
       .catch((e) => { setLatest(null); setLatestError(e.status === 404 ? null : e); });
-    api.getHistory(null, 8).then((d) => { setHistory(d); setHistoryError(null); }).catch(setHistoryError);
-    api.getUsage().then(setUsage).catch(() => setUsage(null));   // the quota card shows a dash
+    loadCounts();
   };
   useEffect(load, []);
 
@@ -190,8 +193,10 @@ export default function Dashboard({ wsEvents = [] }) {
     setDemoBusy(true);
     setError('');
     try {
-      await api.runDemo();
-      load();
+      // "Latest upload" never includes sample batches, so reloading alone left the hero unchanged after a run.
+      // Show the run the server just returned, named as what it is.
+      const result = await api.runDemo();
+      if (result?.verdict) { setLatest({ ...result, source: 'demo' }); setLatestError(null); loadCounts(); } else load();
     } catch (e) {
       setError(e.message || 'The sample batch could not be run.');
     } finally {

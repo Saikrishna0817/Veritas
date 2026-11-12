@@ -27,12 +27,18 @@ function Detail({ row, onClose }) {
     const get = row.source === 'model_scan' ? api.getModelScan(row.id) : api.getHistoricalResult(row.id);
     get.then(setFull).catch((e) => setError(e.message));
   }, [row]);
+  // Escape closes the detail, as it does the phone menu and dialogs; focus stays on the selected row.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   const v = verdictOf(row.verdict);
   const flags = full?.layer_results?.row_flags;
   const scan = full?.scan;
   return (
     <motion.aside
-      initial={{ opacity: 0, x: 24 }}
+      initial={{ opacity: 0.4, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
       transition={{ duration: DURATION.fast, ease: EASE }}

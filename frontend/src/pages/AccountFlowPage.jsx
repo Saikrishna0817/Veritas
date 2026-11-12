@@ -9,7 +9,8 @@ import { TURNSTILE_SITE_KEY } from '../services/config';
 const COPY = {
   signup: { title: 'Create an account', lede: 'We email you a link to confirm the address.', cta: 'Create account' },
   verify: { title: 'Confirm your email', lede: 'Checking your link…', cta: '' },
-  forgot: { title: 'Reset your password', lede: 'If the address has an account, a reset link is on its way.', cta: 'Send reset link' },
+  // Read before anything is sent, so it describes what happens, not that it already did.
+  forgot: { title: 'Reset your password', lede: 'We email a reset link if the address has an account.', cta: 'Send reset link' },
   reset: { title: 'Choose a new password', lede: 'At least 10 characters.', cta: 'Change password' },
   resend: { title: 'Confirm your email', lede: 'Lost the confirmation email or it expired? We send a new link, valid for 24 hours.', cta: 'Send a new link' },
 };
@@ -52,10 +53,14 @@ export default function AccountFlowPage({ mode }) {
   }
 
   const copy = COPY[mode];
+  // A reset link without its token can only fail, so say so instead of offering the form.
+  const missingResetToken = mode === 'reset' && !token;
+  // "Checking your link…" only while the check runs; afterwards the notice or the error says how it went.
+  const lede = mode === 'verify' && (message || error) ? null : missingResetToken ? null : copy.lede;
   return (
     <AuthLayout
       title={copy.title}
-      lede={copy.lede}
+      lede={lede}
       footer={(
         <>
           <Link to="/login" className="text-violet hover:text-[var(--red-bright)]">Sign in</Link>
@@ -65,6 +70,12 @@ export default function AccountFlowPage({ mode }) {
         </>
       )}
     >
+      {missingResetToken ? (
+        <div className="space-y-5">
+          <ErrorNote>This reset link is missing its token. Open the link from the email again, or ask for a new one.</ErrorNote>
+          <Link to="/forgot-password" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">Send a new reset link →</Link>
+        </div>
+      ) : (
       <form onSubmit={submit} className="space-y-5">
         {mode === 'signup' && <Field label="Username" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" />}
         {(mode === 'signup' || mode === 'forgot' || mode === 'resend') && <Field label="Email" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />}
@@ -73,11 +84,15 @@ export default function AccountFlowPage({ mode }) {
         )}
         {needsCheck && !message && <HumanCheck onToken={setHuman} onError={setError} resetKey={checkRound} />}
         <ErrorNote>{error}</ErrorNote>
+        {mode === 'verify' && error && (
+          <Link to="/resend-verification" className="inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">Send a new confirmation link →</Link>
+        )}
         <Notice tone="safe">{message}</Notice>
         {mode !== 'verify' && !message && (
           <Button type="submit" variant="uv" loading={busy} disabled={needsCheck && !human} className="w-full py-3.5 text-[15px]">{copy.cta}</Button>
         )}
       </form>
+      )}
     </AuthLayout>
   );
 }
