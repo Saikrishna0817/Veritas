@@ -131,3 +131,32 @@ At 1%: patch, blended, duplicates, class-noise 100%; clean-label 90%; random and
   of five is the next thing to try.
 - The chroma check is blind to noise that is identical across colour channels, and to greyscale data with greyscale noise.
 - 36 s per batch (was 14 s); the cross-fitted label check is most of it (5 GBM fits, slow with 100 classes).
+
+## v7: label-check batch evidence (2026-11-13)
+
+In v6 the cross-fitted label check never fired on a clean batch: incoming rows were scored by the mean of five fold
+models, which is less extreme than the single out-of-fold score each reference row gets. Two changes to its batch
+evidence only (the row list still uses the mean, which ranks flipped rows better: dev AUPRC 0.45 vs 0.34):
+
+- each incoming row is scored by one fold model (row i by fold i mod 5), on the same footing as the reference rows;
+- evidence = best of the pooled tail test and the best per-claimed-class tail test (minus log10 of the class count),
+  minus log10(2). A targeted flip puts all its rows in one claimed class.
+
+Chosen on dev (`research/mm/label_study_dev.py`): clean flagged 1.4% -> 2.5% at 1.3, 0% -> 0.3% at 2.0; label flips
+flagged at 1% random 10% -> 30%, targeted 30% -> 50%; all attacks at 1% 70% -> 77%.
+
+Held-out test (CIFAR-10, GTSRB), share of attacked batches flagged (evidence >= 1.3). Row AUPRC is unchanged.
+
+| Attack | v6 1% | v7 1% | v6 3% | v7 3% | v6 5% | v7 5% |
+|---|---|---|---|---|---|---|
+| Random label flip | 10% | 40% | 50% | 70% | 100% | 100% |
+| Targeted label flip | 10% | 40% | 40% | 50% | 50% | 60% |
+| All attacks | 73% | 81% | 83% | 87% | 91% | 93% |
+
+At cut-off 2.0: all attacks at 1% 69% -> 74%, at 3% 77% -> 86%, at 5% 87% -> 93%; random flip at 1% 0% -> 40%, targeted at 1% still 0%.
+
+- Clean test batches (n = 240): 4.2% reach 1.3 (nominal 5%; v6 2.1%), 1.3% reach 2.0 (nominal 1%; v6 0.8%), 0.4% reach 4.0.
+  The label check caused 5 of the 10 clean alarms at 1.3 and one of the three at 2.0 (raw 2.24). Above nominal at 2.0
+  by one batch; not retuned on test.
+- Targeted flips are still the weakest: 40-60% of batches flagged at any rate, row AUPRC 0.45-0.57.
+- 37 s per batch.

@@ -21,22 +21,23 @@ def comps(job):
     c = components_v6(job["d"], secs)
     return {"data_id": s["data_id"], "attack": s["attack"], "rate": s["rate"], "seed": s["seed"], "mask": job["mask"], "comps": c, "secs": secs}
 
-def collect():
+def collect(fn=None, path=PKL):
+    """Run ``fn`` (default comps) on the dev batches, appending each record to ``path`` (resumes where it stopped)."""
     m = bench_mm.load_manifest("full"); m["datasets"] = {"dev": m["datasets"]["dev"]}
     m1 = {**m, "poison_rates": [0.01, 0.05], "clean_batches_per_seed": 12, "seeds": 5}      # as shared_study_dev.collect
     n_new = rs.MIN_CLEAN - 120; per_seed = len(m["datasets"]["dev"]) * m["clean_batches_per_seed"]
     m2 = {**m, "attacks": [], "poison_rates": [], "seeds": rs.FIRST_NEW_SEED + -(-n_new // per_seed)}  # as report_study_dev.collect
-    t = time.perf_counter(); done = len(_load()) if os.path.exists(PKL) else 0  # resume: records are appended one by one
+    t = time.perf_counter(); done = len(_load(path)) if os.path.exists(path) else 0  # resume: records are appended one by one
     gen = itertools.islice(itertools.chain(ss.jobs(m1), rs.jobs(m2)), done, None)
-    with ProcessPoolExecutor(int(os.getenv("WORKERS", 6))) as pool, open(PKL, "ab") as f:
-        for i, r in enumerate(pool.map(comps, gen, chunksize=1), done + 1):
+    with ProcessPoolExecutor(int(os.getenv("WORKERS", 6))) as pool, open(path, "ab") as f:
+        for i, r in enumerate(pool.map(fn or comps, gen, chunksize=1), done + 1):
             pickle.dump(r, f); f.flush()
             if i % 20 == 0: print(i, f"{time.perf_counter()-t:.0f}s", flush=True)
     print("done", i)
 
-def _load():
+def _load(path=PKL):
     out = []
-    with open(PKL, "rb") as f:   # this study's own local output
+    with open(path, "rb") as f:   # this study's own local output
         while True:
             try: out.append(pickle.load(f))
             except EOFError: return out
