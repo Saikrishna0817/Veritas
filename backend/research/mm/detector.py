@@ -38,14 +38,38 @@ def components(d: dict) -> dict:
             "resid": shared.shared_residual_component(d)}
 
 
-def veritas_mm(d: dict):
-    rows, ev = [], []
-    for name, (cal, inc) in components(d).items():
+_memo = [None, None]  # one slot: (batch, components), so several per-check detectors share one computation
+
+
+def _components(d: dict) -> dict:
+    if _memo[0] is not d: _memo[:] = [d, components(d)]  # holding d keeps its id from being reused
+    return _memo[1]
+
+
+def report(d: dict) -> dict:
+    """Per check: penalised ``evidence``, ``raw`` evidence, whether it is ``admitted`` to the ranking, its row scores."""
+    out = {}
+    for name, (cal, inc) in _components(d).items():
         e = v2.exact_tail_test(cal, inc)
-        ev.append(e - PENALTY[name])
-        if name == "label" or e >= GATE[name]:
-            rows.append(shared.extrapolated_neg_log_p(cal, inc))  # rows beyond every clean row keep their margin
-    return np.max(rows, axis=0), max(ev)
+        out[name] = {"evidence": e - PENALTY[name], "raw": e, "admitted": name == "label" or e >= GATE[name],
+                     "rows": shared.extrapolated_neg_log_p(cal, inc)}  # rows beyond every clean row keep their margin
+    return out
+
+
+def veritas_mm(d: dict):
+    r = report(d)
+    return np.max([c["rows"] for c in r.values() if c["admitted"]], axis=0), max(c["evidence"] for c in r.values())
+
+
+def check_detector(name: str):
+    """(rows, raw evidence) of one check."""
+    return lambda d: (lambda c: (c["rows"], c["raw"]))(report(d)[name])
+
+
+def mm_lead(d: dict):
+    """(rows, penalised evidence) of the check with the highest penalised evidence."""
+    c = max(report(d).values(), key=lambda c: c["evidence"])
+    return c["rows"], c["evidence"]
 
 
 def pixel_c2st(d: dict):

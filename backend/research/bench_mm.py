@@ -27,11 +27,12 @@ from research.baselines import DETECTORS  # noqa: E402
 from research.bench_v2 import _row_metrics, aggregate, detector_inputs, to_markdown  # noqa: E402
 from research.mm import datasets  # noqa: E402
 from research.mm.attacks import ATTACKS, make_context  # noqa: E402
-from research.mm.detector import pixel_c2st, veritas_mm  # noqa: E402
+from research.mm.detector import check_detector, mm_lead, pixel_c2st, veritas_mm  # noqa: E402
 from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
 
-ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm}
+ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm, "mm_lead": mm_lead,
+                 **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid")}}
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_MM_MANIFEST", "manifest-mm-images-v2.json")

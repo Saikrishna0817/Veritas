@@ -50,3 +50,36 @@ Held-out test (CIFAR-10, GTSRB), `veritas_mm`, row AUPRC:
 - Clean test batches (n = 120): 8.3% reach the lowest verdict cut-off (nominal 5%), 2.5% the middle one (nominal 1%), none the top one. Slightly loose; needs recalibration.
 - Class-noise at 1% is still at chance.
 - 16 s per batch.
+
+## v5: per-check report (2026-11-12)
+
+`detector.report(d)` returns, for each of the six checks, its evidence (raw and penalised), whether it joins the fused
+ranking, and its own row scores. `veritas_mm` is built on it and is unchanged (v5 fused numbers equal v4). The benchmark
+scores each check's own list (`mm_label` ... `mm_resid`) and `mm_lead` (the list of the check with the highest evidence).
+No gate or penalty was changed: on 360 clean dev batches the fused evidence crosses 1.3 in 4.7% and 2.0 in 0.8%
+(`research/mm/report_study_dev.py`).
+
+Held-out test (CIFAR-10, GTSRB), row AUPRC at 1% poison:
+
+| Attack | fused | lead | label | shift | pixel | dup | cell | resid |
+|---|---|---|---|---|---|---|---|---|
+| Random label flip | 0.33 | 0.40 | 0.45 | 0.02 | 0.02 | 0.02 | 0.01 | 0.01 |
+| Targeted label flip | 0.41 | 0.41 | 0.41 | 0.01 | 0.02 | 0.03 | 0.01 | 0.01 |
+| Patch backdoor | 0.80 | 0.51 | 0.39 | 0.02 | 0.71 | 0.01 | 0.88 | 0.89 |
+| Blended backdoor | 0.68 | 0.51 | 0.20 | 0.02 | 0.05 | 0.01 | 0.50 | 0.70 |
+| Clean-label backdoor | 0.65 | 0.64 | 0.02 | 0.02 | 0.57 | 0.01 | 0.79 | 0.77 |
+| Duplicate flood | 0.92 | 0.79 | 0.08 | 0.91 | 0.79 | 0.93 | 0.92 | 0.92 |
+| Class-noise | 0.02 | 0.02 | 0.02 | 0.01 | 0.02 | 0.01 | 0.01 | 0.01 |
+| Mean | 0.55 | 0.47 | 0.22 | 0.14 | 0.31 | 0.15 | 0.45 | 0.47 |
+
+At 5%: fused 0.72, lead 0.72, label 0.33, shift 0.20, pixel 0.54, dup 0.17, cell 0.55, resid 0.58 (means).
+
+- The label check's own list restores random label flips at 1% to 0.45 (fused 0.33; v3 fused 0.44) and at 5% to 0.64 (fused 0.56).
+- For every attack except class-noise, some single check's list beats or matches the fused list (patch: resid 0.89; blended: resid 0.70;
+  clean-label: cell 0.79; duplicates: dup 0.93). That choice is made with hindsight; the report shows all lists rather than picking one.
+- `mm_lead` (0.47) is worse than the fused list (0.55) at 1%: at low rates the highest-evidence check is often not the right one. Do not use it as the single list.
+- Clean test batches (n = 240): 7.5% reach the lowest cut-off (nominal 5%; 95% interval 4.8-11.5%), 1.3% the middle one (nominal 1%), none the top one.
+  Dev says 4.7%, test 7.5%: slightly loose at worst, not changed.
+- Batch verdict at the fixed 1.3 cut-off: 26% of attacked batches at 1% poison, 79% at 5%.
+- Class-noise at 1% is at chance on every check.
+- 14 s per batch for all eight outputs (components are computed once per batch).
