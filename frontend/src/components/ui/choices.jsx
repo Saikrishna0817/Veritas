@@ -2,7 +2,8 @@ import { createElement, useId, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { SPRING } from './motion';
 
-const TRACK = 'inline-flex max-w-full flex-wrap gap-1 rounded-[20px] bg-white/[0.04] p-1 ring-1 ring-inset ring-white/[0.06]';
+// One row that scrolls sideways when it runs out of room: on a phone a wrapped track turned into a block of buttons.
+const TRACK = 'inline-flex max-w-full gap-1 overflow-x-auto rounded-[20px] bg-white/[0.04] p-1 ring-1 ring-inset ring-white/[0.06] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
 /**
  * A row of toggle buttons for filters and pickers (aria-pressed). Use Tabs instead when the choice
@@ -24,13 +25,13 @@ function SegmentButton({ option, active, layoutId, ...props }) {
     <button
       type="button"
       {...props}
-      className={`relative inline-flex min-h-[40px] items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition-colors duration-200 ${active ? 'text-ink-900' : 'text-textSecondary hover:bg-white/[0.06] hover:text-textPrimary'}`}
+      className={`relative inline-flex min-h-[40px] shrink-0 items-center gap-2 whitespace-nowrap rounded-2xl px-4 py-2 text-sm font-medium transition-colors duration-200 ${active ? 'text-ink-900' : 'text-textSecondary hover:bg-white/[0.06] hover:text-textPrimary'}`}
     >
       {active && <motion.span layoutId={layoutId} className="absolute inset-0 rounded-2xl bg-white" transition={SPRING} aria-hidden />}
       <span className="relative inline-flex items-center gap-2">
         {option.icon && createElement(option.icon, { className: 'h-4 w-4', 'aria-hidden': true })}
         {option.label}
-        {option.count != null && <span className={`tabular text-xs ${active ? 'text-ink-900/60' : 'text-textMuted'}`}>{option.count}</span>}
+        {option.count != null && <span className={`tabular text-xs ${active ? 'text-ink-900/60' : 'text-textMuted'}`}><span className="sr-only"> (</span>{option.count}<span className="sr-only">)</span></span>}
       </span>
     </button>
   );

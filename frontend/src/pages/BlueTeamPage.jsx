@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, ChevronDown, Bot, UserRound, ShieldCheck, Search, Siren } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, PreviewTag, StatCard, Segmented, Loading, Page, orDash, percent, DURATION, EASE } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, PreviewTag, StatCard, Segmented, Loading, Page, VerdictBadge, orDash, percent, DURATION, EASE } from '../components/ui';
 
 // Threat level is the backend's reading of the latest batch's suspicion (0.15 / 0.35 / 0.65 cut-offs).
 const LEVELS = {
@@ -229,7 +229,7 @@ export default function BlueTeamPage() {
                 <p className="mt-3 text-textSecondary">{level.note}</p>
               </div>
               <dl className="relative grid grid-cols-3 gap-6 text-sm md:text-right">
-                <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1 font-mono">{nothingYet ? '—' : (status.current_verdict || '—').replace(/_/g, ' ').toLowerCase()}</dd></div>
+                <div><dt className="rule-label">Latest verdict</dt><dd className="mt-1">{nothingYet || !status.current_verdict ? <span className="font-mono">—</span> : <VerdictBadge verdict={status.current_verdict} />}</dd></div>
                 <div><dt className="rule-label">Suspicion</dt><dd className="mt-1 font-mono">{nothingYet ? '—' : percent(status.suspicion_score)}</dd></div>
                 <div><dt className="rule-label">Updated</dt><dd className="mt-1 font-mono">{when(status.updated_at, true)}</dd></div>
               </dl>

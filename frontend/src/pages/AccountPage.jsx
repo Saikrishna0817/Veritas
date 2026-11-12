@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Copy, Check, KeyRound, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, Field, ConfirmButton, Dialog, Loading, Page, EASE } from '../components/ui';
+import { PageHeader, Panel, Button, ErrorNote, ErrorState, Notice, Field, ConfirmButton, Dialog, Loading, Page, EASE, DURATION } from '../components/ui';
 
 const USAGE = [
   ['analyses', 'Analyses today', (n) => n.toLocaleString()],
@@ -42,11 +42,11 @@ function Usage() {
                   </div>
                   <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/[0.07]">
                     <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: share >= 0.9 ? 'var(--flag)' : 'var(--uv)' }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${share * 100}%` }}
-                      transition={{ duration: 1.4, delay: i * 0.1, ease: EASE }}
+                      className="h-full origin-left rounded-full"
+                      style={{ width: `${share * 100}%`, background: share >= 0.9 ? 'var(--flag)' : 'var(--uv)' }}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
+                      transition={{ duration: DURATION.grow, delay: i * 0.1, ease: EASE }}
                     />
                   </div>
                 </div>
@@ -117,7 +117,7 @@ function ApiKeys() {
               <code className="min-w-0 flex-1 break-all rounded-2xl bg-black/40 px-4 py-3 font-mono text-sm text-uv">{fresh.key}</code>
               <Button variant="primary" onClick={copy}>{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copied ? 'Copied' : 'Copy'}</Button>
             </div>
-            <button onClick={() => setFresh(null)} className="mt-3 text-sm text-textMuted underline hover:text-textPrimary">I have saved it</button>
+            <button type="button" onClick={() => setFresh(null)} className="mt-1 inline-flex min-h-[44px] items-center text-sm text-textMuted underline hover:text-textPrimary">I have saved it</button>
           </div>
         </div>
       )}
@@ -266,7 +266,9 @@ function Activity({ userId, isAdmin }) {
       ) : events.length === 0 ? (
         <p className="text-sm text-textSecondary">Nothing recorded yet. Examining a batch, scanning a file or managing keys shows up here.</p>
       ) : (
-        <ul className="divide-y divide-borderHairline">
+        // Beside the shorter left column, 50 rows would run the page far past it: on wide screens the list scrolls in its card.
+        // It is focusable so the keyboard can scroll it too.
+        <ul tabIndex={0} aria-label="Recent account activity" className="-mx-2 divide-y divide-borderHairline px-2 lg:max-h-[600px] lg:overflow-y-auto">
           {events.map((e) => (
             <li key={e.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-3 py-2.5 text-sm">
               <span className="min-w-0">

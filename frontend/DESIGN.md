@@ -40,7 +40,7 @@ Point cloud of rows: lavender-white points, flagged rows in `--flag`, a sweep li
 
 ## Motion — `components/ui/motion.js`
 - One easing everywhere: `EASE` = `cubic-bezier(0.19, 1, 0.22, 1)` (also `--ease-out` in CSS). Never a second curve.
-- `DURATION`: `fast` 0.25s (route fade), `base` 0.45s (dialogs, panels opening), `slow` 0.8s (in-view reveals, a result arriving), `grow` 1.2s (bars filling). The landing page alone runs longer, 1.4–2s.
+- `DURATION`: `fast` 0.25s (route fade: `.route-in` in CSS, new page mounts at once, no exit animation to wait on), `base` 0.45s (dialogs, panels opening), `slow` 0.8s (in-view reveals, a result arriving), `grow` 1.2s (bars filling). The landing page alone runs longer, 1.4–2s.
 - `SPRING` for the white highlight that slides between Segmented/Tabs options and the rail marker.
 - Motion explains a change (something arrived, opened, grew); nothing loops except the loading dot and the drop-target sweep.
 - Animate opacity and transform only. Content starts readable (`opacity` from 0.4–0.55, not 0) so a stalled animation never hides it.
@@ -60,9 +60,11 @@ Point cloud of rows: lavender-white points, flagged rows in `--flag`, a sweep li
 ## Components — `src/components/ui/`
 Pages build from these and import them from `../components/ui`; no page keeps its own copy of a control.
 Files: `layout.jsx`, `actions.jsx`, `choices.jsx`, `forms.jsx`, `data.jsx`, `feedback.jsx`, `dialog.jsx`, plus `motion.js`, `verdicts.js` (backend verdict codes → words and colours) and `format.js`. `index.js` re-exports them all.
-- **Layout:** `Page` (1360px container), `PageHeader` (title + grey serif `accent`), `Panel` (28px card), `StatCard` (#1A1A1A step card, display number, optional icon chip), `Reveal`.
+- **Layout:** `Page` (1360px container), `PageHeader` (title + grey serif `accent`; `preview` puts the tag beside the h1, never inside it), `Panel` (28px card), `StatCard` (#1A1A1A step card, display number, optional icon chip), `Reveal`.
 - **Actions:** `Button` (`primary` white · `ghost` 6% fill · `danger` red outline; `size` md/sm; `loading` spinner + `aria-busy`), `IconButton` (label required), `ConfirmButton` (two-step destructive action, no modal).
-- **Choices:** `Segmented` (toggle pills, `aria-pressed`, white sliding highlight) for filters; `Tabs` + `TabPanel` (same look, real tab semantics with arrow/Home/End keys) when a panel swaps; `RadioCards` for choices that need a sentence each.
+- **Choices:** `Segmented` (toggle pills, `aria-pressed`, white sliding highlight) for filters; `Tabs` + `TabPanel` (same look, real tab semantics with arrow/Home/End keys) when a panel swaps; both keep one row and scroll sideways when narrow. `RadioCards` for choices that need a sentence each.
+- **Bars** (benchmarks, checks, quota) grow with `scaleX` from the left, never by animating `width`.
+- **Labels** (`.rule-label`) always use the sans face, even inside a mono data block; mono is for the values.
 - **Forms:** `Field` (label, `hint`, `error` with `aria-invalid`/`aria-describedby`; `as` input/select/textarea; `mono` for data values), styled by `.field-input`.
 - **Data:** `Table` (`.data-table`: lavender header labels, hairline rows, `num` right-aligned tabular cells, selectable rows via `tabIndex` + `aria-selected`), `Readout`, `Badge` (tinted pill + dot by tone), `VerdictBadge` (backend verdict code → label and colour; unknown codes stay neutral, never "clean").
 - **Feedback:** `Notice` (critical/safe/info, optional dismiss), `ErrorNote` (an action failed; inline), `Loading` (announced), `PreviewTag`.

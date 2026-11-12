@@ -27,11 +27,12 @@ function WhiteButton({ to, children, className = '' }) {
 function PillNav() {
   return (
     <nav aria-label="Main" className="fixed left-1/2 top-4 z-50 -translate-x-1/2">
-      <div className="flex items-center gap-1 rounded-2xl bg-white/10 p-2 backdrop-blur-xl">
-        <a href="#top" aria-label="Veritas" className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-white/10"><LogoMark size={22} /></a>
-        <a href="#how" className="whitespace-nowrap rounded-xl px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10">How it works</a>
-        <a href="#benchmarks" className="hidden rounded-xl px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 sm:block">Benchmarks</a>
-        <Link to="/login" className="whitespace-nowrap rounded-xl px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10">Sign in</Link>
+      {/* 40px targets: the pill is the whole navigation on a phone. */}
+      <div className="flex items-center gap-1 rounded-2xl bg-white/10 p-1.5 backdrop-blur-xl">
+        <a href="#top" aria-label="Veritas" className="flex h-10 w-10 items-center justify-center rounded-xl transition-colors hover:bg-white/10"><LogoMark size={22} /></a>
+        <a href="#how" className="inline-flex min-h-[40px] items-center whitespace-nowrap rounded-xl px-3 text-sm font-medium text-white transition-colors hover:bg-white/10">How it works</a>
+        <a href="#benchmarks" className="hidden min-h-[40px] items-center rounded-xl px-3 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:inline-flex">Benchmarks</a>
+        <Link to="/login" className="inline-flex min-h-[40px] items-center whitespace-nowrap rounded-xl px-3 text-sm font-medium text-white transition-colors hover:bg-white/10">Sign in</Link>
       </div>
     </nav>
   );
@@ -255,10 +256,10 @@ function Benchmarks() {
                       <span className={i === 0 ? 'font-medium' : 'text-white/60'}>{name}</span>
                       <div className="h-3 overflow-hidden rounded-full bg-white/[0.07]">
                         <motion.div
-                          className="h-full rounded-full"
-                          style={{ background: i === 0 ? '#DDB5FC' : '#4A494B' }}
-                          initial={{ width: 0 }}
-                          whileInView={{ width: `${v * 100}%` }}
+                          className="h-full origin-left rounded-full"
+                          style={{ width: `${v * 100}%`, background: i === 0 ? '#DDB5FC' : '#4A494B' }}
+                          initial={{ scaleX: 0 }}
+                          whileInView={{ scaleX: 1 }}
                           viewport={{ once: true }}
                           transition={{ duration: 1.6, delay: 0.2 + i * 0.1, ease: EASE }}
                         />
@@ -316,14 +317,14 @@ export default function LandingPage() {
         <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: 'radial-gradient(55% 60% at 50% 38%, rgba(160,130,255,0.75), rgba(71,0,214,0.42) 38%, transparent 72%)' }} />
         <motion.div style={{ opacity: heroFade }} className="relative z-10 mt-[13vh] text-center">
           <motion.h1
-            initial={{ opacity: 0, y: 30, letterSpacing: '0em' }}
+            initial={{ opacity: 0.4, y: 30, letterSpacing: '0em' }}
             animate={{ opacity: 1, y: 0, letterSpacing: '-0.07em' }}
             transition={{ duration: 1.8, ease: EASE }}
             className="font-display text-[clamp(3.6rem,7vw,7rem)] font-medium leading-[1.2]"
           >
             veritas
           </motion.h1>
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 1.4, delay: 0.5 }} className="text-lg font-medium text-white/90">
+          <motion.p initial={{ opacity: 0.4 }} animate={{ opacity: 1 }} transition={{ duration: 1.4, delay: 0.5, ease: EASE }} className="text-lg font-medium text-white/90">
             Training-data and model-file checks
           </motion.p>
         </motion.div>
@@ -331,7 +332,7 @@ export default function LandingPage() {
           <Suspense fallback={null}><Specimen3D className="absolute inset-0" loop /></Suspense>
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0.4, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.6, delay: 0.9, ease: EASE }}
           className="absolute bottom-5 left-5 right-5 z-10 flex items-center justify-between gap-5 rounded-[22px] bg-[#1A1A1A]/80 p-2.5 pl-5 backdrop-blur-xl sm:left-auto sm:right-7"
@@ -410,10 +411,10 @@ export default function LandingPage() {
           </div>
         </div>
         <div className="relative mt-12 flex flex-wrap justify-between gap-4 border-b border-white/15 pb-9 text-xl font-medium">
-          <a href="#how" className="hover:text-[#EDC5FC]">How it works</a>
-          <a href="#benchmarks" className="hover:text-[#EDC5FC]">Benchmarks</a>
-          <Link to="/login" className="hover:text-[#EDC5FC]">Sign in</Link>
-          <Link to="/admin/login" className="hover:text-[#EDC5FC]">Admin</Link>
+          <a href="#how" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#EDC5FC]">How it works</a>
+          <a href="#benchmarks" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#EDC5FC]">Benchmarks</a>
+          <Link to="/login" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#EDC5FC]">Sign in</Link>
+          <Link to="/admin/login" className="inline-flex min-h-[44px] items-center transition-colors hover:text-[#EDC5FC]">Admin</Link>
         </div>
         <div className="font-display relative select-none pt-6 text-center text-[clamp(3.4rem,15.6vw,15rem)] font-medium uppercase leading-none tracking-[-0.06em]" aria-hidden>Veritas</div>
         <div className="relative flex flex-wrap justify-between gap-3 pb-6 pt-2 text-xs text-white/90">

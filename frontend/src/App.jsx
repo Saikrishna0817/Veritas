@@ -77,8 +77,8 @@ function NavItems({ items, onNavigate }) {
                   <motion.span layoutId="rail-mark" className="absolute bottom-2 left-0 top-2 w-[2px] rounded bg-uv" transition={SPRING} />
                 )}
                 <item.icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-uv' : ''}`} aria-hidden />
-                <span className="flex-1">{label}</span>
-                {preview && <span className="rounded-full border border-statusWarn/40 px-2 py-0.5 text-[11px] text-statusWarn/90" title="Research preview: heuristic output">Preview</span>}
+                <span className="min-w-0 flex-1 truncate">{label}</span>
+                {preview && <span className="shrink-0 rounded-full border border-statusWarn/40 px-1.5 py-px text-[11px] leading-4 text-statusWarn/90" title="Research preview: heuristic output">Preview</span>}
               </>
             )}
           </NavLink>
@@ -146,18 +146,21 @@ function Rail({ connected }) {
         {body}
       </aside>
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-borderHairline bg-ink-950/90 px-4 py-3 backdrop-blur-md lg:hidden">
-        <button type="button" onClick={() => navigate('/')} aria-label="Veritas overview"><Wordmark /></button>
-        <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={open ? 'Close menu' : 'Open menu'} className="rounded-2xl border border-borderStrong p-2">
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        <button type="button" onClick={() => navigate('/')} aria-label="Veritas overview" className="inline-flex min-h-[44px] items-center"><Wordmark /></button>
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="phone-menu" aria-label={open ? 'Close menu' : 'Open menu'}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-borderStrong transition-colors hover:bg-white/[0.06]">
+          {open ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
         </button>
       </header>
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            id="phone-menu"
+            initial={{ opacity: 0.4, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="fixed inset-x-0 bottom-0 top-[61px] z-40 flex flex-col bg-ink-950 lg:hidden"
+            transition={{ duration: DURATION.fast, ease: EASE }}
+            className="fixed inset-x-0 bottom-0 top-[69px] z-40 flex flex-col bg-ink-950 lg:hidden"
           >
             {body}
           </motion.div>
@@ -167,34 +170,28 @@ function Rail({ connected }) {
   );
 }
 
+// The new page mounts at once and fades in with CSS. No exit animation: waiting for the old page to leave
+// left the main area blank whenever animation frames stalled (a background tab, quick clicks).
 function AnimatedRoutes({ events }) {
   const location = useLocation();
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -6 }}
-        transition={{ duration: DURATION.fast, ease: EASE }}
-      >
-        <Suspense fallback={<PageFallback />}>
-          <Routes location={location}>
-            <Route path="/" element={<PageErrorBoundary name="Overview"><Dashboard wsEvents={events} /></PageErrorBoundary>} />
-            <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}><PageErrorBoundary name="Admin console"><AdminDashboard /></PageErrorBoundary></ProtectedRoute>} />
-            <Route path="/upload" element={<PageErrorBoundary name="Examine a batch"><UploadPage /></PageErrorBoundary>} />
-            <Route path="/model-scan" element={<PageErrorBoundary name="Model scanner"><ModelScanPage /></PageErrorBoundary>} />
-            <Route path="/real-datasets" element={<PageErrorBoundary name="Reference datasets"><RealDatasetsPage /></PageErrorBoundary>} />
-            <Route path="/forensics" element={<PageErrorBoundary name="Forensics"><ForensicsPage /></PageErrorBoundary>} />
-            <Route path="/blue-team" element={<PageErrorBoundary name="Response desk"><BlueTeamPage /></PageErrorBoundary>} />
-            <Route path="/reports" element={<PageErrorBoundary name="Evidence reports"><ReportsPage /></PageErrorBoundary>} />
-            <Route path="/history" element={<PageErrorBoundary name="History"><HistoryPage /></PageErrorBoundary>} />
-            <Route path="/account" element={<PageErrorBoundary name="Account"><AccountPage /></PageErrorBoundary>} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
-      </motion.div>
-    </AnimatePresence>
+    <div key={location.pathname} className="route-in">
+      <Suspense fallback={<PageFallback />}>
+        <Routes location={location}>
+          <Route path="/" element={<PageErrorBoundary name="Overview"><Dashboard wsEvents={events} /></PageErrorBoundary>} />
+          <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}><PageErrorBoundary name="Admin console"><AdminDashboard /></PageErrorBoundary></ProtectedRoute>} />
+          <Route path="/upload" element={<PageErrorBoundary name="Examine a batch"><UploadPage /></PageErrorBoundary>} />
+          <Route path="/model-scan" element={<PageErrorBoundary name="Model scanner"><ModelScanPage /></PageErrorBoundary>} />
+          <Route path="/real-datasets" element={<PageErrorBoundary name="Reference datasets"><RealDatasetsPage /></PageErrorBoundary>} />
+          <Route path="/forensics" element={<PageErrorBoundary name="Forensics"><ForensicsPage /></PageErrorBoundary>} />
+          <Route path="/blue-team" element={<PageErrorBoundary name="Response desk"><BlueTeamPage /></PageErrorBoundary>} />
+          <Route path="/reports" element={<PageErrorBoundary name="Evidence reports"><ReportsPage /></PageErrorBoundary>} />
+          <Route path="/history" element={<PageErrorBoundary name="History"><HistoryPage /></PageErrorBoundary>} />
+          <Route path="/account" element={<PageErrorBoundary name="Account"><AccountPage /></PageErrorBoundary>} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
+    </div>
   );
 }
 

@@ -49,7 +49,7 @@ function Classification({ c }) {
             <div key={type} className="grid grid-cols-[8.5rem_1fr_3rem] items-center gap-3 text-sm">
               <span className="capitalize text-textSecondary">{type.replace(/_/g, ' ')}</span>
               <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
-                <motion.div className="h-full rounded-full" style={{ background: i === 0 && !insufficient ? 'var(--uv)' : '#4A494B' }} initial={{ width: 0 }} animate={{ width: `${p * 100}%` }} transition={{ duration: DURATION.grow, delay: i * 0.06, ease: EASE }} />
+                <motion.div className="h-full origin-left rounded-full" style={{ width: `${p * 100}%`, background: i === 0 && !insufficient ? 'var(--uv)' : '#4A494B' }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: DURATION.grow, delay: i * 0.06, ease: EASE }} />
               </div>
               <span className="text-right font-mono text-textSecondary">{(p * 100).toFixed(0)}%</span>
             </div>

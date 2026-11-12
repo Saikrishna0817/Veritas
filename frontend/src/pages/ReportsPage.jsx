@@ -76,7 +76,7 @@ function Report({ report }) {
                       <span className="font-mono tabular">{pct}%</span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-                      <motion.div className="h-full rounded-full bg-violet" initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: DURATION.grow, ease: EASE }} />
+                      <motion.div className="h-full origin-left rounded-full bg-violet" style={{ width: `${pct}%` }} initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: DURATION.grow, ease: EASE }} />
                     </div>
                   </li>
                 );

@@ -13,10 +13,13 @@ export function PageHeader({ title, accent, lede, children, preview }) {
   return (
     <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between pb-8 mb-10 border-b border-borderHairline">
       <div className="max-w-3xl">
-        <h1 className="font-display font-medium text-[clamp(2.6rem,5.6vw,5rem)] leading-[1] text-textPrimary">
-          {title}{accent && <> <span className="serif-accent">{accent}</span></>}
-          {preview && <PreviewTag className="ml-4 align-middle" />}
-        </h1>
+        {/* The tag sits beside the title, not inside it: inside, it inherited the title's tight tracking and joined its name. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <h1 className="font-display font-medium text-[clamp(2.6rem,5.6vw,5rem)] leading-[1] text-textPrimary">
+            {title}{accent && <> <span className="serif-accent">{accent}</span></>}
+          </h1>
+          {preview && <PreviewTag />}
+        </div>
         {lede && <p className="mt-4 text-textSecondary text-[17px] leading-relaxed max-w-[62ch]">{lede}</p>}
       </div>
       {children && <div className="flex flex-wrap gap-3">{children}</div>}

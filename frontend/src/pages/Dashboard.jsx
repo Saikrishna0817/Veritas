@@ -48,7 +48,7 @@ function VerdictReadout({ latest, error }) {
       <div>
         <div className="rule-label">No batch examined yet</div>
         <motion.p
-          initial={{ opacity: 0, y: 14 }}
+          initial={{ opacity: 0.5, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: DURATION.slow, ease: EASE }}
           className="mt-4 font-display text-[clamp(2.2rem,4.2vw,3.9rem)] font-medium leading-[0.92]"
@@ -66,20 +66,21 @@ function VerdictReadout({ latest, error }) {
   return (
     <div>
       <div className="rule-label">Latest batch · {latest.dataset_info?.filename || latest.source}</div>
+      {/* Transform and opacity only: animating letter-spacing re-laid the page every frame and could wrap the title onto a third line mid-way. */}
       <motion.div
-        initial={{ opacity: 0, letterSpacing: '0.08em' }}
-        animate={{ opacity: 1, letterSpacing: '-0.02em' }}
-        transition={{ duration: DURATION.grow, ease: EASE }}
-        className="mt-3 font-display text-[clamp(2.6rem,6vw,5.4rem)] font-medium leading-[0.9]"
+        initial={{ opacity: 0.5, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: DURATION.slow, ease: EASE }}
+        className="mt-3 font-display text-[clamp(2.6rem,6vw,5.4rem)] font-medium leading-[0.9] tracking-[-0.02em]"
         style={{ color: v.color }}
       >
         {v.label}
       </motion.div>
-      <p className="mt-4 max-w-[46ch] text-textSecondary">{v.blurb}</p>
-      <dl className="mt-6 grid grid-cols-3 gap-6 border-t border-borderHairline pt-5 font-mono">
-        <div><dt className="rule-label">Evidence</dt><dd className="mt-1 whitespace-nowrap text-lg">{v.p}</dd></div>
-        <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-lg text-flag">{orDash(flags?.flagged_indices_incoming?.length)}</dd></div>
-        <div><dt className="rule-label">Rows checked</dt><dd className="mt-1 text-lg">{orDash(latest.n_samples, (n) => n.toLocaleString())}</dd></div>
+      <p className="mt-5 max-w-[46ch] text-textSecondary">{v.blurb}</p>
+      <dl className="mt-6 grid grid-cols-3 gap-6 border-t border-borderHairline pt-5">
+        <div><dt className="rule-label">Evidence</dt><dd className="mt-1 whitespace-nowrap font-mono text-lg">{v.p}</dd></div>
+        <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 font-mono text-lg text-flag">{orDash(flags?.flagged_indices_incoming?.length)}</dd></div>
+        <div><dt className="rule-label">Rows checked</dt><dd className="mt-1 font-mono text-lg">{orDash(latest.n_samples, (n) => n.toLocaleString())}</dd></div>
       </dl>
     </div>
   );
@@ -114,10 +115,10 @@ function BenchLedger() {
                     <span className={ours ? 'font-semibold text-textPrimary' : 'text-textMuted'}>{n}</span>
                     <div className="h-2.5 overflow-hidden rounded-sm bg-ink-950">
                       <motion.div
-                        className="h-full rounded-sm"
-                        style={{ background: ours ? 'var(--uv)' : '#4A494B' }}
-                        initial={{ width: 0 }}
-                        whileInView={{ width: `${val * 100}%` }}
+                        className="h-full origin-left rounded-sm"
+                        style={{ width: `${val * 100}%`, background: ours ? 'var(--uv)' : '#4A494B' }}
+                        initial={{ scaleX: 0 }}
+                        whileInView={{ scaleX: 1 }}
                         viewport={{ once: true }}
                         transition={{ duration: DURATION.grow, delay: ri * 0.15 + i * 0.08, ease: EASE }}
                       />
@@ -217,6 +218,7 @@ export default function Dashboard({ wsEvents = [] }) {
             </Button>
           </div>
           <button
+            type="button"
             onClick={runDemo}
             disabled={demoBusy}
             className="mt-3 inline-flex min-h-[44px] items-center gap-2 text-sm text-textMuted underline-offset-4 hover:text-textPrimary hover:underline disabled:opacity-50"

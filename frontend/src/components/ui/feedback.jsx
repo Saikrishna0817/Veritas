@@ -8,7 +8,7 @@ export function PreviewTag({ className = '' }) {
   return (
     <span
       title="Heuristic output, not measured on the benchmark"
-      className={`inline-flex items-center gap-1.5 rounded-full border border-statusWarn/50 px-3 py-1 text-[12px] font-medium text-statusWarn align-middle ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-statusWarn/50 px-3 py-1 font-sans text-[12px] font-medium leading-5 tracking-normal text-statusWarn align-middle ${className}`}
     >
       <FlaskConical className="w-3 h-3" aria-hidden /> Research preview
     </span>

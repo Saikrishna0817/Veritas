@@ -5,7 +5,7 @@ import { useAnalysisRun } from '../hooks/useAnalysisRun';
 import JobCard from '../components/JobCard';
 import {
   PageHeader, Button, Panel, Readout, Dropzone, ErrorNote, PreviewTag, Field, RadioCards, Table, Badge, Page,
-  downloadJson, EASE, verdictInfo, orDash,
+  downloadJson, EASE, DURATION, verdictInfo, orDash,
 } from '../components/ui';
 
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -54,11 +54,11 @@ function EvidenceBar({ name, check, score }) {
           <span key={t} className="absolute inset-y-[-3px] w-px bg-borderStrong" style={{ left: `${(t / 8) * 100}%` }} aria-hidden />
         ))}
         <motion.div
-          className="h-full rounded-sm"
-          style={{ background: check?.alarm ? 'var(--flag)' : 'var(--violet)' }}
-          initial={{ width: 0 }}
-          animate={{ width: `${width}%` }}
-          transition={{ duration: 1.2, ease: EASE }}
+          className="h-full origin-left rounded-sm"
+          style={{ width: `${width}%`, background: check?.alarm ? 'var(--flag)' : 'var(--violet)' }}
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: DURATION.grow, ease: EASE }}
         />
       </div>
       <div className="relative mt-1 h-4 font-mono text-[10px] text-textMuted">
