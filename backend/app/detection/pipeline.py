@@ -25,16 +25,8 @@ class DetectionPipeline:
         self.y_reference      = None
 
     def fit_baseline(self, X_reference, y_reference=None) -> None:
-        if isinstance(X_reference, list):
-            samples = X_reference
-            X = np.array([s["feature_vector"] for s in samples], dtype=float)
-            y = np.array([s.get("label", 0) for s in samples], dtype=int)
-            col_min = X.min(axis=0); col_rng = X.max(axis=0) - col_min
-            col_rng[col_rng == 0] = 1; X = (X - col_min) / col_rng
-        else:
-            X = np.array(X_reference, dtype=float)
-            y = np.array(y_reference if y_reference is not None else
-                         np.zeros(len(X_reference), dtype=int))
+        X = np.array(X_reference, dtype=float)
+        y = np.array(y_reference if y_reference is not None else np.zeros(len(X), dtype=int))
 
         self.X_reference = X
         self.y_reference = y
@@ -72,33 +64,12 @@ class DetectionPipeline:
             "thresholds": {"confirmed": THRESHOLD_CONFIRMED, "suspicious": THRESHOLD_SUSPICIOUS, "low_risk": THRESHOLD_LOW_RISK},
         }
 
-    @classmethod
-    def from_split(
-        cls,
-        X: np.ndarray,
-        y: np.ndarray,
-        reference_fraction: float = 0.70,
-        random_state: int         = 42,
-    ) -> tuple:
-        n   = len(X)
-        rng = np.random.RandomState(random_state)
-        idx     = rng.permutation(n)
-        split   = int(n * reference_fraction)
-        ref_idx = idx[:split]
-        inc_idx = idx[split:]
-
-        pipeline = cls(random_state=random_state)
-        pipeline.fit_baseline(X[ref_idx], y[ref_idx])
-        result = pipeline.analyze(X[inc_idx], y[inc_idx])
-        return pipeline, result
-
     # Adapters used by the upload, dataset and defense code.
 
     def run_on_upload(self, ingested: dict) -> dict:
         X        = ingested["features"]
         labels   = ingested.get("labels")
         split    = ingested["reference_split"]
-        samples  = ingested["samples"]
 
         if labels is None:
             labels = np.zeros(len(X), dtype=int)
@@ -114,16 +85,9 @@ class DetectionPipeline:
         return self._normalise(result, X_inc)
 
     def run(self, samples: list) -> dict:
-        X = np.array([s["feature_vector"] for s in samples], dtype=float)
+        X = np.array([s["feature_vector"] for s in samples], dtype=float)   # the detector standardises columns itself
         y = np.array([s.get("label", 0) for s in samples], dtype=int)
-
-        col_min   = X.min(axis=0)
-        col_range = X.max(axis=0) - col_min
-        col_range[col_range == 0] = 1
-        X = (X - col_min) / col_range
-
-        n   = len(X)
-        split = int(n * 0.70)
+        split = int(len(X) * 0.70)
         self.fit_baseline(X[:split], y[:split])
         result = self.analyze(X[split:], y[split:])
 

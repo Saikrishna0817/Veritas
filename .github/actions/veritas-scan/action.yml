@@ -17,13 +17,20 @@ runs:
       env:
         VERITAS_API_URL: ${{ inputs.api-url }}
         VERITAS_API_KEY: ${{ inputs.api-key }}
+        # inputs reach the script as environment variables, never pasted into it (no shell injection)
+        MODEL_FILES: ${{ inputs.model-files }}
+        DATA_FILES: ${{ inputs.data-files }}
+        REFERENCE: ${{ inputs.reference }}
+        FAIL_ON_MODEL: ${{ inputs.fail-on-model }}
+        FAIL_ON_DATA: ${{ inputs.fail-on-data }}
+        CLI: ${{ github.action_path }}/../../../cli/veritas_cli.py
       run: |
         status=0
-        for f in ${{ inputs.model-files }}; do
-          python "${{ github.action_path }}/../../../cli/veritas_cli.py" scan-model "$f" --fail-on "${{ inputs.fail-on-model }}" || status=$?
+        for f in $MODEL_FILES; do
+          python "$CLI" scan-model "$f" --fail-on "$FAIL_ON_MODEL" || status=$?
         done
-        for f in ${{ inputs.data-files }}; do
-          ref=""; [ -n "${{ inputs.reference }}" ] && ref="--reference ${{ inputs.reference }}"
-          python "${{ github.action_path }}/../../../cli/veritas_cli.py" check-data "$f" $ref --fail-on "${{ inputs.fail-on-data }}" || status=$?
+        for f in $DATA_FILES; do
+          if [ -n "$REFERENCE" ]; then set -- --reference "$REFERENCE"; else set --; fi
+          python "$CLI" check-data "$f" "$@" --fail-on "$FAIL_ON_DATA" || status=$?
         done
         exit $status

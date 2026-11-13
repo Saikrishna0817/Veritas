@@ -248,11 +248,10 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
             "verdict": r.get("verdict"),
             "attack_type": (r.get("attack_classification") or {}).get("attack_type", "unknown"),
             "confidence": (r.get("attack_classification") or {}).get("confidence", 0),
-            "blast_radius_summary": {
-                "batches": (r.get("blast_radius") or {}).get("n_batches_affected", 0),
-                "models": (r.get("blast_radius") or {}).get("n_models_affected", 0),
-                "impact_pct": (r.get("blast_radius") or {}).get("prediction_impact_pct", 0),
+            "blast_radius_summary": {   # flagged rows only: no model lineage is supplied, so no downstream impact
+                "flagged_rows": (r.get("blast_radius") or {}).get("n_poisoned_samples", 0),
             },
+            "attack_profile": (r.get("layer_results") or {}).get("attack_profile") or r.get("attack_profile"),
         },
         "evidence_bundle": r.get("layer_results"),
         "layer_scores": r.get("layer_scores"),
@@ -289,12 +288,7 @@ async def get_blueteam_status(user: dict = Depends(require_user)):
     if result:
         verdict = result.get("verdict", "CLEAN")
         suspicion = result.get("overall_suspicion_score", 0)
-        if suspicion > 0.65:
-            threat_level = "CRITICAL"
-        elif suspicion > 0.35:
-            threat_level = "ELEVATED"
-        elif suspicion > 0.15:
-            threat_level = "GUARDED"
+        threat_level = {"CONFIRMED_POISONED": "CRITICAL", "SUSPICIOUS": "ELEVATED", "LOW_RISK": "GUARDED"}.get(verdict, "NOMINAL")
 
     return {
         "threat_level": threat_level,

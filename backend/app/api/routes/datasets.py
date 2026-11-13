@@ -59,7 +59,7 @@ async def run_demo(
         all_samples = data["samples"][:300]
         # pipeline.run() fits its own baseline on the first 70% of the batch.
         result = deps.new_detection_pipeline().run(all_samples)
-        attack_class = deps.classifier.classify(result["layer_results"], all_samples)
+        attack_class = deps.classifier.classify(result)
         pattern = deps.reconstructor.reconstruct(all_samples, attack_class, result["layer_results"])
         blast = deps.blast_mapper.map(all_samples, result["layer_results"])
         defense_action = deps.defense.decide_action(

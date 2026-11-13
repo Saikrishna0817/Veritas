@@ -9,6 +9,7 @@ const ATTACK_COLORS = {
   label_flip: '#f59e0b',
   backdoor: 'var(--red-primary)',
   clean_label: '#a855f7',
+  covariate_shift: '#06b6d4',
   gradient_poisoning: '#06b6d4',
   boiling_frog: 'var(--status-safe)',
 };

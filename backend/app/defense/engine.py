@@ -57,7 +57,7 @@ class StabilityAwareAutoDefense:
                 return {"action": "cooldown", "reason": "rate_limited", "samples_affected": 0,
                         "cooldown_remaining_secs": round(self.QUARANTINE_COOLDOWN_SECS - elapsed, 1)}
 
-        if verdict == "CONFIRMED_POISONED" and suspicion_score > 0.7:
+        if verdict == "CONFIRMED_POISONED":   # suspicion >= 0.65 by construction (veritas2.verdict_for)
             return self._quarantine(samples, suspicion_score, scope, owner_id=owner_id)
         elif verdict == "SUSPICIOUS" and suspicion_score > 0.5:
             return self._soft_quarantine(samples, suspicion_score, scope, owner_id=owner_id)
@@ -67,15 +67,16 @@ class StabilityAwareAutoDefense:
     def _quarantine(self, samples: List[Dict], score: float, scope: str = "", *, owner_id: str) -> Dict[str, Any]:
         """Hard quarantine — remove from training."""
         already = self.quarantined_ids(owner_id)
-        candidates = [s for s in samples
-                      if s.get("poison_status") in ("confirmed", "suspected")
-                      and f"{scope}:{s['id']}" not in already]
+        candidates = sorted((s for s in samples
+                             if s.get("poison_status") in ("confirmed", "suspected")
+                             and f"{scope}:{s['id']}" not in already),
+                            key=lambda s: -s.get("row_score", 0.0))   # the cap keeps the most suspicious rows
 
         max_quarantine = max(1, int(len(samples) * self.MAX_QUARANTINE_RATIO))
         to_quarantine = candidates[:max_quarantine]
         return self._record_quarantine(
             [s["id"] for s in to_quarantine], score, scope, owner_id,
-            reason=f"Suspicion score {score:.2f} > 0.70 threshold",
+            reason=f"Confirmed poisoned (suspicion {score:.2f})",
         )
 
     def quarantine_ids(self, sample_ids: List[str], scope: str, reason: str, *, owner_id: str) -> Dict[str, Any]:

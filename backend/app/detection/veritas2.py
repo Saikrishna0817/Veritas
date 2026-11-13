@@ -9,7 +9,7 @@ Frozen after dev-only tuning; measured in ``backend/research`` (docs/benchmark-v
   It joins the row ranking only when its own batch test reaches ``GATE``.
 * residual check (gated): rows whose columns no longer fit together (ridge residuals, cross-fitted).
 
-Both checks are turned into evidence against all clean reference rows, so the batch statistic is a -log10 p-value
+Every check is turned into evidence against all clean reference rows, so the batch statistic is a -log10 p-value
 and the row score is the -log10 share of clean rows scoring at least as high (extrapolated beyond the top one).
 """
 from __future__ import annotations
@@ -174,7 +174,7 @@ def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
         if evidence["resid"] >= RESID_GATE:
             rows["resid"] = extrapolated_neg_log_p(cal, inc)
     batch = max(evidence.get("label", 0.0) - LABEL_PENALTY, evidence["shift"] - SHIFT_PENALTY,
-                evidence.get("resid", 0.0) - RESID_PENALTY)
+                evidence.get("resid", 0.0) - RESID_PENALTY, 0.0)
     row_scores = np.max(list(rows.values()), axis=0) if rows else np.zeros(len(d["X_inc"]))
     return {"row_scores": row_scores, "cell_scores": cell_scores(full, row_scores, rows.get("label")),
             "batch_evidence": batch, "evidence": evidence, "shift_in_ranking": "shift" in rows,
@@ -277,6 +277,8 @@ class Veritas2:
         if not self._fitted:
             raise ValueError("Veritas2.analyze() called before fit()")
         X_inc, y_inc = np.asarray(X_incoming, dtype=float), np.asarray(y_incoming)
+        if not (np.isfinite(self.X).all() and np.isfinite(X_inc).all()):
+            raise ValueError("features must be finite numbers: impute or drop missing and infinite values first")
         classes = np.unique(np.r_[self.y, y_inc])
         code = lambda y: np.searchsorted(classes, y)  # noqa: E731  (labels may be any ints, even negative)
         scaler = StandardScaler().fit(self.X[self._fit])

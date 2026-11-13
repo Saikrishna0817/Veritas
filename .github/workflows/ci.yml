@@ -117,7 +117,9 @@ jobs:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
+          REF: ${{ github.ref_name }}
         run: |
+          [[ "$REF" =~ ^v[0-9A-Za-z._-]+$ ]] || { echo "refusing to deploy ref: $REF"; exit 1; }   # the remote shell reads it
           install -m 600 /dev/null key && printf '%s\n' "$SSH_KEY" > key
           ssh -i key -o StrictHostKeyChecking=accept-new "$USER@$HOST" \
-            "cd /opt/veritas && git fetch --tags && git checkout ${{ github.ref_name }} && docker compose pull --ignore-buildable; docker compose up -d --build && scripts/backup.sh >/dev/null"
+            "cd /opt/veritas && git fetch --tags && git checkout \"$REF\" && docker compose pull --ignore-buildable; docker compose up -d --build && scripts/backup.sh >/dev/null"

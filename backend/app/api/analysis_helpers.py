@@ -40,11 +40,13 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, owner_id: str, split: dict
     samples = ingested["samples"]
     incoming_samples = samples[ingested["reference_split"]:]
 
-    attack_class = deps.classifier.classify(detection_result["layer_results"], incoming_samples)
+    attack_class = deps.classifier.classify(detection_result)
 
     # Tag the rows Layer 3 flagged as suspected
-    flagged = set(detection_result["layer_results"]["row_flags"].get("flagged_indices_incoming", []))
+    row_flags = detection_result["layer_results"]["row_flags"]
+    flagged = set(row_flags.get("flagged_indices_incoming", []))
     for i, s in enumerate(incoming_samples):
+        s["row_score"] = row_flags["row_scores"][i]
         if i in flagged:
             s["poison_status"] = "suspected"
 

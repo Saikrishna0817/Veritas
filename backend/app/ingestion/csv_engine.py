@@ -30,6 +30,8 @@ def _name_tokens(col: str) -> set:
 
 _REF_COL = "__veritas_is_reference"
 MIN_REFERENCE_ROWS, MIN_INCOMING_ROWS = 30, 10
+MAX_CATEGORIES = 50     # text columns with up to this many distinct values become category codes (as in the benchmark)
+MAX_CLASSES = 100       # more label values than this is treated as a regression target
 
 
 class CSVIngestionEngine:
@@ -102,6 +104,22 @@ class CSVIngestionEngine:
         ]
         return feature_cols
 
+    def _encode_text_columns(self, df: pd.DataFrame, exclude: set, warnings: List[str]) -> pd.DataFrame:
+        """Low-cardinality text columns become integer category codes (missing = its own code) so poisoned
+        categorical values are checked too; free-text and ID-like text columns are dropped, with a warning."""
+        df, dropped = df.copy(), []
+        for col in df.columns:
+            if col in exclude or pd.api.types.is_numeric_dtype(df[col]) or pd.api.types.is_bool_dtype(df[col]):
+                continue
+            if df[col].nunique() <= MAX_CATEGORIES:
+                df[col] = pd.factorize(df[col], sort=True)[0].astype(float)   # NaN -> -1, a category of its own
+            else:
+                dropped.append(str(col))
+        if dropped:
+            warnings.append(f"Ignored {len(dropped)} text column(s) with more than {MAX_CATEGORIES} distinct values: "
+                            + ", ".join(dropped[:5]) + (f" (+{len(dropped) - 5} more)" if len(dropped) > 5 else ""))
+        return df
+
     def _encode_label_column(self, series: pd.Series) -> np.ndarray:
         """Encode labels as integer classes 0..k-1 (missing values become their own class)."""
         codes, uniques = pd.factorize(series, sort=True)
@@ -111,7 +129,7 @@ class CSVIngestionEngine:
     # ── Data Cleaning Pipeline ─────────────────────────────────────────────────
     #
     # Real-world CSV uploads are messy. This pipeline runs BEFORE data reaches
-    # the 5 detection layers, ensuring they receive clean numeric matrices.
+    # the detector, ensuring it receives a clean numeric matrix.
     #
     # Steps:
     #   1. Force numeric coercion (catch stray strings in numeric columns)
@@ -343,6 +361,7 @@ class CSVIngestionEngine:
                 "excluded from features and labels."
             )
         label_col = self._detect_label_column(df, exclude=set(ground_truth_cols) | extra_excluded)
+        df = self._encode_text_columns(df, exclude=set(ground_truth_cols) | extra_excluded | {label_col}, warnings=warnings)
         feature_cols = self._detect_feature_columns(df, label_col, exclude=set(ground_truth_cols) | extra_excluded)
 
         if len(feature_cols) == 0:
@@ -377,7 +396,9 @@ class CSVIngestionEngine:
             try:
                 labels = self._encode_label_column(df_clean[label_col])
                 n_classes = len(np.unique(labels))
-                if n_classes > 20:
+                raw = df_clean[label_col]
+                continuous = pd.api.types.is_float_dtype(raw) and not np.allclose(raw.dropna(), raw.dropna().round())
+                if n_classes > MAX_CLASSES or (continuous and n_classes > 20):
                     warnings.append(f"Label column has {n_classes} unique values — treating as regression target, running unsupervised mode.")
                     has_labels = False
                     labels = None
