@@ -7,17 +7,25 @@ Frozen after dev-only tuning; measured in ``backend/research`` (docs/benchmark-v
   out-of-fold score.
 * shift check (gated): a classifier two-sample test, "can a model tell incoming rows from the clean reference rows?".
   It joins the row ranking only when its own batch test reaches ``GATE``.
+* residual check (gated): rows whose columns no longer fit together (ridge residuals, cross-fitted).
 
 Both checks are turned into evidence against all clean reference rows, so the batch statistic is a -log10 p-value
 and the row score is the -log10 share of clean rows scoring at least as high (extrapolated beyond the top one).
 """
 from __future__ import annotations
 
+import json
+import os
+from functools import lru_cache
+from pathlib import Path
+
 import numpy as np
 from scipy.stats import binom, hypergeom, rankdata
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 from sklearn.preprocessing import StandardScaler
+from threadpoolctl import threadpool_limits
 
 TAIL_QUANTILE = 0.99
 GATE = 3.0             # shift evidence needed before it joins the row ranking; gates 2/3/4 tied on dev
@@ -26,7 +34,8 @@ MIN_ROWS = 200         # below this on either side the tail test cannot resolve 
 
 # Weighted Bonferroni (-log10 share of the false-alarm budget): label ~80%, shift 10%. Chosen on dev
 # (research/tab/row_study_dev.py; the same split as the image detector).
-LABEL_PENALTY, SHIFT_PENALTY = 0.1, 1.0
+LABEL_PENALTY, SHIFT_PENALTY, RESID_PENALTY = 0.1, 1.0, 1.0
+RESID_GATE = 1.0     # residual evidence needed before it joins the row ranking
 # Batch evidence is the best exact tail test over these tail sizes, minus log10(their count): a few sharply ranked
 # rows show in the smallest tail, a diffuse change in the largest.
 TAILS = (0.0003, 0.001, 0.003, 0.01)
@@ -129,6 +138,25 @@ def label_crossfit_component(d: dict):
     return ref, inc, one
 
 
+def residual_component(d: dict):
+    """(ref, inc) "this row breaks the columns' correlations": the sum over columns of squared ridge residuals (each column
+    predicted from the others), scaled by the training spread. Cross-fitted like the label check: reference rows
+    out-of-fold, each incoming row by one fold model. Catches covariate shift and backdoors (dev, row2_study_dev.py)."""
+    R, I = np.vstack([d["X_fit"], d["X_cal"]]), d["X_inc"]
+    ref, inc = np.zeros(len(R)), np.zeros(len(I))
+    fold = np.arange(len(I)) % 5
+    for k, (tr, te) in enumerate(KFold(5, shuffle=True, random_state=0).split(R)):
+        models = []
+        for j in range(R.shape[1]):
+            keep = np.arange(R.shape[1]) != j
+            m = Ridge(1.0).fit(R[tr][:, keep], R[tr, j])
+            models.append((keep, m, max(np.std(R[tr, j] - m.predict(R[tr][:, keep])), 1e-6)))
+        score = lambda X: sum(((X[:, j] - m.predict(X[:, keep])) / s) ** 2 for j, (keep, m, s) in enumerate(models))  # noqa: E731
+        ref[te] = score(R[te])
+        inc[fold == k] = score(I[fold == k])
+    return ref, inc
+
+
 def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
     """Score one batch. ``d`` holds X_fit/y_fit, X_cal/y_cal, X_inc/y_inc and n_classes."""
     full = full_reference(d)
@@ -138,12 +166,70 @@ def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
         evidence["label"], rows["label"] = multi_tail_test(ref, one), extrapolated_neg_log_p(ref, inc)
     cal, inc = shift_component(full)
     evidence["shift"] = multi_tail_test(cal, inc)
-    if evidence["shift"] >= gate:   # a quiet shift check must not dilute the ranking
+    if evidence["shift"] >= gate:   # a quiet check must not dilute the ranking
         rows["shift"] = extrapolated_neg_log_p(cal, inc)
-    batch = max(evidence.get("label", 0.0) - LABEL_PENALTY, evidence["shift"] - SHIFT_PENALTY)
+    if d["X_inc"].shape[1] > 1:      # needs other columns to predict each column from
+        cal, inc = residual_component(d)
+        evidence["resid"] = multi_tail_test(cal, inc)
+        if evidence["resid"] >= RESID_GATE:
+            rows["resid"] = extrapolated_neg_log_p(cal, inc)
+    batch = max(evidence.get("label", 0.0) - LABEL_PENALTY, evidence["shift"] - SHIFT_PENALTY,
+                evidence.get("resid", 0.0) - RESID_PENALTY)
     row_scores = np.max(list(rows.values()), axis=0) if rows else np.zeros(len(d["X_inc"]))
     return {"row_scores": row_scores, "cell_scores": cell_scores(full, row_scores, rows.get("label")),
-            "batch_evidence": batch, "evidence": evidence, "shift_in_ranking": "shift" in rows}
+            "batch_evidence": batch, "evidence": evidence, "shift_in_ranking": "shift" in rows,
+            "resid_in_ranking": "resid" in rows}
+
+
+ATTACKS = {"label_flip_random": "random label flipping", "label_flip_targeted": "targeted label flipping",
+           "backdoor_ood": "backdoor trigger, out-of-range values", "backdoor_inrange": "backdoor trigger, in-range values",
+           "feature_collision": "feature collision (clean-label)", "covariate_shift": "covariate shift / corrupted source"}
+FEATURES = ("label_evidence", "shift_evidence", "resid_evidence", "label_blamed", "trigger_columns", "label_concentration",
+            "out_of_range", "tightness", "unusual_columns")
+
+
+def attack_features(d: dict, out: dict) -> dict:
+    """What the most suspicious rows have in common, as named numbers (inputs to ``attack_profile``):
+    label_blamed: share whose top cell is the label; trigger_columns: share whose top feature cell is one of the 3 most
+    common such columns; label_concentration: how over-represented their most common claimed label is; out_of_range:
+    share with a value beyond the reference range; tightness: their median pairwise distance over that of reference
+    rows (low = clustered, as in a collision); unusual_columns: mean share of their columns scoring >= 1."""
+    rs, C, f = out["row_scores"], out["cell_scores"], d["X_inc"].shape[1]
+    S = np.argsort(-rs, kind="stable")[:min(len(rs), max(5, int((rs >= 2).sum())))]
+    R, I = np.vstack([d["X_fit"], d["X_cal"]]), d["X_inc"][S]
+    feat = C[S, :f] - rs[S, None]                                     # the column part of the cell scores
+    top_feat = feat.argmax(1)
+    common = np.bincount(top_feat, minlength=f)
+    y_s, y_all = d["y_inc"][S], d["y_inc"]
+    c = np.bincount(y_s).argmax()
+    rng = np.random.default_rng(0)
+    pair = lambda A: np.median(np.linalg.norm(A[rng.integers(0, len(A), 500)] - A[rng.integers(0, len(A), 500)], axis=1))  # noqa: E731
+    ev = out["evidence"]
+    return {"label_evidence": ev.get("label", 0.0), "shift_evidence": ev["shift"], "resid_evidence": ev.get("resid", 0.0),
+            "label_blamed": float(np.mean(C[S].argmax(1) == f)), "trigger_columns": float(np.sort(common)[-3:].sum() / len(S)),
+            "label_concentration": float(np.mean(y_s == c) / max(np.mean(y_all == c), 1e-9)),
+            "out_of_range": float(np.mean((np.abs(I) > np.abs(R).max(0)).any(1))),
+            "tightness": float(pair(I) / max(pair(R), 1e-9)), "unusual_columns": float(np.mean(feat >= 1))}
+
+
+@lru_cache(maxsize=1)
+def _attack_model():
+    """GBM over attack_features, fitted on the dev batches stored in attack_profile.json (frozen by attack_study_dev.py)."""
+    t = json.loads(Path(__file__).with_name("attack_profile.json").read_text())
+    assert tuple(t["features"]) == FEATURES
+    return HistGradientBoostingClassifier(max_iter=100, random_state=0).fit(np.array(t["X"]), np.array(t["y"]))
+
+
+def attack_profile(d: dict, out: dict) -> dict:
+    """Which attack the suspicious rows look like: {"likely": key, "label": plain words, "probabilities", "features"}.
+    Only meaningful when the batch is flagged; it names the closest of the six benchmarked attacks, it cannot say
+    "none of these" (held-out accuracy in docs/benchmark-v2-findings.md)."""
+    x = attack_features(d, out)
+    m = _attack_model()
+    p = m.predict_proba(np.array([[x[k] for k in FEATURES]]))[0]
+    likely = str(m.classes_[p.argmax()])
+    return {"likely": likely, "label": ATTACKS[likely], "probabilities": {str(c): round(float(v), 3) for c, v in zip(m.classes_, p)},
+            "features": {k: round(v, 3) for k, v in x.items()}}
 
 
 def cell_scores(d: dict, row_scores: np.ndarray, label_rows: np.ndarray | None) -> np.ndarray:
@@ -197,7 +283,10 @@ class Veritas2:
         d = {"X_fit": scaler.transform(self.X[self._fit]), "y_fit": code(self.y[self._fit]),
              "X_cal": scaler.transform(self.X[self._cal]), "y_cal": code(self.y[self._cal]),
              "X_inc": scaler.transform(X_inc), "y_inc": code(y_inc), "n_classes": len(classes)}
-        out = detect(d, use_label=len(classes) > 1)   # one class (unlabeled upload): no label check
+        # Small tables are slower with many threads (on a busy 12-core machine 3,000 rows took 10 s with every core and
+        # 2.6 s with one); large ones gain up to ~4. Thread count does not change the scores.
+        with threadpool_limits(1 if len(self.X) + len(X_inc) < 10_000 else min(4, os.cpu_count() or 1)):
+            out = detect(d, use_label=len(classes) > 1)   # one class (unlabeled upload): no label check
         verdict, suspicion = verdict_for(out["batch_evidence"])
         # Row flags only when the batch itself is suspicious. Score >= 2 is the clean top 1%;
         # with fewer than 99 calibration rows the best a row can do is beat all of them.
@@ -209,5 +298,7 @@ class Veritas2:
             warnings.append(f"fewer than {MIN_ROWS} reference or incoming rows: the batch test cannot resolve a 1% tail")
         if len(classes) < 2:
             warnings.append("single label value: label check skipped, distribution-shift check only")
+        profile = attack_profile(d, out) if verdict != "CLEAN" and len(classes) > 1 else None
         return {**out, "verdict": verdict, "suspicion": suspicion, "flagged_indices": [int(i) for i in flagged],
+                "attack_profile": profile,
                 "n_incoming": len(X_inc), "n_calibration": n_ref, "warnings": warnings}

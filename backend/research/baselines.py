@@ -113,7 +113,8 @@ def make_gated_ensemble(names: tuple[str, ...], gate: float):
 def veritas2(d):
     """The shipped detector (app.detection.veritas2), so the benchmark scores the code users run."""
     out = _v2_detect(d)
-    return out["row_scores"], out["batch_evidence"], out["cell_scores"]
+    from app.detection.veritas2 import attack_profile
+    return out["row_scores"], out["batch_evidence"], out["cell_scores"], attack_profile(d, out)["likely"]
 
 
 # ── Batch-power experiments (dev only; see docs/benchmark-v2-findings.md, Phase 3) ──────────────

@@ -23,7 +23,9 @@ check*: a classifier two-sample test asks whether a model can tell incoming rows
 the ranking only when its own tail test is strong (GATE = 3.0). (3) Evidence is the best exact hypergeometric tail test
 over the top 0.03%, 0.1%, 0.3% and 1%, minus log10(4), against all reference rows; penalties label 0.1, shift 1.0.
 Verdict cut-offs: p <= 0.05 LOW_RISK, 0.01 SUSPICIOUS, 1e-4 CONFIRMED. (4) *Cell scores*: row score plus how unusual
-each value is in its column (label cell: the label check), so a report can name the poisoned values.
+each value is in its column (label cell: the label check), so a report can name the poisoned values. (5) *Residual
+check* (gated): rows whose columns no longer fit together (cross-fitted ridge residuals). (6) *Attack profile*: for a
+batch that is not CLEAN, the closest of six benchmarked attacks, from a classifier trained on dev batches only.
 
 **Evaluation.** Benchmark v2: 18 real OpenML datasets (6 dev, 12 held-out test), six injected attacks, four poison
 rates, five seeds, plus clean batches. Detector design and tuning used the dev datasets only. CIFAR-10N (real human
@@ -31,15 +33,16 @@ label mistakes, nothing injected) is a second held-out track.
 
 | Held-out result | old Veritas | veritas2 (Nov 7) | veritas2 (Nov 13) | cleanlab | two-sample test |
 |---|---|---|---|---|---|
-| row AUPRC at 5% poison (random = 0.05) | 0.11 | 0.69 | **0.78** | 0.54 | 0.49 |
-| batch detection rate at 5% false alarms | 0.33 | 0.78 | **0.84** | 0.55 | 0.14 |
+| row AUPRC at 5% poison (random = 0.05) | 0.11 | 0.69 | **0.80** | 0.54 | 0.49 |
+| batch detection rate at 5% false alarms | 0.33 | 0.78 | **0.86** | 0.55 | 0.14 |
 
-By poison rate (batch detection at 5% false alarms), Nov 13: 1% 0.44, 3% 0.76, 5% 0.84, 10% 0.94 (Nov 7: 0.14, 0.61,
-0.74, 0.87). Cell AUPRC (finding the changed values and labels) 0.35 at 1%, 0.60 at 5%. The CIFAR-10N comparison below
+By poison rate (batch detection at 5% false alarms), Nov 13: 1% 0.47, 3% 0.79, 5% 0.86, 10% 0.94 (Nov 7: 0.14, 0.61,
+0.74, 0.87). Cell AUPRC (finding the changed values and labels) 0.38 at 1%, 0.60 at 5%. Attack profile on held-out
+flagged batches: exact attack 74%, right family 86% (random vs targeted label flips are often confused). The CIFAR-10N comparison below
 was run on the Nov 7 detector. On real CIFAR-10N
 label noise `veritas2` matches cleanlab (row AUPRC 0.45 to 0.57 vs 0.46 to 0.58); it does not beat it.
 
-**Calibration.** On held-out clean batches 3.3% reached LOW_RISK (nominal 5%, n = 240), 1.3% reached SUSPICIOUS (nominal 1%)
+**Calibration.** On held-out clean batches 3.7% reached LOW_RISK (nominal 5%, n = 240), 1.3% reached SUSPICIOUS (nominal 1%)
 and none reached CONFIRMED (Nov 7 detector: 7.1%, 0.8%, 0).
 
 **Dependency check.** After the numpy 2.5 / pandas 3.1 upgrade the 12,000 per-batch results were identical to the
@@ -60,10 +63,11 @@ post-fix 339/339 is no longer a held-out number.
 
 ## Known limits
 
-- **Small contamination is hard.** At 1% poison (about 12 rows in 1,200) veritas2 flags 37% of batches at LOW_RISK
+- **Small contamination is hard.** At 1% poison (about 12 rows in 1,200) veritas2 flags 42% of batches at LOW_RISK
   (cleanlab-style and the Nov 7 detector about 15-19% at a calibrated cut-off). Reliable batch verdicts need about 3-5%
   contamination; below that, use the ranked row and cell lists.
-- **Weakest attack:** covariate shift (row AUPRC 0.04 at 1%, 0.53 at 5%).
+- **Weakest attacks at 1%:** covariate shift (row AUPRC 0.18; 0.61 at 5%) and feature collision (0.39).
+- **Attack profile** names the closest of six known attacks; an attack of another kind will be given one of those names.
 - **Data types:** structured numeric/categorical tables with a label column. Not images, audio, video or text
   (except as pre-computed embeddings), and not validated beyond 200,000 rows.
 - **You must supply a trusted reference.** With no reference file or split column, Veritas treats the first 70% of rows

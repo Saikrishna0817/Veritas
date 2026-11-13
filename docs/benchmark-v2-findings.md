@@ -353,3 +353,46 @@ Per attack at 1% (row AUPRC / flagged at 1.3): random flip 0.51 / 42%, targeted 
 - Covariate shift is still barely found at 1%; it needs a check built for many small column shifts.
 - `bench_v2._openml` now falls back to the liac-arff parser on any parse error: inside worker processes the pandas 3.1
   failure arrives wrapped by sklearn's retry helper, not as a TypeError, and killed the first run of this benchmark.
+
+## Residual check, thread cap and attack naming (2026-11-13)
+
+- **Residual check** (`veritas2.residual_component`): each column predicted from the others by ridge regression; a
+  row's score is its summed squared residuals, cross-fitted like the label check (reference rows out-of-fold, each
+  incoming row by one fold model). Gate 1, penalty 1. Chosen on dev (`research/tab/row2_study_dev.py`) over
+  Mahalanobis and nearest-neighbour distances; a 50-round label check (1.6 s faster) was rejected for losing 1% power.
+- **Thread cap** in `Veritas2.analyze`: one thread under 10,000 rows, up to 4 above. On a busy 12-core machine a
+  3,000-row table took 10 s with every core and 2.6 s with one. Scores are identical at any thread count (checked).
+- **Attack naming** (`veritas2.attack_profile`): nine numbers describing the most suspicious rows (is the label or a
+  feature blamed, do the same columns recur, are the claimed labels concentrated, out-of-range values, how clustered
+  the rows are, how many columns look unusual, and the three checks' evidence) go into a gradient-boosted classifier
+  fitted on the dev attacked batches (`app/detection/attack_profile.json`, plain JSON; dev leave-one-dataset-out
+  accuracy 0.76). Returned for every batch that is not CLEAN.
+
+Held-out test (`results/2026-11-13-benchmark-v2-final-r4-resid-attack.*`), against the previous run on the same batches:
+
+| | Before (r3) | Now (r4) |
+|---|---|---|
+| Row AUPRC at 1% / 3% / 5% / 10% | 0.43 / 0.70 / 0.78 / 0.88 | 0.49 / 0.73 / 0.80 / 0.88 |
+| Batch detection at 5% clean false alarms, 1% / 3% / 5% | 0.44 / 0.76 / 0.84 | 0.47 / 0.79 / 0.86 |
+| Flagged at 1.3, 1% / 5% | 37% / 82% | 42% / 85% |
+| Covariate shift row AUPRC at 1% / 5% | 0.04 / 0.53 | 0.18 / 0.61 |
+| Out-of-range backdoor row AUPRC at 1% | 0.52 | 0.73 |
+| Cell AUPRC at 1% / 5% | 0.35 / 0.60 | 0.38 / 0.60 |
+| Clean flagged at 1.3 / 2.0 / 4.0 (n = 240) | 3.3 / 1.3 / 0% | 3.7 / 1.3 / 0% |
+| Seconds per batch (one thread) | 5.4 | 5.6 |
+
+Attack naming on held-out flagged batches (n = 1,070): exact attack 74% (1%: 49%, 3%: 74%, 5%: 77%, 10%: 82%);
+right family (label flipping / backdoor / collision / shift) 86%.
+
+| Attack | Named exactly | Right family | Most common mistake |
+|---|---|---|---|
+| Out-of-range backdoor | 92% | 96% | in-range backdoor |
+| Covariate shift | 81% | 81% | in-range backdoor |
+| Feature collision | 78% | 78% | random label flip |
+| In-range backdoor | 68% | 69% | random label flip |
+| Random label flip | 61% | 96% | targeted flip |
+| Targeted label flip | 60% | 96% | random flip |
+
+- Label flips are almost always recognised as label flipping; random vs targeted is close to a coin toss.
+- The classifier always names the closest of the six benchmarked attacks; it cannot say "something else".
+- Random and targeted label flips at 1% are unchanged (the residual check does not see them), as expected.

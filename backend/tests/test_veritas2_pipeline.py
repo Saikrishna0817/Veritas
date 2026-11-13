@@ -55,3 +55,12 @@ def test_cell_scores_point_at_the_poisoned_cell():
     cells = Veritas2().fit(X_ref, y_ref).analyze(X, y)["cell_scores"]
     assert cells.shape == (len(X), X.shape[1] + 1)
     assert np.mean(cells[:20].argmax(1) == X.shape[1]) > 0.8 and np.mean(cells[20:40].argmax(1) == 5) > 0.8
+
+
+def test_attack_profile_names_a_label_flip_and_is_absent_when_clean():
+    y_inc = _split()[3].copy()
+    flipped = np.random.default_rng(0).permutation(len(y_inc))[:90]
+    y_inc[flipped] = (y_inc[flipped] + 1) % 3
+    r = _run(y_inc)
+    assert r["details"]["attack_profile"]["likely"] in ("label_flip_random", "label_flip_targeted")
+    assert _run(_split()[3])["details"]["attack_profile"] is None

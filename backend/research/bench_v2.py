@@ -203,12 +203,14 @@ def run_batch(spec: dict) -> dict:
         if spec["seed"] >= limits.get(det_name, m["seeds"]) or det_name not in (spec.get("only") or DETECTORS):
             continue  # too slow to run on every seed; see detector_seed_limits in the manifest
         started = time.perf_counter()
-        rows, batch, *cell = detect(d)   # a detector may also return per-cell scores (veritas2 does)
+        rows, batch, *extra = detect(d)   # veritas2 also returns per-cell scores and its attack guess
         res = {"batch_score": batch, "seconds": round(time.perf_counter() - started, 3)}
+        if len(extra) > 1:
+            res["attack_guess"] = extra[1]
         if mask.any():
             res.update(_row_metrics(np.asarray(rows, dtype=float), mask))
-            if cell:
-                res["cell_auprc"] = float(average_precision_score(cells.ravel(), cell[0].ravel()))
+            if extra:
+                res["cell_auprc"] = float(average_precision_score(cells.ravel(), extra[0].ravel()))
         out["detectors"][det_name] = res
     return out
 
