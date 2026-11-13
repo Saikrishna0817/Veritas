@@ -160,3 +160,27 @@ At cut-off 2.0: all attacks at 1% 69% -> 74%, at 3% 77% -> 86%, at 5% 87% -> 93%
   by one batch; not retuned on test.
 - Targeted flips are still the weakest: 40-60% of batches flagged at any rate, row AUPRC 0.45-0.57.
 - 37 s per batch.
+
+## v8: logistic-regression label check (2026-11-13)
+
+The cross-fitted label check (5 gradient-boosting fits) was ~2/3 of the time per batch and grew with the class count
+(dev: 11.6 s Fashion-MNIST, 67.1 s CIFAR-100). Its model is now a standardised logistic regression on the same 32 PCA
+dims. Chosen on dev (`research/mm/speed_study_dev.py`, also tried GBM with 40 rounds and 25-nearest-neighbours):
+0.1 s / 0.5 s; label-flip row AUPRC at 1% random 0.45 -> 0.57, targeted 0.50 -> 0.74; clean fused flagged at 1.3 2.2% -> 3.3%.
+
+Held-out test (CIFAR-10, GTSRB):
+
+| | v7 | v8 |
+|---|---|---|
+| Seconds per batch (whole detector) | 37.1 | 10.2 |
+| Fused row AUPRC, mean at 1% / 5% | 0.83 / 0.88 | 0.86 / 0.91 |
+| Random label flip AUPRC at 1% / 5% | 0.48 / 0.73 | 0.55 / 0.82 |
+| Targeted label flip AUPRC at 1% / 5% | 0.45 / 0.57 | 0.62 / 0.71 |
+| Attacked batches flagged at 1% / 3% / 5% / 10% | 81 / 87 / 93 / 90% | 81 / 94 / 96 / 93% |
+| Random flip flagged at 1% | 40% | 20% |
+| Targeted flip flagged at 1% / 5% | 40 / 60% | 60 / 80% |
+| Clean flagged at 1.3 / 2.0 / 4.0 (n = 240) | 4.2 / 1.3 / 0.4% | 2.9 / 0.8 / 0.4% |
+
+- Random flips at 1% flagged less often (2 of 10 batches vs 4); 10 batches per cell, so this is within noise, and their row AUPRC rose.
+- Clean alarms now within nominal at every cut-off; the label check causes 2 of the 7 at 1.3.
+- Batch time is now spread over checks: pixel and shift are the largest.

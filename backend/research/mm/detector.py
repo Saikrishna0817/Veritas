@@ -13,7 +13,10 @@ from __future__ import annotations
 
 import numpy as np
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 from app.detection import veritas2 as v2
 from research.mm import shared
@@ -49,7 +52,7 @@ def label_crossfit_component(d: dict):
     ref, inc, one = np.zeros(len(y)), np.zeros(len(d["y_inc"])), np.zeros(len(d["y_inc"]))
     fold = np.arange(len(d["y_inc"])) % 5
     for k, (tr, te) in enumerate(cv.split(X, y)):
-        model = HistGradientBoostingClassifier(random_state=0).fit(X[tr], y[tr])
+        model = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, max_iter=500)).fit(X[tr], y[tr])  # 100x faster than GBM, ranks flips better (dev)
         score = lambda X_, y_: 1.0 - v2._probs(model, X_, d["n_classes"])[np.arange(len(y_)), y_]
         ref[te] = score(X[te], y[te]); s_inc = score(d["X_inc"], d["y_inc"])
         inc += s_inc / 5; one[fold == k] = s_inc[fold == k]
