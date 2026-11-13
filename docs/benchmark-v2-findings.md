@@ -286,3 +286,37 @@ Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges
 ## Dependency bump check (scikit-learn 1.9.1)
 
 Re-ran the same 1,680 held-out batches on scikit-learn 1.9.1. Unlike the numpy/pandas bump, outputs are **not** bit-identical: about 45% of per-batch scores move (gradient-boosting internals changed), by up to 4.3 in `veritas2` batch score on individual batches. Aggregates stay within noise. `veritas2` mean batch detection at 5% false alarms by poison rate (1.8.0 → 1.9.1): 1% 0.150 → 0.144, 3% 0.647 → 0.611, 5% 0.747 → 0.744, 10% 0.886 → 0.872; mean row AUPRC at 5% poison 0.678 → 0.681 (95% intervals are about ±0.15 wide). No claim in the model card changes. The metadata unpickler allow-list also needed `sklearn._loss._loss` classes for 1.9 pickles. Result: `backend/research/results/2026-11-08-benchmark-v2-deps-bump-sklearn19.*`.
+
+## Cell-level localisation (2026-11-13)
+
+`veritas2.detect` now also returns `cell_scores`, shape (incoming rows, features + 1), the last column being the label:
+the row score plus how unusual the cell is. A feature value scores the -log10 share of clean values at least as far from
+the column mean, less log10(number of features); the label cell scores the label check. Ground truth is every value and
+label the attack changed (`bench_v2.make_batch`).
+
+Chosen on dev (`research/tab/cell_study_dev.py`) over: ridge residuals from the other features, their max with the
+marginal score, min(row, cell), and no column-count correction. Uncorrected marginal scores were slightly better on dev
+at 1% (0.28 vs 0.25) but blamed feature columns for label flips; the corrected version wins at 5-10% and inside poisoned rows.
+
+Held-out test (12 datasets, 1,440 attacked batches), cell AUPRC; random ranking = the share of changed cells (0.1-0.7%
+at 1% poison). "Row only" gives every cell of a row its row score.
+
+| Attack | 1% cells / row only | 5% cells / row only | In-row column ranking |
+|---|---|---|---|
+| Random label flip | 0.47 / 0.04 | 0.64 / 0.04 | 0.99 |
+| Targeted label flip | 0.55 / 0.06 | 0.71 / 0.05 | 0.99 |
+| Out-of-range backdoor | 0.39 / 0.08 | 0.81 / 0.22 | 0.98 |
+| In-range backdoor | 0.19 / 0.10 | 0.47 / 0.19 | 0.84 |
+| Feature collision | 0.08 / 0.20 | 0.30 / 0.53 | 0.74 |
+| Covariate shift | 0.01 / 0.01 | 0.15 / 0.10 | 0.56 |
+| Mean | 0.28 / 0.08 | 0.51 / 0.19 | 0.85 |
+
+Full table (3% and 10% too): `backend/research/results/2026-11-13-tabular-cells-test.md`.
+
+- Inside a truly poisoned row the changed cells are ranked first almost always for label flips and out-of-range backdoors.
+- Feature collision changes every feature of a row towards a victim, with in-range values; giving the whole row its row score
+  is better (0.20 vs 0.08 at 1%). Covariate shift (+1 std on 30% of columns) is barely found at any level, because the row
+  ranking itself is weak there.
+- Cell quality is capped by the tabular row ranking, which has not had the image track's upgrades (full reference set,
+  cross-fitted label check, several tail sizes). Those are the next lever.
+- Not yet shown in the app: `pipeline.py` passes only row scores to the report.

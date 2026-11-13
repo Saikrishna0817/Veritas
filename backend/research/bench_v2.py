@@ -160,7 +160,9 @@ def detector_inputs(X_ref, y_ref, X_inc, y_inc, n_classes: int, cal_fraction: fl
             "X_ref_raw": X_ref, "y_ref": y_ref, "X_inc_raw": X_inc}
 
 
-def run_batch(spec: dict) -> dict:
+def make_batch(spec: dict):
+    """(detector inputs, row mask, cell mask, record header) for one batch. The cell mask marks every incoming
+    feature value and label the attack changed: shape (n_incoming, n_features + 1), the last column is the label."""
     m = spec["manifest"]
     X, y, name = load_dataset(spec["data_id"], m["max_rows"], m["random_seed"] + spec["seed"])
     rng = np.random.default_rng([m["random_seed"], spec["data_id"], spec["seed"],
@@ -183,12 +185,19 @@ def run_batch(spec: dict) -> dict:
     if spec["attack"]:
         n_poison = max(1, round(spec["rate"] * len(inc)))
         mask[ATTACKS[spec["attack"]](X_inc, y_inc, rng, n_poison, ctx)] = True
+    cells = np.c_[X_inc != X[inc], y_inc != y[inc]]
 
     d = detector_inputs(X_ref, y_ref, X_inc, y_inc, ctx["n_classes"], m["calibration_fraction_of_reference"])
 
     out = {k: spec[k] for k in ("split", "data_id", "seed", "attack", "rate", "rep")}
     out.update({"dataset": name, "data_hash": data_hash(X, y), "n_incoming": len(inc),
                 "n_poisoned": int(mask.sum()), "detectors": {}})
+    return d, mask, cells, out
+
+
+def run_batch(spec: dict) -> dict:
+    m = spec["manifest"]
+    d, mask, _, out = make_batch(spec)
     limits = m.get("detector_seed_limits", {})
     for det_name, detect in DETECTORS.items():
         if spec["seed"] >= limits.get(det_name, m["seeds"]) or det_name not in (spec.get("only") or DETECTORS):

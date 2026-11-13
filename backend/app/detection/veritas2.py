@@ -92,15 +92,28 @@ def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
     components = {"shift": shift_component}
     if use_label:
         components = {"label": label_component, **components}
-    evidence, rows = {}, []
+    evidence, rows = {}, {}
     for name, component in components.items():
         cal, inc = component(d)
         evidence[name] = exact_tail_test(cal, inc)
         if name == "label" or evidence[name] >= gate:   # a quiet shift check must not dilute the ranking
-            rows.append(neg_log_p(cal, inc))
+            rows[name] = neg_log_p(cal, inc)
     batch = max(e - (SHIFT_PENALTY if name == "shift" else 0.0) for name, e in evidence.items())
-    return {"row_scores": np.max(rows, axis=0), "batch_evidence": batch, "evidence": evidence,
+    row_scores = np.max(list(rows.values()), axis=0)
+    return {"row_scores": row_scores, "cell_scores": cell_scores(d, row_scores, rows.get("label")),
+            "batch_evidence": batch, "evidence": evidence,
             "shift_in_ranking": "shift" in evidence and evidence["shift"] >= gate}
+
+
+def cell_scores(d: dict, row_scores: np.ndarray, label_rows: np.ndarray | None) -> np.ndarray:
+    """(n_incoming, n_features + 1) cell suspicion, the last column being the label: the row score plus how unusual
+    the cell is. A feature value scores the -log10 share of clean values at least as far from the column mean, less
+    log10(n_features) (the most unusual of many columns stands out by chance); the label scores the label check.
+    Chosen on dev (research/tab/cell_study_dev.py) over conditional residuals and min(row, cell)."""
+    cal, inc = np.abs(d["X_cal"]), np.abs(d["X_inc"])   # columns are standardised on the fit rows
+    feat = np.stack([neg_log_p(cal[:, j], inc[:, j]) for j in range(inc.shape[1])], axis=1) - np.log10(inc.shape[1])
+    label = np.zeros(len(inc)) if label_rows is None else label_rows
+    return row_scores[:, None] + np.c_[feat, label]
 
 
 def verdict_for(evidence: float) -> tuple[str, float]:

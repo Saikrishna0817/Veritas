@@ -43,3 +43,15 @@ def test_batch_test_is_calibrated_when_incoming_matches_clean():
     rng = np.random.default_rng(0)
     ev = [exact_tail_test(rng.normal(size=540), rng.normal(size=1260)) for _ in range(400)]
     assert np.mean(np.array(ev) >= 1.3) < 0.08 and np.mean(np.array(ev) >= 2.0) < 0.025
+
+
+def test_cell_scores_point_at_the_poisoned_cell():
+    """A flipped label is blamed on the label column, an out-of-range value on its own feature column."""
+    from app.detection.veritas2 import Veritas2
+    X_ref, y_ref, X, y = _split()
+    X, y = X.copy(), y.copy()
+    y[:20] = (y[:20] + 1) % 3
+    X[20:40, 5] = X_ref[:, 5].max() + 3 * X_ref[:, 5].std()
+    cells = Veritas2().fit(X_ref, y_ref).analyze(X, y)["cell_scores"]
+    assert cells.shape == (len(X), X.shape[1] + 1)
+    assert np.mean(cells[:20].argmax(1) == X.shape[1]) > 0.8 and np.mean(cells[20:40].argmax(1) == 5) > 0.8
