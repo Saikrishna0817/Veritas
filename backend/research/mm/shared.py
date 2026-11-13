@@ -79,13 +79,7 @@ def noise_level_component(d):
     return _split(d, np.median(np.abs(lap.reshape(len(g), -1)), axis=1))
 
 
-def extrapolated_neg_log_p(cal, inc):
-    """neg_log_p, plus for rows above every clean row a bonus log10(1 + excess / spread). Others unchanged."""
-    base = v2.neg_log_p(cal, inc)
-    top = cal.max()
-    q1, q3 = np.percentile(cal, [25, 75])
-    spread = max(q3 - q1, 0.05 * (top - cal.min()), 1e-12)
-    return base + np.where(inc > top, np.log10(1 + (inc - top) / spread), 0.0)
+extrapolated_neg_log_p = v2.extrapolated_neg_log_p  # moved into the app detector; kept here for the studies
 
 
 NEW = {"dup": duplicate_component,
@@ -104,5 +98,4 @@ def chroma_floor_component(d, block=4):
 
 
 def multi_tail_test(cal, inc, fracs):
-    """Largest exact tail-test evidence over several tail sizes, Bonferroni-corrected for the number tried."""
-    return max(max(v2.exact_tail_test(cal, inc, 1 - f) for f in fracs) - np.log10(len(fracs)), 0.0)
+    return v2.multi_tail_test(cal, inc, fracs)

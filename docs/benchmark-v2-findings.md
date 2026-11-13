@@ -320,3 +320,36 @@ Full table (3% and 10% too): `backend/research/results/2026-11-13-tabular-cells-
 - Cell quality is capped by the tabular row ranking, which has not had the image track's upgrades (full reference set,
   cross-fitted label check, several tail sizes). Those are the next lever.
 - Not yet shown in the app: `pipeline.py` passes only row scores to the report.
+
+## Row checks upgraded with the image track's lessons (2026-11-13)
+
+`veritas2` now: label check cross-fitted over all reference rows (5 GBM folds; one fold model per incoming row for the
+batch test, the mean of folds for the row list); shift check against all reference rows; batch evidence = best exact
+tail test over the top 0.03/0.1/0.3/1%, minus log10(4); penalties label 0.1, shift 1.0 (gate 3 unchanged); row scores
+extrapolated beyond the top clean row; cell scores compare with all reference rows.
+
+Chosen on dev (`research/tab/row_study_dev.py`, 720 attacked + 360 clean batches). Rejected there: logistic regression
+for the label check (faster, slightly worse rows), a per-claimed-class label test (no gain), and a marginal-outlier
+row check (38% of clean batches flagged: in-sample reference scores are not comparable to incoming ones).
+
+Held-out test (12 datasets, 1,440 attacked + 240 clean batches; `results/2026-11-13-benchmark-v2-final-r3-crossfit.*`;
+"before" is the sklearn 1.9 run of the previous detector on the same batches):
+
+| | Before | Now | cleanlab |
+|---|---|---|---|
+| Row AUPRC at 1% / 3% / 5% / 10% | 0.36 / 0.57 / 0.68 / 0.80 | 0.43 / 0.70 / 0.78 / 0.88 | 0.36 / 0.49 / 0.54 / 0.60 |
+| Batch detection at 5% clean false alarms, 1% / 3% / 5% / 10% | 0.14 / 0.61 / 0.74 / 0.87 | 0.44 / 0.76 / 0.84 / 0.94 | 0.14 / 0.47 / 0.55 / 0.63 |
+| Flagged at LOW_RISK (1.3), 1% / 5% | 19% / 76% | 37% / 82% | 51% / 72% |
+| Clean flagged at 1.3 / 2.0 / 4.0 (nominal 5 / 1 / 0.01%) | 7.1 / 0.8 / 0% | 3.3 / 1.3 / 0% | 27.5 / 18.3 / 6.2% |
+| Cell AUPRC at 1% / 5% | 0.28 / 0.51 | 0.35 / 0.60 | - |
+| Seconds per batch | 1.6 | 5.4 | 0.7 |
+
+Per attack at 1% (row AUPRC / flagged at 1.3): random flip 0.51 / 42%, targeted flip 0.60 / 37%, out-of-range backdoor
+0.52 / 55%, in-range backdoor 0.49 / 37%, feature collision 0.39 / 43%, covariate shift 0.04 / 8%.
+
+- The calibrated batch detection at 1% tripled (0.14 -> 0.44); every rate and every attack improved.
+- Clean false alarms are now under nominal at 1.3 (was over); 1.3% at 2.0 is over nominal by one batch (3 of 240).
+- cleanlab's raw cut-offs are not calibrated (27.5% of clean batches at 1.3), so its "flagged" share is not comparable.
+- Covariate shift is still barely found at 1%; it needs a check built for many small column shifts.
+- `bench_v2._openml` now falls back to the liac-arff parser on any parse error: inside worker processes the pandas 3.1
+  failure arrives wrapped by sklearn's retry helper, not as a TypeError, and killed the first run of this benchmark.

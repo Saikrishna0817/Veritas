@@ -55,7 +55,7 @@ def _openml(data_id: int):
     """fetch_openml's default ARFF parser breaks on categorical columns under pandas 3.1; liac-arff does not."""
     try:
         return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="auto")
-    except TypeError:
+    except Exception:  # a TypeError, or the same failure wrapped by sklearn's retry helper inside a worker process
         return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="liac-arff")
 
 
@@ -197,16 +197,18 @@ def make_batch(spec: dict):
 
 def run_batch(spec: dict) -> dict:
     m = spec["manifest"]
-    d, mask, _, out = make_batch(spec)
+    d, mask, cells, out = make_batch(spec)
     limits = m.get("detector_seed_limits", {})
     for det_name, detect in DETECTORS.items():
         if spec["seed"] >= limits.get(det_name, m["seeds"]) or det_name not in (spec.get("only") or DETECTORS):
             continue  # too slow to run on every seed; see detector_seed_limits in the manifest
         started = time.perf_counter()
-        rows, batch = detect(d)
+        rows, batch, *cell = detect(d)   # a detector may also return per-cell scores (veritas2 does)
         res = {"batch_score": batch, "seconds": round(time.perf_counter() - started, 3)}
         if mask.any():
             res.update(_row_metrics(np.asarray(rows, dtype=float), mask))
+            if cell:
+                res["cell_auprc"] = float(average_precision_score(cells.ravel(), cell[0].ravel()))
         out["detectors"][det_name] = res
     return out
 

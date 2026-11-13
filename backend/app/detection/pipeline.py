@@ -7,7 +7,7 @@ to reach a verdict on single-layer attacks (docs/benchmark-v2-findings.md). It i
 
 import numpy as np
 
-from .veritas2 import Veritas2, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
+from .veritas2 import Veritas2, LABEL_PENALTY, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
 
 # Suspicion thresholds used by the defense and review-queue code; ``veritas2.verdict_for`` maps onto them.
 THRESHOLD_CONFIRMED  = 0.65
@@ -52,7 +52,7 @@ class DetectionPipeline:
     def _analyze_v2(self, X: np.ndarray, y: np.ndarray) -> dict:
         r = self.v2.analyze(X, y)
         flagged = r["flagged_indices"]
-        label_ev = r["evidence"].get("label", 0.0)
+        label_ev = max(r["evidence"].get("label", 0.0) - LABEL_PENALTY, 0.0)
         shift_ev = max(r["evidence"]["shift"] - SHIFT_PENALTY, 0.0)  # same weighting as the batch statistic
         # "layer3" keeps the row-flag keys the report and quarantine code read.
         details = {

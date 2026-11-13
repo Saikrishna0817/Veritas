@@ -17,26 +17,30 @@ attack, and not a compliance (NIST AI RMF, EU AI Act) claim.
 
 ## Training-data check (`veritas2`)
 
-**Method.** (1) *Label check*: a gradient-boosted classifier is trained on the clean reference; incoming rows are
-ranked by cleanlab's label-quality score. (2) *Shift check*: a classifier two-sample test asks whether a model can tell
-incoming rows from held-out clean rows; it joins the ranking only when its own tail test is strong (GATE = 3.0).
-(3) Evidence becomes an exact hypergeometric p-value against held-out clean rows; the shift evidence is penalised by
-log10(4). Verdict cut-offs: p <= 0.05 LOW_RISK, 0.01 SUSPICIOUS, 1e-4 CONFIRMED.
+**Method** (since 2026-11-13). (1) *Label check*: gradient-boosted classifiers cross-fitted over all clean reference
+rows (5 folds) rank rows by cleanlab's label-quality score; every reference row gets an out-of-fold score. (2) *Shift
+check*: a classifier two-sample test asks whether a model can tell incoming rows from the clean reference rows; it joins
+the ranking only when its own tail test is strong (GATE = 3.0). (3) Evidence is the best exact hypergeometric tail test
+over the top 0.03%, 0.1%, 0.3% and 1%, minus log10(4), against all reference rows; penalties label 0.1, shift 1.0.
+Verdict cut-offs: p <= 0.05 LOW_RISK, 0.01 SUSPICIOUS, 1e-4 CONFIRMED. (4) *Cell scores*: row score plus how unusual
+each value is in its column (label cell: the label check), so a report can name the poisoned values.
 
 **Evaluation.** Benchmark v2: 18 real OpenML datasets (6 dev, 12 held-out test), six injected attacks, four poison
 rates, five seeds, plus clean batches. Detector design and tuning used the dev datasets only. CIFAR-10N (real human
 label mistakes, nothing injected) is a second held-out track.
 
-| Held-out result | old Veritas | veritas2 | cleanlab | two-sample test |
-|---|---|---|---|---|
-| row AUPRC at 5% poison (random = 0.05) | 0.11 | **0.69** | 0.54 | 0.49 |
-| batch detection rate at 5% false alarms | 0.33 | **0.78** | 0.55 | 0.14 |
+| Held-out result | old Veritas | veritas2 (Nov 7) | veritas2 (Nov 13) | cleanlab | two-sample test |
+|---|---|---|---|---|---|
+| row AUPRC at 5% poison (random = 0.05) | 0.11 | 0.69 | **0.78** | 0.54 | 0.49 |
+| batch detection rate at 5% false alarms | 0.33 | 0.78 | **0.84** | 0.55 | 0.14 |
 
-By poison rate (batch detection at 5% false alarms): 1% about 0.15, 3% 0.65, 5% 0.75, 10% 0.89. On real CIFAR-10N
+By poison rate (batch detection at 5% false alarms), Nov 13: 1% 0.44, 3% 0.76, 5% 0.84, 10% 0.94 (Nov 7: 0.14, 0.61,
+0.74, 0.87). Cell AUPRC (finding the changed values and labels) 0.35 at 1%, 0.60 at 5%. The CIFAR-10N comparison below
+was run on the Nov 7 detector. On real CIFAR-10N
 label noise `veritas2` matches cleanlab (row AUPRC 0.45 to 0.57 vs 0.46 to 0.58); it does not beat it.
 
-**Calibration.** On held-out clean batches 7.1% reached LOW_RISK (nominal 5%, n = 240), 0.4% reached SUSPICIOUS and
-none reached CONFIRMED.
+**Calibration.** On held-out clean batches 3.3% reached LOW_RISK (nominal 5%, n = 240), 1.3% reached SUSPICIOUS (nominal 1%)
+and none reached CONFIRMED (Nov 7 detector: 7.1%, 0.8%, 0).
 
 **Dependency check.** After the numpy 2.5 / pandas 3.1 upgrade the 12,000 per-batch results were identical to the
 earlier run (see findings doc).
@@ -56,9 +60,10 @@ post-fix 339/339 is no longer a held-out number.
 
 ## Known limits
 
-- **Small contamination is hard.** At 1% poison (about 12 rows in 1,200) every method catches roughly 15% of batches.
-  Reliable batch verdicts need about 5% contamination or more; below that, use the ranked row list.
-- **Weakest attack:** covariate shift (row AUPRC about 0.40).
+- **Small contamination is hard.** At 1% poison (about 12 rows in 1,200) veritas2 flags 37% of batches at LOW_RISK
+  (cleanlab-style and the Nov 7 detector about 15-19% at a calibrated cut-off). Reliable batch verdicts need about 3-5%
+  contamination; below that, use the ranked row and cell lists.
+- **Weakest attack:** covariate shift (row AUPRC 0.04 at 1%, 0.53 at 5%).
 - **Data types:** structured numeric/categorical tables with a label column. Not images, audio, video or text
   (except as pre-computed embeddings), and not validated beyond 200,000 rows.
 - **You must supply a trusted reference.** With no reference file or split column, Veritas treats the first 70% of rows
