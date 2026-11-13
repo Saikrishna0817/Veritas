@@ -212,7 +212,7 @@ async def analyze_real_dataset(
         data = deps.get_real_dataset(name)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    quota.charge_analysis(user)
+    charged = quota.charge_analysis(user)
 
     try:
         full_result, dataset_id = await run_csv_analysis(
@@ -227,6 +227,7 @@ async def analyze_real_dataset(
             },
         )
     except Exception:
+        quota.refund(user["id"], charged)
         rid = getattr(request.state, "request_id", "-")
         logger.exception("Real-dataset analysis failed [dataset=%s, rid=%s]", name, rid)
         raise HTTPException(

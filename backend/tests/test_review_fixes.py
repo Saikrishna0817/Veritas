@@ -29,3 +29,23 @@ def test_confirmed_batches_are_always_quarantined(monkeypatch):
     samples = [{"id": f"row_{i}", "poison_status": "suspected", "row_score": float(i)} for i in range(40)]
     action = StabilityAwareAutoDefense().decide_action(samples, 0.66, "CONFIRMED_POISONED", scope="s", owner_id="u")
     assert action["action"] == "quarantine" and action["sample_ids"] == ["row_39", "row_38"]   # 5% cap, most suspicious first
+
+
+def test_failed_upload_refunds_quota_and_stale_jobs_fail():   # the suite already runs on a scratch database
+    from datetime import datetime, timedelta, timezone
+    from app.core import quota
+    from app.jobs.queue import job_store
+    from app.models import database as db
+
+    db.init_db()
+    user = {"id": "q-user", "role": "user"}
+    charged = quota.charge(user, "analyses", 1, 5)
+    assert db.get_usage("q-user")["analyses"] == 1
+    quota.refund("q-user", charged)
+    assert db.get_usage("q-user")["analyses"] == 0
+
+    db.create_job("stale-1", "csv_upload", "q-user", {"key": "k", "charged": quota.charge(user, "analyses", 1, 5)})
+    db.update_job("stale-1", status="running", started_at=(datetime.now(timezone.utc) - timedelta(minutes=40)).isoformat())
+    job = job_store.get("stale-1")
+    assert job["status"] == "failed" and "worker stopped" in job["error"]
+    assert db.get_usage("q-user")["analyses"] == 0

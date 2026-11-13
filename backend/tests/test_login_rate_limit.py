@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException, Response
 from starlette.requests import Request
 
-from app.api.routes.auth import LoginRequest, login_rate_limiter, token
+from app.api.routes.auth import LoginRequest, login_rate_limiter, login_user_rate_limiter, token
 from app.core.security import require_user
 
 
@@ -14,9 +14,20 @@ def make_request(ip: str = "198.51.100.1") -> Request:
 
 @pytest.fixture(autouse=True)
 def clear_login_rate_limiter():
-    login_rate_limiter.clear()
+    login_rate_limiter.clear(); login_user_rate_limiter.clear()
     yield
-    login_rate_limiter.clear()
+    login_rate_limiter.clear(); login_user_rate_limiter.clear()
+
+
+def test_login_is_also_limited_per_username_across_ips():
+    credentials = LoginRequest(username="test-admin", password="wrong")
+    for i in range(10):
+        with pytest.raises(HTTPException) as error:
+            asyncio.run(token(credentials, make_request(f"198.51.100.{20 + i}"), Response()))
+        assert error.value.status_code == 401
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(token(credentials, make_request("198.51.100.99"), Response()))
+    assert error.value.status_code == 429
 
 
 def test_login_rate_limit_blocks_after_threshold():

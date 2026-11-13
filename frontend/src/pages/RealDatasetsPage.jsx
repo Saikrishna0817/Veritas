@@ -20,7 +20,7 @@ const VERDICT_CONFIG = {
 
 const ATTACK_COLORS = {
     label_flip: '#f59e0b', backdoor: '#ef4444',
-    clean_label: '#a855f7', gradient_poisoning: '#06b6d4', boiling_frog: '#22c55e',
+    clean_label: '#a855f7', covariate_shift: '#06b6d4',
 };
 
 const LAYER_LABELS = {

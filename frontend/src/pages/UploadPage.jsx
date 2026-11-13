@@ -10,8 +10,6 @@ const ATTACK_COLORS = {
   backdoor: 'var(--red-primary)',
   clean_label: '#a855f7',
   covariate_shift: '#06b6d4',
-  gradient_poisoning: '#06b6d4',
-  boiling_frog: 'var(--status-safe)',
 };
 
 const VERDICT_CONFIG = {

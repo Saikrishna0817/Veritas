@@ -88,8 +88,9 @@ async def complete_upload(body: CompleteRequest, user: dict = Depends(require_us
         if main["role"] == "model":
             if body.reference_upload_id:
                 raise HTTPException(status_code=400, detail="A model scan has no reference file.")
-            quota.charge_scan(user, main["size"])
-            job_id = job_store.submit("model_scan", {"key": main["storage_key"], "filename": main["filename"]}, owner_id=user["id"])
+            charged = quota.charge_scan(user, main["size"])
+            job_id = job_store.submit("model_scan", {"key": main["storage_key"], "filename": main["filename"], "charged": charged},
+                                      owner_id=user["id"])
         else:
             payload = {"key": main["storage_key"], "filename": main["filename"]}
             if body.reference_upload_id:
@@ -98,7 +99,7 @@ async def complete_upload(body: CompleteRequest, user: dict = Depends(require_us
                 payload["reference_key"] = ref["storage_key"]
             if body.split_column or body.split_cutoff:
                 payload.update(split_column=body.split_column or None, split_cutoff=body.split_cutoff or None)
-            quota.charge_analysis(user, rows=max(1, main["size"] // BYTES_PER_ROW))
+            payload["charged"] = quota.charge_analysis(user, rows=max(1, main["size"] // BYTES_PER_ROW))
             job_id = job_store.submit("csv_upload", payload, owner_id=user["id"])
     except Exception:
         for row in rows:                     # the job never started, so nothing else will delete these

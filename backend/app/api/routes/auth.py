@@ -20,6 +20,7 @@ from app.models import database as db
 logger = logging.getLogger(__name__)
 router = APIRouter()
 login_rate_limiter = make_limiter("login", 5, 60)
+login_user_rate_limiter = make_limiter("login-user", 10, 900)   # per username, so guessing spread over many IPs is slowed too
 signup_rate_limiter = make_limiter("signup", 5, 3600)
 mail_rate_limiter = make_limiter("mail", 5, 3600)
 
@@ -93,6 +94,8 @@ async def _send_verification(user_id: str, email: str) -> None:
 async def token(credentials: LoginRequest, request: Request, response: Response):
     if not login_rate_limiter.allow(_ip(request)):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Try again in one minute.")
+    if not login_user_rate_limiter.allow(credentials.username.lower()):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts for this account. Try again in 15 minutes.")
     user = authenticate_user(credentials.username, credentials.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})

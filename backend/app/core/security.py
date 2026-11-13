@@ -66,8 +66,11 @@ def authenticate_user(username: str, password: str) -> dict[str, str] | None:
 def create_access_token(user: dict[str, str]) -> str:
     if not _auth_configured():
         raise RuntimeError("Authentication is not configured")
+    from app.models import database as db
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expiry_minutes)
-    return jwt.encode({"sub": user["id"], "name": user["name"], "role": user["role"], "exp": expires_at}, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+    tv = (db.get_user_by_id(user["id"]) or {}).get("token_version") or 0
+    return jwt.encode({"sub": user["id"], "name": user["name"], "role": user["role"], "tv": tv, "exp": expires_at},
+                      settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
@@ -80,9 +83,14 @@ def decode_access_token(token: str) -> dict[str, Any]:
     if not all(claims.get(key) for key in ("sub", "name", "role")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token claims")
     from app.models import database as db
-    if db.is_deleted_account(claims["sub"]):        # an erased account's token must stop working before it expires
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists", headers={"WWW-Authenticate": "Bearer"})
-    return {"id": claims["sub"], "name": claims["name"], "role": claims["role"]}
+    stored = db.get_user_by_id(claims["sub"])
+    if stored is None:
+        if db.is_deleted_account(claims["sub"]):    # an erased account's token must stop working before it expires
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists", headers={"WWW-Authenticate": "Bearer"})
+        return {"id": claims["sub"], "name": claims["name"], "role": claims["role"]}
+    if claims.get("tv", 0) != (stored.get("token_version") or 0):   # the password changed after this token was issued
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended: sign in again", headers={"WWW-Authenticate": "Bearer"})
+    return {"id": stored["id"], "name": stored["username"], "role": stored["role"]}   # the current role, not the one at sign-in
 
 
 def token_expiry(token: str) -> float:

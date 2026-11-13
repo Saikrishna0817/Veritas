@@ -283,7 +283,7 @@ def _ensure_bootstrap_admin(conn: Database) -> None:
     conn.commit()
 
 
-_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified"
+_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version"
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
@@ -323,7 +323,8 @@ def set_email_verified(user_id: str) -> None:
 
 def set_password_hash(user_id: str, password_hash: str) -> None:
     conn = _get_conn()
-    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (password_hash, user_id))
+    # a new password ends every session: tokens carrying the old version are rejected (security.decode_access_token)
+    conn.execute("UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?", (password_hash, user_id))
     conn.commit()
 
 
@@ -573,6 +574,14 @@ def charge_usage(owner_id: str, kind: str, amount: int, limit: int) -> tuple[boo
     if row is None:
         return False, get_usage(owner_id).get(kind, 0)
     return True, row["amount"]
+
+
+def refund_usage(owner_id: str, day: str, kind: str, amount: int) -> None:
+    """Give back ``amount`` of a charge made on ``day`` (never below zero)."""
+    conn = _get_conn()
+    conn.execute("UPDATE usage_daily SET amount = CASE WHEN amount > ? THEN amount - ? ELSE 0 END WHERE owner_id=? AND day=? AND kind=?",
+                 (amount, amount, owner_id, day, kind))
+    conn.commit()
 
 
 def get_usage(owner_id: str) -> Dict[str, int]:

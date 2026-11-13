@@ -2,9 +2,9 @@ const ATTACK_COLORS = {
   label_flip: '#f59e0b',
   backdoor: '#ef4444',
   clean_label: '#a855f7',
-  gradient_poisoning: '#06b6d4',
-  boiling_frog: '#22c55e',
+  covariate_shift: '#06b6d4',
 };
+const ATTACK_ICONS = { backdoor: '🚪', label_flip: '🔄', clean_label: '🎭', covariate_shift: '📉' };
 
 function ScoreBar({ label, score, color = '#6366f1' }) {
   const pct = Math.round((score || 0) * 100);
@@ -58,15 +58,7 @@ export default function AttackClassificationCard({ classification, attackColor }
       </div>
       <div style={{ textAlign: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 36, marginBottom: 8 }}>
-          {attackType === 'backdoor'
-            ? '🚪'
-            : attackType === 'label_flip'
-            ? '🔄'
-            : attackType === 'clean_label'
-            ? '🎭'
-            : attackType === 'gradient_poisoning'
-            ? '⚡'
-            : '🐸'}
+          {ATTACK_ICONS[attackType] || '—'}
         </div>
         <div style={{ fontSize: 20, fontWeight: 800, color: attackColor, textTransform: 'capitalize' }}>
           {attackType.replace(/_/g, ' ')}

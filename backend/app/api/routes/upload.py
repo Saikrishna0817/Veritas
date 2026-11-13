@@ -74,7 +74,7 @@ async def analyze_uploaded_csv(
 
     content = await read_upload_limited(file, MAX_CSV_SIZE)
     filename = file.filename
-    quota.charge_analysis(user, rows=content.count(b"\n"))
+    charged = quota.charge_analysis(user, rows=content.count(b"\n"))
     split: dict = {}
     if reference_file is not None:
         if not reference_file.filename or not is_safe_filename(reference_file.filename) \
@@ -87,7 +87,7 @@ async def analyze_uploaded_csv(
     if background:
         # The upload waits in blob storage for a worker; the API process does no analysis and holds no bytes.
         store = storage()
-        payload = {"key": new_key(user["id"]), "filename": filename}
+        payload = {"key": new_key(user["id"]), "filename": filename, "charged": charged}
         store.put(payload["key"], content)
         if "reference_bytes" in split:
             payload["reference_key"] = new_key(user["id"])
@@ -100,8 +100,10 @@ async def analyze_uploaded_csv(
     try:
         full_result, dataset_id = await run_csv_analysis(content, filename, user["id"], source="upload", split=split)
     except ValueError as exc:
+        quota.refund(user["id"], charged)
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception:
+        quota.refund(user["id"], charged)
         rid = getattr(request.state, "request_id", "-")
         logger.exception("CSV analysis failed [rid=%s]", rid)
         raise HTTPException(

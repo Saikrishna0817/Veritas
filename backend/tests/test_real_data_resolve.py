@@ -69,4 +69,4 @@ def test_trust_score_empty_is_not_grade_a(isolated_db):
     payload = asyncio.run(get_trust_score({"id": "u1", "name": "u1", "role": "user"}))
     assert payload["data_source"] == "none"
     assert payload["has_analysis"] is False
-    assert payload["model_safety"]["grade"] is None
+    assert payload["verdict"] is None and payload["likely_attack"] is None

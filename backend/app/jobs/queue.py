@@ -15,6 +15,8 @@ from app.models import database as db
 
 logger = logging.getLogger(__name__)
 QUEUE_NAME = "veritas"
+JOB_TIMEOUT = 1800                       # seconds a job may run (the RQ timeout)
+STALE_AFTER = {"running": JOB_TIMEOUT + 300, "queued": 6 * 3600}   # then its worker is presumed gone
 
 
 def _now() -> str:
@@ -42,6 +44,8 @@ def execute(job_id: str) -> None:
         db.update_job(job_id, status="completed", result_json=json.dumps(result, default=str), completed_at=_now())
     except Exception as exc:  # noqa: BLE001 — job boundary must record failures
         logger.exception("job %s (%s) failed", job_id, job["job_type"])
+        from app.core import quota
+        quota.refund(job["owner_id"], job["payload"].get("charged"))   # a failed job does not use up the quota
         _count(job["job_type"], "failed")
         db.update_job(job_id, status="failed", error=str(exc)[:500], completed_at=_now())
 
@@ -55,20 +59,28 @@ class JobQueue:
         if self._rq is None:
             import redis
             from rq import Queue
-            self._rq = Queue(QUEUE_NAME, connection=redis.Redis.from_url(settings.redis_url), default_timeout=1800)
+            self._rq = Queue(QUEUE_NAME, connection=redis.Redis.from_url(settings.redis_url), default_timeout=JOB_TIMEOUT)
         return self._rq
 
     def submit(self, job_type: str, payload: dict, owner_id: str) -> str:
         job_id = str(uuid.uuid4())
         db.create_job(job_id, job_type, owner_id, payload)
         if settings.redis_url:
-            self._redis_queue().enqueue("app.jobs.queue.execute", job_id, job_timeout=1800, result_ttl=0)
+            self._redis_queue().enqueue("app.jobs.queue.execute", job_id, job_timeout=JOB_TIMEOUT, result_ttl=0)
         else:
             self._executor.submit(execute, job_id)
         return job_id
 
     def get(self, job_id: str) -> dict[str, Any] | None:
         job = db.get_job(job_id)
+        if job and job["status"] in STALE_AFTER:
+            since = job.get("started_at") if job["status"] == "running" else job.get("created_at")
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(since)).total_seconds() if since else 0
+            if age > STALE_AFTER[job["status"]]:   # a worker that crashed or a process that restarted never reports back
+                from app.core import quota
+                db.update_job(job_id, status="failed", error=f"no progress for {age / 60:.0f} minutes: the worker stopped", completed_at=_now())
+                quota.refund(job["owner_id"], job["payload"].get("charged"))
+                job = db.get_job(job_id)
         if job:
             job.pop("payload", None)       # storage keys are internal
         return job

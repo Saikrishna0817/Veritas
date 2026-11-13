@@ -15,7 +15,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def _fresh_limiters():
     from app.api.routes import auth
-    for limiter in (auth.login_rate_limiter, auth.signup_rate_limiter, auth.mail_rate_limiter):
+    for limiter in (auth.login_rate_limiter, auth.login_user_rate_limiter, auth.signup_rate_limiter, auth.mail_rate_limiter):
         limiter._events.clear()
     yield
 
@@ -55,6 +55,7 @@ def test_password_reset_flow_and_no_account_enumeration():
     c = _client()
     _signup(c, "resetme", "reset@example.com")
     c.post("/api/v1/auth/verify-email", json={"token": _link_token()})
+    old_token = c.post("/api/v1/auth/token", json={"username": "resetme", "password": PW}).json()["access_token"]
     before = len(mailer.outbox)
     unknown = c.post("/api/v1/auth/password-reset/request", json={"email": "nobody@example.com"})
     known = c.post("/api/v1/auth/password-reset/request", json={"email": "reset@example.com"})
@@ -64,6 +65,8 @@ def test_password_reset_flow_and_no_account_enumeration():
     assert c.post("/api/v1/auth/password-reset/confirm", json={"token": token, "new_password": "yet-another-pass"}).status_code == 400
     assert c.post("/api/v1/auth/token", json={"username": "resetme", "password": PW}).status_code == 401
     assert c.post("/api/v1/auth/token", json={"username": "resetme", "password": "a-brand-new-pass"}).status_code == 200
+    # a session from before the reset is over
+    assert c.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {old_token}"}).status_code == 401
 
 
 def _login(name="sessionuser", email="session@example.com"):

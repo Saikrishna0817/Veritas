@@ -240,16 +240,11 @@ export default function Dashboard({ wsEvents = [] }) {
             )}
             {trustScore && trustScore.has_analysis && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <MetricCard label="Data Quality" value={trustScore.dataset_trust.data_quality} color="var(--status-safe)" sublabel={trustScore.data_source} />
-                <MetricCard label="Poison Risk" value={trustScore.dataset_trust.poison_risk} unit="%" color="var(--red-primary)" />
-                <MetricCard label="Behavioral Trust" value={trustScore.dataset_trust.behavioral_trust} color="var(--status-warn)" />
-                <div className="bg-bgPanel p-5 relative overflow-hidden rounded-[20px] border border-borderHairline group hover:bg-bgPanelRaised transition-colors">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-redPrimary" />
-                  <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-2">Model Grade</div>
-                  <div className="text-[40px] font-extrabold tracking-tight text-textPrimary font-mono">
-                    {trustScore.model_safety.grade}
-                  </div>
-                </div>
+                <MetricCard label="Verdict" value={(trustScore.verdict || '—').replace(/_/g, ' ')} color="var(--red-primary)" sublabel={trustScore.data_source} />
+                <MetricCard label="Poison Risk" value={trustScore.poison_risk} unit="%" color="var(--red-primary)" />
+                <MetricCard label="Flagged Rows" value={trustScore.flagged_rows} color="var(--status-warn)" />
+                <MetricCard label="Likely Attack" value={trustScore.likely_attack ? trustScore.likely_attack.label : 'none named'} color="var(--status-safe)"
+                  sublabel={trustScore.likely_attack ? `${Math.round(trustScore.likely_attack.probability * 100)}% probability` : 'batch not suspicious'} />
               </div>
             )}
 
