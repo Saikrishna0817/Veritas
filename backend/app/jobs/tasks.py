@@ -48,5 +48,26 @@ def model_scan(payload: dict, owner_id: str) -> dict:
     return result
 
 
+def image_upload(payload: dict, owner_id: str) -> dict:
+    from app.api import dependencies as deps
+    from app.api.analysis_helpers import _orchestrate_images
+
+    store = storage()
+    keys = [payload["key"]] + ([payload["reference_key"]] if payload.get("reference_key") else [])
+    try:
+        reference = store.get(payload["reference_key"]) if payload.get("reference_key") else None
+        result = _orchestrate_images(store.get(payload["key"]), payload["filename"], owner_id, reference)
+    finally:
+        for key in keys:
+            store.delete(key)
+    result["owner_id"] = owner_id
+    result = deps.to_serializable(result)
+    deps.db.save_result(result, "image_upload", payload["filename"], owner_id=owner_id)
+    deps.db.log_audit_event(owner_id, "analysis.images_uploaded", "dataset", result["dataset_info"]["dataset_id"],
+                            {"filename": payload["filename"], "n_images": result["dataset_info"]["n_images"], "verdict": result["verdict"]})
+    return result
+
+
 TASKS["csv_upload"] = csv_upload
+TASKS["image_upload"] = image_upload
 TASKS["model_scan"] = model_scan

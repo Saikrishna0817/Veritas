@@ -180,7 +180,8 @@ def components(d: dict) -> dict:
     """name -> (clean, inc[, one]) scores. Only the label check needs held-out rows (cross-fitted); every other check
     compares the incoming rows with all reference rows, so a handful of poisoned rows can still give strong evidence."""
     r = full_reference(d)
-    return {"label": label_crossfit_component(d), "shift": v2.shift_component(r), "pixel": pixel_component(r),
+    label = {"label": label_crossfit_component(d)} if d["n_classes"] > 1 else {}   # unlabeled: no label check
+    return {**label, "shift": v2.shift_component(r), "pixel": pixel_component(r),
             "dup": duplicate_component(r), "cell": shared_residual_cell_component(r),
             "resid": shared_residual_component(r), "chroma": chroma_floor_component(r)}
 

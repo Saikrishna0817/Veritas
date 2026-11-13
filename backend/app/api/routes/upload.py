@@ -134,6 +134,43 @@ async def analyze_uploaded_csv(
     return JSONResponse(content=full_result)
 
 
+MAX_ZIP_SIZE = 500 * 1024 * 1024
+
+
+@router.post("/analyze/images", status_code=202)
+async def analyze_image_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip with one folder per class (cat/001.png, dog/002.jpg, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference images, same layout"),
+    user: dict = Depends(require_user),
+):
+    """Check an image dataset for poisoning. Always a background job (embedding images takes tens of seconds):
+    returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 images are used, resized to 32x32."""
+    from app.detection import image_embed
+    if not image_embed.available():
+        raise HTTPException(status_code=501, detail="Image analysis is not installed on this server (requirements-images.txt).")
+    client_ip = request.client.host if request.client else "unknown"
+    if not deps.analysis_rate_limiter.allow(f"images:{user['id']}:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Too many analysis requests. Try again in one minute.")
+    for f, what in ((file, "file"), (reference_file, "reference file")):
+        if f is not None and (not f.filename or not is_safe_filename(f.filename) or not f.filename.lower().endswith(".zip")):
+            raise HTTPException(status_code=400, detail=f"The {what} must be a .zip of images.")
+    store = storage()
+    payload = {"key": new_key(user["id"]), "filename": file.filename}
+    store.put(payload["key"], await read_upload_limited(file, MAX_ZIP_SIZE))
+    if reference_file is not None:
+        payload["reference_key"] = new_key(user["id"])
+        store.put(payload["reference_key"], await read_upload_limited(reference_file, MAX_ZIP_SIZE))
+    try:
+        payload["charged"] = quota.charge_analysis(user)
+    except HTTPException:
+        for key in (payload["key"], payload.get("reference_key")):
+            if key:
+                store.delete(key)
+        raise
+    return JSONResponse(status_code=202, content={"job_id": job_store.submit("image_upload", payload, owner_id=user["id"]), "status": "queued"})
+
+
 def _owned(result: dict | None, user: dict) -> dict | None:
     """A cached result is returned only to the user who made it (admins can read any)."""
     if result and (result.get("owner_id") == user["id"] or user.get("role") == "admin"):

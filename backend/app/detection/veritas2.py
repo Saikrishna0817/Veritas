@@ -77,7 +77,7 @@ def extrapolated_neg_log_p(cal: np.ndarray, inc: np.ndarray) -> np.ndarray:
     top = cal.max()
     q1, q3 = np.percentile(cal, [25, 75])
     spread = max(q3 - q1, 0.05 * (top - cal.min()), 1e-12)
-    return base + np.where(inc > top, np.log10(1 + (inc - top) / spread), 0.0)
+    return base + np.where(inc > top, np.log10(1 + np.maximum(inc - top, 0) / spread), 0.0)
 
 
 def neg_log_p(cal: np.ndarray, inc: np.ndarray) -> np.ndarray:

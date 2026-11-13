@@ -17,6 +17,8 @@ import time
 import uuid
 from typing import Any
 
+import numpy as np
+
 from app.api import dependencies as deps
 from app.scanner.model_scan import scan_sandboxed
 
@@ -140,6 +142,57 @@ async def run_csv_analysis(
     if extra:
         full_result.update(extra)
     return deps.to_serializable(full_result), dataset_id
+
+
+IMAGE_PCA_DIMS, IMAGE_CAL_FRACTION = 32, 0.3   # as benchmarked (manifest-mm-images-v8.json)
+
+
+def _orchestrate_images(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None) -> dict[str, Any]:
+    """Image zip -> veritas_mm result (blocking; runs in a background job). Builds the detector inputs exactly as the
+    benchmark does: PCA of the ResNet-18 embedding fitted on reference images, fit/calibration split of the reference."""
+    import os
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+    from threadpoolctl import threadpool_limits
+    from app.detection import image_embed, veritas2, veritas_mm
+    from app.ingestion.image_engine import ImageIngestionEngine
+
+    started = time.perf_counter()
+    ing = ImageIngestionEngine().ingest(zip_bytes, filename, reference_bytes)
+    R, y, s, names = ing["images"], ing["labels"], ing["reference_split"], ing["class_names"]
+    threads = min(4, os.cpu_count() or 1)
+    with threadpool_limits(threads):
+        E, P = image_embed.embed_images(R, threads=threads), veritas_mm.pixel_features(R)
+        n_cal = int(s * IMAGE_CAL_FRACTION)
+        Z = PCA(min(IMAGE_PCA_DIMS, s - 1), random_state=0).fit(E[:s]).transform(E)
+        zs, ps = StandardScaler().fit(Z[n_cal:s]), StandardScaler().fit(P[n_cal:s])
+        part = lambda A, f: (f(A[n_cal:s]), f(A[:n_cal]), f(A[s:]))  # noqa: E731  (fit, cal, incoming)
+        (Xf, Xc, Xi), (Pf, Pc, Pi), (Rf, Rc, Ri) = part(Z, zs.transform), part(P, ps.transform), part(R, lambda a: a)
+        d = {"X_fit": Xf, "X_cal": Xc, "X_inc": Xi, "y_fit": y[n_cal:s], "y_cal": y[:n_cal], "y_inc": y[s:],
+             "n_classes": len(names), "P_fit": Pf, "P_cal": Pc, "P_inc": Pi, "R_fit": Rf, "R_cal": Rc, "R_inc": Ri}
+        out = veritas_mm.detect(d)
+    verdict, suspicion = veritas2.verdict_for(out["batch_evidence"])
+    cut = min(2.0, float(np.log10(s + 1)))
+    flagged = (np.flatnonzero(out["row_scores"] >= cut) if verdict in ("SUSPICIOUS", "CONFIRMED_POISONED") else np.array([], int))
+    flagged = flagged[np.argsort(-out["row_scores"][flagged], kind="stable")]
+    checks = {n: {"evidence": round(max(c["evidence"], 0.0), 3), "in_row_ranking": bool(c["admitted"]), "description": veritas_mm.CHECKS[n]}
+              for n, c in out["report"].items()}
+    leading = max(checks, key=lambda n: checks[n]["evidence"]) if verdict != "CLEAN" else None
+    return {
+        "verdict": verdict, "overall_suspicion_score": suspicion, "batch_evidence": round(out["batch_evidence"], 3),
+        "source": "image_upload", "detection_mode": "image", "n_samples": len(y) - s,
+        "checks": checks, "leading_check": leading,
+        "attack_classification": {"attack_type": leading or "unknown", "classification_status": "check_based",
+                                  "description": veritas_mm.CHECKS[leading] if leading else "The batch is not suspicious."},
+        "flagged_images": [{"file": ing["paths"][s + i], "class": names[y[s + i]] if ing["has_labels"] else None,
+                            "score": round(float(out["row_scores"][i]), 3), "check": out["row_check"][i]}
+                           for i in flagged[:MAX_REPORTED_ROWS]],
+        "n_flagged": int(len(flagged)),
+        "dataset_info": {"dataset_id": ing["dataset_id"], "filename": filename, "n_images": ing["n_images"],
+                         "n_reference": s, "n_incoming": len(y) - s, "class_names": names, "has_labels": ing["has_labels"],
+                         "image_size": "32x32 RGB (resized)", "warnings": ing["warnings"], "created_at": ing["created_at"]},
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
+    }
 
 
 SCAN_SCORE = {"DANGEROUS": 1.0, "REVIEW": 0.5}

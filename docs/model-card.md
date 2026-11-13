@@ -48,6 +48,18 @@ and none reached CONFIRMED (Nov 7 detector: 7.1%, 0.8%, 0).
 **Dependency check.** After the numpy 2.5 / pandas 3.1 upgrade the 12,000 per-batch results were identical to the
 earlier run (see findings doc).
 
+## Image-data check (`veritas_mm`)
+
+`POST /analyze/images` takes a zip with one folder per class (optionally a second zip of trusted reference images)
+and runs as a background job. Images are resized to 32x32 RGB and embedded with ImageNet ResNet-18. Seven checks:
+label (cross-fitted logistic regression on the embedding), shift and pixel two-sample tests, and near-duplicates,
+a shared patch, a shared faint pattern and colour noise. Evidence and verdict cut-offs are the same as for tables.
+The result lists the flagged images (file, class, score, the check that flagged it) and the leading check.
+
+Held-out benchmark (CIFAR-10, GTSRB; docs/image-benchmark-findings.md, v8): row AUPRC 0.86 at 1% poison and 0.91 at
+5%; 81% of attacked batches flagged at 1%; clean batches flagged 2.9% at LOW_RISK. About 4 s for 420 images, 10 s
+for 3,000 on one CPU thread.
+
 ## Model-file scanner
 
 Abstract pickle machine over the opcode stream (no import, no execution), deny list plus safe list plus
@@ -68,8 +80,11 @@ post-fix 339/339 is no longer a held-out number.
   contamination; below that, use the ranked row and cell lists.
 - **Weakest attacks at 1%:** covariate shift (row AUPRC 0.18; 0.61 at 5%) and feature collision (0.39).
 - **Attack profile** names the closest of six known attacks; an attack of another kind will be given one of those names.
-- **Data types:** structured numeric/categorical tables with a label column. Not images, audio, video or text
-  (except as pre-computed embeddings), and not validated beyond 200,000 rows.
+- **Data types:** tables (numeric and categorical columns, up to 200,000 rows validated) and labelled images (up to
+  6,000 per check). Not audio, video or free text yet.
+- **Images are checked at 32x32.** A trigger smaller than about 1/32 of the image side can vanish in the resize. Image
+  results name the leading check, not an attack type; label flips at 1% are the weakest case (20% of batches flagged).
+  Without a reference zip the reference is a random 70% of each class, so poison anywhere in the zip also lands in it.
 - **You must supply a trusted reference.** With no reference file or split column, Veritas treats the first 70% of rows
   in file order as trusted and warns you. If the reference is itself poisoned, the check is meaningless.
 - **Real-noise evidence is one dataset family** (CIFAR-10 embeddings).
