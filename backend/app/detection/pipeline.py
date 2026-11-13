@@ -13,6 +13,7 @@ from .veritas2 import Veritas2, LABEL_PENALTY, RESID_PENALTY, SHIFT_PENALTY, SUS
 THRESHOLD_CONFIRMED  = 0.65
 THRESHOLD_SUSPICIOUS = 0.35
 THRESHOLD_LOW_RISK   = 0.15
+TOP_CELLS = 3
 
 
 class DetectionPipeline:
@@ -47,6 +48,7 @@ class DetectionPipeline:
         label_ev = max(r["evidence"].get("label", 0.0) - LABEL_PENALTY, 0.0)
         shift_ev = max(r["evidence"]["shift"] - SHIFT_PENALTY, 0.0)  # same weighting as the batch statistic
         resid_ev = max(r["evidence"].get("resid", 0.0) - RESID_PENALTY, 0.0)
+        cells = r["cell_scores"] if "label" in r["evidence"] else r["cell_scores"][:, :-1]   # unlabeled: no label cell to blame
         # "layer3" keeps the row-flag keys the report and quarantine code read.
         details = {
             "label_check": {"evidence": label_ev, "alarm": label_ev >= SUSPICIOUS_AT, "ran": "label" in r["evidence"]},
@@ -54,7 +56,10 @@ class DetectionPipeline:
             "resid_check": {"evidence": resid_ev, "alarm": resid_ev >= SUSPICIOUS_AT, "in_row_ranking": r["resid_in_ranking"]},
             "row_flags": {"flagged_indices": [len(self.X_reference) + i for i in flagged], "flagged_indices_incoming": flagged,
                        "flagged_ratio": len(flagged) / max(len(X), 1), "row_scores": [round(float(v), 3) for v in r["row_scores"]],
-                       "suspicion_score": r["suspicion"]},
+                       "suspicion_score": r["suspicion"],
+                       # the 3 most suspicious cells of each flagged row: [column index, score]; index n_features = the label
+                       "top_cells": {i: [[int(j), round(float(cells[i, j]), 3)]
+                                         for j in np.argsort(-cells[i], kind="stable")[:TOP_CELLS]] for i in flagged}},
             "warnings": r["warnings"],
             "attack_profile": r["attack_profile"],   # None when the batch is CLEAN or unlabeled
         }

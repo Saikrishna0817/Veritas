@@ -49,3 +49,22 @@ def test_failed_upload_refunds_quota_and_stale_jobs_fail():   # the suite alread
     job = job_store.get("stale-1")
     assert job["status"] == "failed" and "worker stopped" in job["error"]
     assert db.get_usage("q-user")["analyses"] == 0
+
+
+def test_upload_reports_suspicious_cells_with_file_lines_and_original_values():
+    from app.api.analysis_helpers import _orchestrate_csv
+    rng = np.random.default_rng(1)
+    n = 900
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n), "c": rng.choice(["x", "y", "z"], n)})
+    df["label"] = (df["a"] + df["b"] > 0).astype(int)
+    bad = np.arange(800, 830)                       # in the incoming 30%: out-of-range trigger plus a flipped label
+    df.loc[bad, "b"] = 25.0
+    df.loc[bad, "label"] = 1 - df.loc[bad, "label"]
+    result, _ = _orchestrate_csv(df.to_csv(index=False).encode(), "t.csv", "cells-user")
+    cells = result["suspicious_cells"]
+    assert result["verdict"] in ("SUSPICIOUS", "CONFIRMED_POISONED") and cells
+    top = cells[0]
+    assert top["csv_line"] - 2 in set(bad)                       # line in the uploaded file (header is line 1)
+    assert {c["column"] for c in top["cells"]} & {"b", "label"}
+    assert all(c["value"] in ("x", "y", "z") for row in cells for c in row["cells"] if c["column"] == "c")
+    assert all(isinstance(c["value"], int) for row in cells for c in row["cells"] if c["is_label"])

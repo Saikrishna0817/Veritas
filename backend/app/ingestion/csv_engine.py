@@ -29,6 +29,7 @@ def _name_tokens(col: str) -> set:
 
 
 _REF_COL = "__veritas_is_reference"
+_ROW_COL = "__veritas_source_row"      # 0-based data row in the file it came from; travels through cleaning
 MIN_REFERENCE_ROWS, MIN_INCOMING_ROWS = 30, 10
 MAX_CATEGORIES = 50     # text columns with up to this many distinct values become category codes (as in the benchmark)
 MAX_CLASSES = 100       # more label values than this is treated as a regression target
@@ -49,6 +50,7 @@ class CSVIngestionEngine:
         self.feature_columns: List[str] = []
         self.has_labels: bool = False
         self.detection_mode: str = "supervised"  # or "unsupervised"
+        self.categories: Dict[str, List[str]] = {}   # text column -> its values, in code order
 
     # ── Schema Detection ──────────────────────────────────────────────────────
 
@@ -112,7 +114,9 @@ class CSVIngestionEngine:
             if col in exclude or pd.api.types.is_numeric_dtype(df[col]) or pd.api.types.is_bool_dtype(df[col]):
                 continue
             if df[col].nunique() <= MAX_CATEGORIES:
-                df[col] = pd.factorize(df[col], sort=True)[0].astype(float)   # NaN -> -1, a category of its own
+                codes, uniques = pd.factorize(df[col], sort=True)
+                df[col] = codes.astype(float)                                 # NaN -> -1, a category of its own
+                self.categories[str(col)] = [str(u) for u in uniques]
             else:
                 dropped.append(str(col))
         if dropped:
@@ -374,8 +378,10 @@ class CSVIngestionEngine:
             warnings.append("More than 100 features detected. Keeping top 100 by variance.")
 
         # ── Clean Data ─────────────────────────────────────────────────────
+        n_ref_file = int(is_reference.sum()) if split_method == "reference_file" else 0
+        df = df.assign(**{_ROW_COL: np.r_[np.arange(n_ref_file), np.arange(len(df) - n_ref_file)]})
         if is_reference is not None:
-            df = df.assign(**{_REF_COL: is_reference})   # cleaning drops rows; this tag travels with them
+            df = df.assign(**{_REF_COL: is_reference})   # cleaning drops rows; these tags travel with them
         df_clean, feature_cols = self._clean_dataframe(
             df, feature_cols, label_col=label_col, warnings=warnings
         )
@@ -441,6 +447,9 @@ class CSVIngestionEngine:
                 f"incoming = {n - split_idx} rows."
             )
 
+        source_rows = df_clean.pop(_ROW_COL).to_numpy(int)
+        from_ref_file = np.arange(n) < (split_idx if split_method == "reference_file" else 0)
+
         # Scale to [0, 1] using the REFERENCE rows only, so incoming rows cannot shape
         # the baseline. Incoming values are not clipped: a value outside the reference
         # range (>1 or <0) is exactly the kind of shift the detector should see.
@@ -463,7 +472,10 @@ class CSVIngestionEngine:
                 "batch_id": f"batch_{i // 100}",
                 "source_id": filename,
                 "client_id": "upload_client",
-                "split": "reference" if i < split_idx else "incoming"
+                "split": "reference" if i < split_idx else "incoming",
+                # where the row is in the user's file: line 1 is the header
+                "source_file": "reference" if from_ref_file[i] else "main",
+                "csv_line": int(source_rows[i]) + 2,
             }
             samples.append(sample)
 
@@ -521,5 +533,6 @@ class CSVIngestionEngine:
             "warnings": warnings,
             "reference_split": split_idx,
             "original_df": df_clean,
+            "categories": self.categories,
             "created_at": datetime.now(timezone.utc).isoformat()
         }

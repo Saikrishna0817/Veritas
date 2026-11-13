@@ -50,6 +50,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, owner_id: str, split: dict
         if i in flagged:
             s["poison_status"] = "suspected"
 
+    suspicious_cells = _suspicious_cells(ingested, row_flags)
     pattern = deps.reconstructor.reconstruct(incoming_samples, attack_class, detection_result["layer_results"])
     blast = deps.blast_mapper.map(incoming_samples, detection_result["layer_results"])
     scope = ingested["dataset_id"]
@@ -87,6 +88,7 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, owner_id: str, split: dict
             "created_at": ingested["created_at"],
         },
         "attack_classification": attack_class,
+        "suspicious_cells": suspicious_cells,
         "injection_pattern": pattern,
         "blast_radius": blast,
         "defense_action": defense_action,
@@ -94,6 +96,30 @@ def _orchestrate_csv(csv_bytes: bytes, filename: str, owner_id: str, split: dict
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
     return full_result, ingested["dataset_id"]
+
+
+MAX_REPORTED_ROWS = 500
+
+
+def _suspicious_cells(ingested: dict, row_flags: dict) -> list[dict]:
+    """Flagged rows, most suspicious first, each with its line in the user's file and its top cells as the user wrote
+    them (column name, original value; text categories decoded). Capped at MAX_REPORTED_ROWS rows."""
+    split, df, cats = ingested["reference_split"], ingested["original_df"], ingested.get("categories", {})
+    names = list(ingested["feature_names"]) + [ingested["label_column"] or "label"]
+    scores = row_flags["row_scores"]
+
+    def value(i: int, col: str):
+        v = df[col].iloc[split + i]          # column first: a whole row would upcast ints to floats
+        if col in cats and v == v and 0 <= int(v) < len(cats[col]):   # an encoded text value
+            return cats[col][int(v)]
+        return v.item() if hasattr(v, "item") else v
+
+    rows = sorted(row_flags.get("top_cells", {}).items(), key=lambda kv: -scores[kv[0]])[:MAX_REPORTED_ROWS]
+    samples = ingested["samples"]
+    return [{"row": i, "csv_line": samples[split + i]["csv_line"], "row_score": scores[i],
+             "cells": [{"column": names[j], "value": value(i, names[j]), "score": s, "is_label": j == len(names) - 1}
+                       for j, s in cells]}
+            for i, cells in rows]
 
 
 async def run_csv_analysis(

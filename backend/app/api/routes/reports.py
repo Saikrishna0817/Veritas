@@ -132,6 +132,7 @@ async def get_latest_forensics(source: str = Query("auto", description="auto|dem
     r = _get_best_result(user, source)
     return {
         "attack_classification": r.get("attack_classification"),
+        "suspicious_cells": r.get("suspicious_cells") or [],
         "injection_pattern": r.get("injection_pattern"),
         "blast_radius": r.get("blast_radius"),
         "source": r.get("source", "demo"),
@@ -253,6 +254,7 @@ async def generate_report(source: str = Query("auto", description="auto|demo|upl
             },
             "attack_profile": (r.get("layer_results") or {}).get("attack_profile") or r.get("attack_profile"),
         },
+        "suspicious_cells": (r.get("suspicious_cells") or [])[:50],   # the full list is in the analysis result
         "evidence_bundle": r.get("layer_results"),
         "layer_scores": r.get("layer_scores"),
         "attack_narrative": (r.get("injection_pattern") or {}).get("narrative", ""),
