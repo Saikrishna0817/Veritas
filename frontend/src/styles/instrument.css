@@ -1,24 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-/* The "instrument" look (docs/PRODUCT.md): light, paper-like, one teal ink accent, a single-hue rust scale for
+/* The "instrument" look (docs/PRODUCT.md): light, paper-like, quiet bone and indigo, a single-hue magenta scale for
    evidence strength. Scoped to .instrument so pages that have not been redesigned keep their old tokens. */
 .instrument {
-  --paper: oklch(0.975 0.004 200);
-  --sheet: oklch(0.992 0.003 200);
-  --rule: oklch(0.88 0.008 200);
-  --rule-soft: oklch(0.93 0.006 200);
-  --ink: oklch(0.24 0.02 220);
-  --ink-2: oklch(0.44 0.016 220);
-  --ink-3: oklch(0.58 0.012 220);
-  --accent: oklch(0.45 0.09 195);
-  --accent-strong: oklch(0.38 0.095 195);
-  --accent-wash: oklch(0.94 0.028 195);
-  --ev-0: oklch(0.9 0.006 60);       /* no evidence */
-  --ev-1: oklch(0.83 0.06 58);       /* LOW_RISK  (p <= 0.05)   */
-  --ev-2: oklch(0.69 0.115 48);      /* SUSPICIOUS (p <= 0.01) */
-  --ev-3: oklch(0.52 0.145 36);      /* CONFIRMED  (p <= 1e-4) */
-  --ev-wash: oklch(0.95 0.02 55);
-  --error: oklch(0.5 0.16 28);
+  /* Two quiet colours and one bold one. Bone (warm paper) for surfaces and graphite indigo for ink and controls are
+     the quiet pair; indicator magenta, the colour a lab indicator turns when something is present, is the bold one and
+     appears only where Veritas is signalling: evidence, the verdict gauge, focus, the active step, the brand mark. */
+  --paper: oklch(0.972 0.007 85);
+  --sheet: oklch(0.99 0.004 85);
+  --rule: oklch(0.875 0.012 80);
+  --rule-soft: oklch(0.93 0.009 80);
+  --ink: oklch(0.25 0.035 268);
+  --ink-2: oklch(0.43 0.03 268);
+  --ink-3: oklch(0.56 0.022 268);
+  --accent: oklch(0.36 0.07 268);          /* graphite indigo: buttons, links, selection */
+  --accent-strong: oklch(0.3 0.075 268);
+  --accent-wash: oklch(0.93 0.018 268);
+  --signal: oklch(0.55 0.215 352);         /* indicator magenta */
+  --ev-0: oklch(0.9 0.01 80);              /* no evidence */
+  --ev-1: oklch(0.86 0.07 352);            /* LOW_RISK  (p <= 0.05)   */
+  --ev-2: oklch(0.71 0.16 352);            /* SUSPICIOUS (p <= 0.01) */
+  --ev-3: oklch(0.55 0.215 352);           /* CONFIRMED  (p <= 1e-4) */
+  --ev-wash: oklch(0.95 0.025 352);
+  --error: oklch(0.5 0.17 27);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);   /* ease-out-quint */
 
   --font-ui: 'Instrument Sans', system-ui, sans-serif;
@@ -33,7 +37,7 @@
 }
 
 /* The light app drops the old dark frame around #root (App sets body.light outside the admin console). */
-body.light { background: oklch(0.975 0.004 200); padding: 0; }
+body.light { background: oklch(0.972 0.007 85); padding: 0; }
 body.light #root { background: transparent; border-radius: 0; min-height: 100vh; }
 
 .in-main { padding: 44px 24px 96px; }
@@ -44,12 +48,12 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 .in-nav { position: sticky; top: 0; z-index: 40; background: var(--sheet); border-bottom: 1px solid var(--rule); }
 .in-nav-inner { max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 28px; }
 .in-brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 9px; }
-.in-brand-mark { width: 12px; height: 22px; border-radius: 3px; background: var(--ink); box-shadow: 5px 0 0 var(--accent); margin-right: 6px; }
+.in-brand-mark { width: 12px; height: 22px; border-radius: 3px; background: var(--ink); box-shadow: 5px 0 0 var(--signal); margin-right: 6px; }
 .in-links { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
 .in-link { padding: 7px 12px; border-radius: 7px; color: var(--ink-2); text-decoration: none; font-weight: 500; white-space: nowrap; }
 .in-link:hover { color: var(--ink); background: var(--rule-soft); }
 .in-link.active { color: var(--ink); background: var(--accent-wash); }
-.in-link:focus-visible, .in-brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.in-link:focus-visible, .in-brand:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .in-user { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 14px; white-space: nowrap; }
 .in-footer { border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 13.5px; }
 .in-footer-inner { max-width: 1080px; margin: 0 auto; padding: 22px 24px 28px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; }
@@ -75,11 +79,11 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 .in-kind input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
 .in-kind span { display: block; padding: 8px 18px; border-radius: 7px; font-weight: 500; color: var(--ink-2); transition: background 160ms var(--ease), color 160ms var(--ease); }
 .in-kind input:checked + span { background: var(--ink); color: var(--sheet); }
-.in-kind input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.in-kind input:focus-visible + span { outline: 2px solid var(--signal); outline-offset: 2px; }
 
 .in-drop { display: grid; gap: 6px; place-items: start; padding: 28px 28px; border: 1.5px dashed var(--rule); border-radius: 12px; background: var(--sheet); cursor: pointer; transition: border-color 160ms var(--ease), background 160ms var(--ease); }
 .in-drop:hover, .in-drop[data-over="true"] { border-color: var(--accent); background: var(--accent-wash); }
-.in-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.in-drop:focus-within { outline: 2px solid var(--signal); outline-offset: 2px; }
 .in-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .in-drop strong { font-weight: 600; font-size: 16px; }
 .in-drop .in-file { font-family: var(--font-num); font-size: 14px; color: var(--ink); }
@@ -92,13 +96,13 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 .in-radio small { color: var(--ink-3); display: block; }
 .in-inline { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 0 26px; }
 .in-input { font: inherit; font-family: var(--font-num); font-size: 14px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); min-width: 180px; }
-.in-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+.in-input:focus { outline: 2px solid var(--signal); outline-offset: 1px; border-color: transparent; }
 
 .in-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .in-btn { font: inherit; font-weight: 600; padding: 11px 22px; border-radius: 9px; border: 1px solid var(--accent-strong); background: var(--accent); color: var(--sheet); cursor: pointer; transition: background 160ms var(--ease); }
 .in-btn:hover:not(:disabled) { background: var(--accent-strong); }
 .in-btn:disabled { background: var(--rule); border-color: var(--rule); color: var(--ink-3); cursor: not-allowed; }
-.in-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.in-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .in-btn-quiet { background: transparent; color: var(--accent-strong); border-color: var(--rule); }
 .in-btn-quiet:hover:not(:disabled) { background: var(--accent-wash); }
 .in-error { color: var(--error); font-weight: 500; }
@@ -111,7 +115,7 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 .in-step[data-state="now"] { color: var(--ink); font-weight: 600; background: var(--accent-wash); }
 .in-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rule); flex: none; }
 .in-step[data-state="done"] .in-dot { background: var(--ink-2); }
-.in-step[data-state="now"] .in-dot { background: var(--accent); animation: in-pulse 1.4s var(--ease) infinite; }
+.in-step[data-state="now"] .in-dot { background: var(--signal); animation: in-pulse 1.4s var(--ease) infinite; }
 @keyframes in-pulse { 50% { opacity: 0.35; } }
 .in-elapsed { margin-top: 10px; color: var(--ink-3); font-size: 13.5px; }
 
@@ -156,7 +160,7 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 .in-prob { display: grid; grid-template-columns: 210px 1fr 48px; gap: 12px; align-items: center; font-size: 14px; color: var(--ink-2); }
 .in-prob[data-top="true"] { color: var(--ink); font-weight: 600; }
 .in-prob-bar { height: 8px; border-radius: 4px; background: var(--ink-2); opacity: 0.55; transform-origin: left; animation: in-grow 600ms var(--ease) both; }
-.in-prob[data-top="true"] .in-prob-bar { background: var(--accent); opacity: 1; }
+.in-prob[data-top="true"] .in-prob-bar { background: var(--signal); opacity: 1; }
 .in-details summary { cursor: pointer; color: var(--accent-strong); font-weight: 500; margin-top: 14px; }
 .in-kv { display: grid; grid-template-columns: max-content max-content; gap: 3px 22px; margin-top: 10px; font-size: 14px; color: var(--ink-2); }
 
