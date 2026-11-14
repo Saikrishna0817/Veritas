@@ -20,11 +20,28 @@ function handleUnauthorized() {
     if (window.location.pathname !== loginPath) window.location.assign(loginPath);
 }
 
+// FastAPI validation errors (422) arrive as a list of {loc, type, msg, ctx}; turn each into a plain sentence.
+function describeIssue({ loc = [], type, msg = '', ctx = {} }) {
+    const field = String(loc[loc.length - 1] || 'value').replace(/_/g, ' ');
+    const Field = field.charAt(0).toUpperCase() + field.slice(1);
+    if (type === 'string_pattern_mismatch' && field === 'username') return "Username can use only letters, digits, '.', '_' and '-'.";
+    if (type === 'string_too_short') return `${Field} must be at least ${ctx.min_length} characters.`;
+    if (type === 'string_too_long') return `${Field} must be at most ${ctx.max_length} characters.`;
+    if (type === 'missing') return `${Field} is required.`;
+    return `${Field}: ${msg.replace(/^Value error, /, '')}`;
+}
+
+function errorMessage(detail, fallback) {
+    if (Array.isArray(detail)) return detail.map(describeIssue).join(' ') || fallback;
+    if (typeof detail === 'string') return detail;
+    return fallback;
+}
+
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || fallback);
+    throw new Error(errorMessage(err.detail, fallback));
 }
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {

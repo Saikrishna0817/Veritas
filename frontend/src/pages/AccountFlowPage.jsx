@@ -49,7 +49,7 @@ export default function AccountFlowPage({ mode }) {
         <Brand />
         <h1 className="in-h2">{copy.title}</h1>
         <form className="in-auth-form" onSubmit={submit}>
-          {mode === 'signup' && <label>Username<input className="in-input" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" /></label>}
+          {mode === 'signup' && <label>Username<input className="in-input" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} maxLength={64} pattern="[A-Za-z0-9._\-]+" title="Letters, digits, '.', '_' and '-' only" autoComplete="username" /></label>}
           {(mode === 'signup' || mode === 'forgot') && <label>Email<input className="in-input" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" /></label>}
           {(mode === 'signup' || mode === 'reset') && (
             <label>Password<input className="in-input" type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" /></label>
