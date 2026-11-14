@@ -13,12 +13,12 @@ export default defineConfig({
     proxy: {
       // REST API
       '/api': {
-        target: 'http://localhost:8001',
+        target: process.env.VITE_API_PROXY || 'http://localhost:8001',   // override when 8001 is taken
         changeOrigin: true,
       },
       // WebSocket detection stream
       '/ws': {
-        target: 'ws://localhost:8001',
+        target: (process.env.VITE_API_PROXY || 'http://localhost:8001').replace(/^http/, 'ws'),
         ws: true,
         changeOrigin: true,
       },

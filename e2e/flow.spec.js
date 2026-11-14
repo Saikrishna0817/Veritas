@@ -30,10 +30,11 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('token');   // nothing for a script to steal
 
   await page.goto('/upload');
-  await page.setInputFiles('input[type="file"]', csv());
-  await page.getByRole('button', { name: /run poisoning detection/i }).click();
-  await expect(page.getByText(/CONFIRMED|SUSPICIOUS/i).first()).toBeVisible({ timeout: 45000 });
-  await expect(page.getByText(/Label Check/i).first()).toBeVisible();
+  await page.setInputFiles('.in-drop input[type="file"]', csv());
+  await page.getByRole('button', { name: 'Analyse' }).click();
+  await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
+  await expect(page.getByText('Rows to review')).toBeVisible();
+  await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
 });
 
 test('anonymous visitors are sent to sign-in and cannot call the API', async ({ page, request }) => {

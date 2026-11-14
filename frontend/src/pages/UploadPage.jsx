@@ -1,364 +1,417 @@
-import { useState, useRef, useCallback } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
-import UploadSchemaCard from '../components/upload/UploadSchemaCard';
-import AttackClassificationCard from '../components/upload/AttackClassificationCard';
-import LayerScoresGrid from '../components/upload/LayerScoresGrid';
-import { FolderUp, CloudUpload, FileText, Target, Zap, Activity, ShieldAlert, ClipboardList, Download, Check } from 'lucide-react';
+import '../styles/instrument.css';
 
-const ATTACK_COLORS = {
-  label_flip: '#f59e0b',
-  backdoor: 'var(--red-primary)',
-  clean_label: '#a855f7',
-  covariate_shift: '#06b6d4',
+// ── What each data type accepts and what its result cannot tell you ───────────────────────────────
+const KINDS = {
+  table: {
+    label: 'Table', accept: '.csv', maxMb: 200, noun: 'rows',
+    format: 'A CSV with a label column. Text columns with up to 50 distinct values are checked as categories.',
+    limits: ['Below about 3% poison the batch verdict is weak; the row list below is still worth reading.',
+             'Rows moved towards a victim row with correct labels (feature collision) are found as rows, rarely as cells.'],
+  },
+  images: {
+    label: 'Images', accept: '.zip', maxMb: 500, noun: 'images',
+    format: 'A zip with one folder per class (cat/001.png). Up to 6,000 images are used, resized to 32×32.',
+    limits: ['Images are checked at 32×32: a trigger smaller than about 1/32 of the image can vanish.',
+             'Triggers added to correctly labelled images (clean-label) are not detected.'],
+  },
+  audio: {
+    label: 'Audio', accept: '.zip', maxMb: 500, noun: 'clips',
+    format: 'A zip of PCM WAV files with one folder per class (dog/001.wav). Clips are mixed to mono and padded or trimmed to one length.',
+    limits: ['Triggers added to correctly labelled clips (clean-label) are not detected.',
+             'Small sets (a few hundred clips) rarely give a batch verdict at 1% poison.'],
+  },
+  video: {
+    label: 'Video', accept: '.zip', maxMb: 500, noun: 'clips',
+    format: 'A zip of video files (mp4, avi, mov, mkv, webm) with one folder per class. 8 frames per clip are checked.',
+    limits: ['Only triggers present on every frame were benchmarked; a moving or brief trigger can blur out.',
+             'Triggers added to correctly labelled clips (clean-label) are not detected.'],
+  },
 };
 
-const VERDICT_CONFIG = {
-  CONFIRMED_POISONED: { color: 'var(--status-critical)', bg: 'rgba(228,36,43,0.1)', icon: <ShieldAlert className="w-12 h-12 text-[var(--status-critical)]" />, label: 'CONFIRMED POISONED' },
-  SUSPICIOUS: { color: 'var(--status-warn)', bg: 'rgba(242,184,75,0.1)', icon: <Activity className="w-12 h-12 text-[var(--status-warn)]" />, label: 'SUSPICIOUS' },
-  LOW_RISK: { color: '#3b82f6', bg: 'rgba(59,130,246,0.1)', icon: <Check className="w-12 h-12 text-blue-500" />, label: 'LOW RISK' },
-  CLEAN: { color: 'var(--status-safe)', bg: 'rgba(61,220,132,0.1)', icon: <Check className="w-12 h-12 text-[var(--status-safe)]" />, label: 'CLEAN' },
+// Verdict cut-offs are -log10 p values calibrated on clean batches (veritas2.verdict_for).
+const VERDICTS = {
+  CONFIRMED_POISONED: { title: 'Strong evidence of poisoning', note: 'The evidence passes the 1-in-10,000 false-alarm level. Review the listed items before training.' },
+  SUSPICIOUS: { title: 'Evidence of poisoning', note: 'The evidence passes the 1-in-100 false-alarm level. Review the listed items before training.' },
+  LOW_RISK: { title: 'Weak evidence of poisoning', note: 'The evidence passes the 1-in-20 false-alarm level only. One clean dataset in twenty looks like this.' },
+  CLEAN: { title: 'No evidence of poisoning found', note: 'Below the 1-in-20 false-alarm level. This is not proof the data is clean: see the limits below.' },
 };
 
-function StatCard({ label, value, sub, color = 'var(--red-primary)', icon }) {
+const CHECK_NAMES = {
+  label_check: ['Labels', 'labels that do not fit the rest of the row'], shift_check: ['Distribution shift', 'incoming rows a model can tell apart from the reference'],
+  resid_check: ['Column consistency', 'rows whose columns no longer fit together'],
+  label: ['Labels', 'labels that do not fit the content'], shift: ['Content shift', 'incoming items that look unlike the reference'],
+  pixel: ['Pixel statistics', 'patches, noise and blending'], dup: ['Near-duplicates', 'copies of the same item'],
+  cell: ['Shared patch', 'one local pattern repeated across items'], resid: ['Shared faint pattern', 'a faint pattern repeated across items'],
+  chroma: ['Colour noise', 'noise in flat regions'],
+};
+
+const SCALE_MAX = 8;
+const TICKS = [[1.3, '1/20'], [2, '1/100'], [4, '1/10⁴']];   // false-alarm levels of the verdict cut-offs
+const evLevel = (e) => (e >= 4 ? 3 : e >= 2 ? 2 : e >= 1.3 ? 1 : 0);
+const STEPS = [['uploading', 'Uploading'], ['queued', 'Queued'], ['running', 'Analysing'], ['completed', 'Done']];
+const JOB_KEY = 'veritas.lastJob';
+const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en') : n);
+
+function remember(value) {
+  try { value ? localStorage.setItem(JOB_KEY, JSON.stringify(value)) : localStorage.removeItem(JOB_KEY); } catch { /* storage may be blocked */ }
+}
+function recall() {
+  try { return JSON.parse(localStorage.getItem(JOB_KEY) || 'null'); } catch { return null; }
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────────────────────────────
+function DropZone({ kind, file, onFile, label = 'Choose a file or drop it here' }) {
+  const [over, setOver] = useState(false);
   return (
-    <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-6 flex-1 min-w-[180px] hover:bg-bgPanelRaised transition-colors">
-      <div className="mb-3 w-10 h-10 rounded-lg flex items-center justify-center bg-black/20 border border-borderHairline text-white">
-        {icon}
-      </div>
-      <div className="text-3xl font-mono font-extrabold" style={{ color }}>{value}</div>
-      <div className="text-[13px] text-textPrimary mt-1 font-bold tracking-wide uppercase">{label}</div>
-      {sub && <div className="text-[11px] text-textMuted mt-1">{sub}</div>}
+    <label className="in-drop" data-over={over}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); onFile(e.dataTransfer.files[0]); }}>
+      <input type="file" accept={KINDS[kind].accept} onChange={(e) => onFile(e.target.files[0])} />
+      <strong>{file ? 'Selected, choose again to replace' : label}</strong>
+      {file ? <span className="in-file">{file.name} · {file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`}</span>
+            : <span className="in-hint">{KINDS[kind].accept} up to {KINDS[kind].maxMb} MB</span>}
+    </label>
+  );
+}
+
+function ReferenceOptions({ kind, mode, setMode, refFile, setRefFile, split, setSplit }) {
+  const table = kind === 'table';
+  const opts = table
+    ? [['order', 'First 70% of the file', 'Use when rows are in time order and the early rows are trusted.'],
+       ['file', 'A separate reference file', 'A CSV you trust, with the same columns. The whole main file is then checked.'],
+       ['column', 'Rows before a cutoff', 'Rows with a column value below the cutoff (a date or number) are the reference.']]
+    : [['order', 'A random 70% of each class', 'Poison anywhere in the zip also lands in the reference.'],
+       ['file', 'A separate reference zip', 'Images or clips you trust, in the same folder layout. Recommended.']];
+  return (
+    <fieldset className="in-fieldset">
+      <legend className="in-legend">Trusted reference</legend>
+      {opts.map(([value, title, help]) => (
+        <div key={value}>
+          <label className="in-radio">
+            <input type="radio" name="ref" value={value} checked={mode === value} onChange={() => setMode(value)} />
+            <span>{title}<small>{help}</small></span>
+          </label>
+          {mode === value && value === 'file' && (
+            <div className="in-inline" style={{ display: 'block' }}>
+              <DropZone kind={kind} file={refFile} onFile={setRefFile} label="Choose the reference file" />
+            </div>
+          )}
+          {mode === value && value === 'column' && (
+            <div className="in-inline">
+              <input className="in-input" placeholder="column, e.g. date" aria-label="Split column" value={split.column}
+                onChange={(e) => setSplit({ ...split, column: e.target.value })} />
+              <input className="in-input" placeholder="cutoff, e.g. 2024-01-01" aria-label="Cutoff value" value={split.cutoff}
+                onChange={(e) => setSplit({ ...split, cutoff: e.target.value })} />
+            </div>
+          )}
+        </div>
+      ))}
+    </fieldset>
+  );
+}
+
+function JobProgress({ stage, startedAt }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const at = STEPS.findIndex(([k]) => k === stage);
+  return (
+    <div aria-live="polite">
+      <ol className="in-steps">
+        {STEPS.map(([key, label], i) => (
+          <li key={key} className="in-step" data-state={i < at || stage === 'completed' ? 'done' : i === at ? 'now' : 'todo'}>
+            <span className="in-dot" />{label}
+          </li>
+        ))}
+      </ol>
+      <div className="in-elapsed in-num">{Math.round((now - startedAt) / 1000)} s elapsed. You can leave this page; the result is saved to History.</div>
     </div>
   );
 }
 
-export default function UploadPage() {
-  const [dragging, setDragging] = useState(false);
-  const [file, setFile] = useState(null);
-  const [refMode, setRefMode] = useState('order'); // order | file | column
-  const [referenceFile, setReferenceFile] = useState(null);
-  const [splitColumn, setSplitColumn] = useState('');
-  const [splitCutoff, setSplitCutoff] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [progress, setProgress] = useState(0);
-  const fileRef = useRef();
+// ── Result ────────────────────────────────────────────────────────────────────────────────────────
+function normalise(kind, r) {
+  if (kind === 'table') {
+    const lr = r.layer_results || {};
+    const checks = ['label_check', 'shift_check', 'resid_check'].filter((k) => lr[k])
+      .map((k) => ({ key: k, evidence: lr[k].evidence || 0, inRanking: k === 'label_check' ? lr[k].ran !== false : !!lr[k].in_row_ranking }));
+    const info = r.dataset_info || {};
+    return { verdict: r.verdict, checks, nIncoming: r.n_samples, nReference: info.reference_split, profile: r.attack_profile,
+             cells: r.suspicious_cells || [], items: null, notes: [...(info.warnings || []), ...(r.warnings || [])] };
+  }
+  const info = r.dataset_info || {};
+  const checks = Object.entries(r.checks || {}).map(([key, c]) => ({ key, evidence: c.evidence || 0, inRanking: c.in_row_ranking }));
+  return { verdict: r.verdict, checks, nIncoming: info.n_incoming, nReference: info.n_reference, profile: null, cells: null,
+           items: r.flagged_images || r.flagged_clips || [], nFlagged: r.n_flagged, leading: r.leading_check, notes: info.warnings || [] };
+}
 
-  const handleFile = (f) => {
-    if (!f) return;
-    if (!f.name.toLowerCase().endsWith('.csv')) {
-      setError('Only CSV files are accepted.');
-      return;
-    }
-    if (f.size > 200 * 1024 * 1024) {
-      setError('File too large. Maximum size is 200MB.');
-      return;
-    }
-    setFile(f);
-    setError(null);
-    setResult(null);
-  };
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragging(false);
-    const f = e.dataTransfer.files[0];
-    handleFile(f);
-  }, []);
-
-  const onDragOver = (e) => {
-    e.preventDefault();
-    setDragging(true);
-  };
-  const onDragLeave = () => setDragging(false);
-
-  const runAnalysis = async () => {
-    if (!file) return;
-    if ((refMode === 'file' && !referenceFile) || (refMode === 'column' && (!splitColumn.trim() || !splitCutoff.trim()))) {
-      setError('Finish choosing the trusted reference first.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setProgress(0);
-
-    const interval = setInterval(() => {
-      setProgress((p) => (p < 85 ? p + (85 - p) * 0.08 : p));
-    }, 300);
-
-    try {
-      const data = await api.uploadCSV(file, {
-        referenceFile: refMode === 'file' ? referenceFile : null,
-        splitColumn: refMode === 'column' ? splitColumn.trim() : '',
-        splitCutoff: refMode === 'column' ? splitCutoff.trim() : '',
-      });
-      clearInterval(interval);
-      setProgress(100);
-      setTimeout(() => setResult(data), 300);
-    } catch (e) {
-      clearInterval(interval);
-      setError(e.message || 'Analysis failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const verdict = result ? VERDICT_CONFIG[result.verdict] || VERDICT_CONFIG.SUSPICIOUS : null;
-  const attackColor = result
-    ? ATTACK_COLORS[result.attack_classification?.attack_type] || 'var(--red-primary)'
-    : 'var(--red-primary)';
-
+function Verdict({ kind, res }) {
+  const v = VERDICTS[res.verdict] || VERDICTS.CLEAN;
   return (
-    <div className="relative w-full min-h-[calc(100vh-80px)] bg-transparent overflow-hidden">
-      <div className="relative z-10 px-6 md:px-12 py-12 max-w-7xl mx-auto flex flex-col gap-12">
-        
-        {!result && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-            {/* Left Column: Context / How it works */}
-            <div className="space-y-8">
-              <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
-                    <FolderUp className="w-5 h-5 text-redPrimary" />
-                  </div>
-                  <h1 className="text-[56px] font-display font-bold text-textPrimary m-0 tracking-tight leading-none">
-                    Upload Dataset
-                  </h1>
-                </div>
-                <p className="text-textSecondary text-[18px] leading-relaxed max-w-md">
-                  Upload a CSV and say which rows are trusted — the platform auto-detects the schema, then checks the rest for wrong labels and distribution shift.
-                </p>
-              </div>
-
-              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 space-y-6">
-                <h3 className="font-display font-bold text-textPrimary text-xl">How it works</h3>
-                <ol className="space-y-6 relative before:absolute before:inset-y-0 before:left-4 before:w-[2px] before:bg-borderHairline">
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">1. Secure Upload</h4>
-                    <p className="text-textMuted text-sm">Accepts .csv files up to 200MB (≤ 200,000 rows). Processed in memory without storage.</p>
-                  </li>
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-redPrimary/30 border border-redPrimary rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">2. Trusted reference</h4>
-                    <p className="text-textMuted text-sm">Use a separate trusted file, rows before a cutoff, or the first 70% of the file as the baseline.</p>
-                  </li>
-                  <li className="relative pl-12">
-                    <div className="absolute left-[9px] top-1 w-3.5 h-3.5 bg-borderHairline rounded-full ring-4 ring-bgPanel" />
-                    <h4 className="font-bold text-textPrimary mb-1">3. Run 5 Detection Layers</h4>
-                    <p className="text-textMuted text-sm">Runs a label check and a distribution-shift check against your reference rows.</p>
-                  </li>
-                </ol>
-              </div>
-            </div>
-
-            {/* Right Column: Upload Zone */}
-            <div className="flex flex-col gap-6">
-              <div
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onClick={() => fileRef.current?.click()}
-                className={`border-[3px] border-dashed rounded-[28px] p-16 text-center cursor-pointer backdrop-blur-xl transition-all duration-300 w-full flex flex-col items-center justify-center min-h-[400px]
-                  ${dragging ? 'border-redPrimary bg-redPrimary/5 shadow-red-glow' : file ? 'border-statusSafe bg-statusSafe/5' : 'border-borderHairline bg-bgVoid/40 hover:bg-bgPanel'}`}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".csv"
-                  className="hidden"
-                  onChange={(e) => handleFile(e.target.files[0])}
-                />
-                <div className="mb-6">
-                  {file ? <FileText className="w-16 h-16 text-statusSafe" /> : dragging ? <FolderUp className="w-16 h-16 text-redPrimary animate-bounce" /> : <CloudUpload className="w-16 h-16 text-textMuted" />}
-                </div>
-                {file ? (
-                  <>
-                    <div className="text-statusSafe font-bold text-2xl tracking-wide">{file.name}</div>
-                    <div className="text-textMuted text-sm font-mono mt-3">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB · Click to change
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="text-textPrimary font-bold text-2xl tracking-wide">
-                      Drop your CSV here or click to browse
-                    </div>
-                    <div className="text-textMuted font-mono text-sm mt-3">
-                      Accepts .csv files up to 200MB (≤ 200,000 rows)
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {error && (
-                <div className="bg-statusCritical/10 border border-statusCritical/30 rounded-xl p-4 text-statusCritical font-bold text-sm">
-                  ⚠️ {error}
-                </div>
-              )}
-
-              {file && !result && (
-                <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-5 space-y-3 text-sm">
-                  <div className="font-bold text-textPrimary">Which rows are trusted (the reference)?</div>
-                  <select value={refMode} onChange={(e) => setRefMode(e.target.value)}
-                    className="w-full bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary">
-                    <option value="order">First 70% of this file (file order)</option>
-                    <option value="file">A separate trusted CSV with the same columns</option>
-                    <option value="column">Rows before a cutoff in a column (number or date)</option>
-                  </select>
-                  {refMode === 'file' && (
-                    <input type="file" accept=".csv" onChange={(e) => setReferenceFile(e.target.files[0] || null)} className="text-textMuted" />
-                  )}
-                  {refMode === 'column' && (
-                    <div className="flex gap-2">
-                      <input value={splitColumn} onChange={(e) => setSplitColumn(e.target.value)} placeholder="column, e.g. date"
-                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
-                      <input value={splitCutoff} onChange={(e) => setSplitCutoff(e.target.value)} placeholder="cutoff, e.g. 2026-03-01"
-                        className="flex-1 bg-bgVoid border border-borderHairline rounded-lg p-2 text-textPrimary" />
-                    </div>
-                  )}
-                  <div className="text-textMuted">Everything else in this file is checked against the reference. File order only works if the first rows are known good.</div>
-                </div>
-              )}
-
-              {file && !result && (
-                <button
-                  onClick={runAnalysis}
-                  disabled={loading}
-                  className="w-full py-5 rounded-2xl bg-redPrimary text-white font-bold text-xl hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-redPrimary/50"
-                >
-                  {loading ? '🔬 Analyzing...' : '🚀 Run Poisoning Detection'}
-                </button>
-              )}
-
-              {loading && (
-                <div className="p-6 bg-bgPanel border border-borderHairline rounded-[20px]">
-                  <div className="flex justify-between text-sm text-textPrimary font-bold mb-3">
-                    <span>Running label and shift checks...</span>
-                    <span className="font-mono">{Math.round(progress)}%</span>
-                  </div>
-                  <div className="h-3 bg-bgVoid rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-redPrimary transition-all duration-300 ease-out shadow-red-glow"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="flex gap-2 mt-4 flex-wrap">
-                    {['Schema Detection', 'Reference Split', 'Label Check', 'Shift Check', 'Verdict'].map((s, i) => (
-                      <span
-                        key={s}
-                        className={`text-[11px] font-mono px-3 py-1.5 rounded-full border transition-all duration-500
-                          ${progress > i * 14 ? 'bg-redPrimary/10 border-redPrimary/30 text-redPrimary' : 'bg-bgVoid/50 border-borderHairline text-textMuted'}`}
-                      >
-                        {progress > i * 14 ? '✓ ' : ''}{s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Results */}
-        {result && (
-          <div className="animate-fadeInUp bg-bgVoid/80 backdrop-blur-2xl rounded-[32px] p-8 md:p-12 border border-borderHairline shadow-2xl">
-            {/* Verdict Banner */}
-            <div
-              className="rounded-[24px] p-6 md:p-8 mb-10 flex items-center gap-8 border"
-              style={{ background: verdict.bg, borderColor: `${verdict.color}40` }}
-            >
-              <div>{verdict.icon}</div>
-              <div className="flex-1">
-                <div className="text-3xl md:text-4xl font-display font-bold tracking-wide" style={{ color: verdict.color }}>
-                  {verdict.label}
-                </div>
-                <div className="text-textPrimary text-lg mt-3 font-medium flex items-center gap-3 flex-wrap">
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Suspicion Score</span>
-                  <strong style={{ color: verdict.color }} className="font-mono">{Math.round((result.overall_suspicion_score || 0) * 100)}%</strong>
-                  <span className="text-borderHairline">|</span>
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Poisoning Level</span>
-                  <strong style={{ color: verdict.color }}>{result.poisoning_level || 'N/A'}</strong>
-                  <span className="text-borderHairline">|</span>
-                  <span className="text-textMuted uppercase text-xs tracking-wider font-bold">Mode</span>
-                  <strong className="text-textPrimary">
-                    {result.detection_mode === 'supervised' ? 'Supervised' : 'Unsupervised'}
-                  </strong>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setResult(null);
-                  setFile(null);
-                  setProgress(0);
-                }}
-                className="px-6 py-3 rounded-xl border border-borderHairline bg-bgPanel hover:bg-bgPanelRaised text-textPrimary font-bold transition-colors"
-              >
-                ↩ New Upload
-              </button>
-            </div>
-
-            {/* Schema & Classification Row */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
-              <UploadSchemaCard datasetInfo={result.dataset_info} nSamples={result.n_samples} />
-              <AttackClassificationCard classification={result.attack_classification} attackColor={attackColor} />
-            </div>
-
-            {/* Layer Scores */}
-            <div className="mb-10">
-              <LayerScoresGrid layerScores={result.layer_scores} />
-            </div>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-              <StatCard
-                icon={<Target className="w-6 h-6" />}
-                label="Flagged Rows"
-                value={result.blast_radius?.n_poisoned_samples || 0}
-                sub={`of ${result.n_samples || 0} incoming`}
-                color="var(--status-warn)"
-              />
-              <StatCard
-                icon={<ShieldAlert className="w-6 h-6" />}
-                label="Defense Action"
-                value={result.defense_action?.action?.replace(/_/g, ' ') || 'monitor'}
-                sub={result.defense_action?.reason?.replace(/_/g, ' ')}
-                color="var(--status-safe)"
-              />
-            </div>
-
-            {/* Narrative */}
-            {result.injection_pattern?.narrative && (
-              <div className="bg-bgPanel border border-borderHairline rounded-[24px] p-8 mb-10">
-                <div className="font-bold text-textPrimary mb-4 flex items-center gap-2 text-xl">
-                  <ClipboardList className="w-6 h-6 text-redPrimary" /> What Was Flagged
-                </div>
-                <pre className="font-mono text-sm text-textSecondary leading-relaxed whitespace-pre-wrap m-0 bg-bgVoid p-6 rounded-xl border border-borderHairline">
-                  {result.injection_pattern.narrative}
-                </pre>
-              </div>
-            )}
-
-            {/* Download Report */}
-            <button
-              onClick={() => {
-                const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `forensics_${result.dataset_info?.filename?.replace('.csv', '') || 'report'}_${Date.now()}.json`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="w-full py-5 rounded-2xl border border-redPrimary/40 bg-redPrimary/10 text-redPrimary font-bold text-xl hover:bg-redPrimary/20 transition-colors flex justify-center items-center gap-3"
-            >
-              <Download className="w-6 h-6" /> Download Forensic Report (JSON)
-            </button>
-          </div>
-        )}
-
+    <div className="in-verdict">
+      <div className="in-gauge" data-v={res.verdict} aria-hidden="true" />
+      <div>
+        <h2 className="in-verdict-title">{v.title}</h2>
+        <p className="in-verdict-note">{v.note}</p>
+        <ul className="in-facts">
+          <li><b className="in-num">{fmt(res.nIncoming)}</b> incoming {KINDS[kind].noun} checked</li>
+          <li>against <b className="in-num">{fmt(res.nReference)}</b> reference {KINDS[kind].noun}</li>
+          {res.leading && <li>strongest check: <b>{(CHECK_NAMES[res.leading] || [res.leading])[0]}</b></li>}
+        </ul>
+        <div className="in-limits">{KINDS[kind].limits.map((l) => <span key={l}>{l}</span>)}</div>
       </div>
     </div>
+  );
+}
+
+function EvidenceMeters({ checks }) {
+  const pct = (x) => `${(Math.min(x, SCALE_MAX) / SCALE_MAX) * 100}%`;
+  return (
+    <div className="in-meters" role="list">
+      <div className="in-scale-head" aria-hidden="true">
+        <div />
+        <div style={{ position: 'relative' }}>
+          {TICKS.map(([x, l]) => <span key={x} className="in-tick-label" data-x={x} style={{ left: pct(x), top: 2 }}>{l}</span>)}
+        </div>
+        <div />
+      </div>
+      {checks.map((c) => {
+        const [name, what] = CHECK_NAMES[c.key] || [c.key, ''];
+        return (
+          <div key={c.key} className="in-meter" role="listitem">
+            <div className="in-meter-name">{name}<small>{what}</small></div>
+            <div className="in-track" role="img" aria-label={`${name}: evidence ${c.evidence.toFixed(2)}`}>
+              {c.evidence > 0 && <div className="in-fill" data-v={evLevel(c.evidence)} style={{ width: pct(c.evidence) }} />}
+              {TICKS.map(([x]) => <span key={x} className="in-tick" style={{ left: pct(x) }} />)}
+            </div>
+            <div className="in-meter-val in-num">{c.evidence >= SCALE_MAX ? `>${SCALE_MAX}` : c.evidence.toFixed(1)}
+              <small>{c.inRanking ? 'ranked' : 'not ranked'}</small></div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const ATTACK_NAMES = {
+  label_flip_random: 'Random label flipping', label_flip_targeted: 'Targeted label flipping', backdoor_ood: 'Backdoor trigger, out-of-range values',
+  backdoor_inrange: 'Backdoor trigger, in-range values', feature_collision: 'Feature collision (clean-label)', covariate_shift: 'Covariate shift or corrupted source',
+};
+const FEATURE_NAMES = {
+  label_evidence: 'Label check evidence', shift_evidence: 'Shift check evidence', resid_evidence: 'Column consistency evidence',
+  label_blamed: 'Share of rows whose label is the top cell', trigger_columns: 'Share whose top cell is in the 3 commonest columns',
+  label_concentration: 'Over-representation of their commonest label', out_of_range: 'Share with a value outside the reference range',
+  tightness: 'Spread of the rows relative to the reference', unusual_columns: 'Share of their columns that look unusual',
+};
+
+function AttackProfile({ profile }) {
+  const probs = Object.entries(profile.probabilities).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="in-profile">
+      <div>
+        <p className="in-profile-name">{ATTACK_NAMES[profile.likely] || profile.label}</p>
+        <p className="in-sub">The closest of the six attacks Veritas was benchmarked on. On held-out data it names the exact attack 74% of the time and the right kind 86%. An attack of another kind still gets one of these names.</p>
+      </div>
+      <div>
+        <div className="in-probs">
+          {probs.map(([k, p]) => (
+            <div key={k} className="in-prob" data-top={k === profile.likely}>
+              <span>{ATTACK_NAMES[k] || k}</span>
+              <div className="in-prob-bar" style={{ width: `${Math.max(p * 100, 1)}%` }} />
+              <span className="in-num" style={{ textAlign: 'right' }}>{Math.round(p * 100)}%</span>
+            </div>
+          ))}
+        </div>
+        <details className="in-details">
+          <summary>What the suspicious rows have in common</summary>
+          <div className="in-kv">
+            {Object.entries(profile.features).map(([k, v]) => <Fragment key={k}><span>{FEATURE_NAMES[k] || k}</span><span className="in-num">{v}</span></Fragment>)}
+          </div>
+        </details>
+      </div>
+    </div>
+  );
+}
+
+function toCsv(rows) {
+  const esc = (x) => `"${String(x ?? '').replace(/"/g, '""')}"`;
+  return rows.map((r) => r.map(esc).join(',')).join('\n');
+}
+function download(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function FlaggedTable({ kind, res }) {
+  const [showAll, setShowAll] = useState(false);
+  const table = kind === 'table';
+  const rows = table ? res.cells : res.items;
+  if (!rows.length) {
+    return <p className="in-empty">Nothing is listed: items are listed only when the batch reaches the 1-in-100 false-alarm level, so a weak result does not send you chasing noise.</p>;
+  }
+  const shown = showAll ? rows : rows.slice(0, 100);
+  const exportCsv = () => download(table ? 'veritas-suspicious-rows.csv' : `veritas-flagged-${kind}.csv`, toCsv(table
+    ? [['line', 'row_score', 'column', 'value', 'cell_score'], ...rows.flatMap((r) => r.cells.map((c) => [r.csv_line, r.row_score, c.column, c.value, c.score]))]
+    : [['file', 'class', 'score', 'check'], ...rows.map((r) => [r.file, r.class, r.score, r.check])]));
+  return (
+    <>
+      <div className="in-table-wrap">
+        <table className="in-table">
+          <thead>
+            {table
+              ? <tr><th className="in-right">Line</th><th className="in-right">Row score</th><th>Most suspicious cells (column, value, score)</th></tr>
+              : <tr><th>File</th><th>Class</th><th className="in-right">Score</th><th>Flagged by</th></tr>}
+          </thead>
+          <tbody>
+            {shown.map((r, i) => table ? (
+              <tr key={i}>
+                <td className="in-num">{r.csv_line}</td>
+                <td className="in-num">{r.row_score.toFixed(2)}</td>
+                <td>{r.cells.map((c) => (
+                  <span key={c.column} className="in-cell"><b>{c.column}</b><em>{String(c.value)}</em><small>{c.score.toFixed(1)}</small></span>
+                ))}</td>
+              </tr>
+            ) : (
+              <tr key={i}>
+                <td className="in-path">{r.file}</td>
+                <td className="in-tag">{r.class ?? 'none'}</td>
+                <td className="in-num">{r.score.toFixed(2)}</td>
+                <td className="in-tag">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="in-table-foot">
+        <span className="in-num">{fmt(rows.length)} listed{!table && res.nFlagged > rows.length ? ` of ${fmt(res.nFlagged)} flagged` : ''}, most suspicious first.{table ? ' Line 1 is the header row.' : ''}</span>
+        <span className="in-actions">
+          {rows.length > 100 && <button className="in-btn in-btn-quiet" onClick={() => setShowAll(!showAll)}>{showAll ? 'Show first 100' : `Show all ${fmt(rows.length)}`}</button>}
+          <button className="in-btn in-btn-quiet" onClick={exportCsv}>Download CSV</button>
+        </span>
+      </div>
+    </>
+  );
+}
+
+function Result({ kind, raw }) {
+  const res = normalise(kind, raw);
+  return (
+    <div className="in-result">
+      <section className="in-section"><Verdict kind={kind} res={res} /></section>
+      <section className="in-section">
+        <h2 className="in-h2">Evidence from each check</h2>
+        <p className="in-sub">Each bar is −log₁₀ of a p-value measured against your reference: further right means harder to explain by chance. Ticks mark the false-alarm levels of the verdicts. The verdict uses the strongest check.</p>
+        <EvidenceMeters checks={res.checks} />
+      </section>
+      {res.profile && (
+        <section className="in-section">
+          <h2 className="in-h2">What the suspicious rows look like</h2>
+          <AttackProfile profile={res.profile} />
+        </section>
+      )}
+      <section className="in-section">
+        <h2 className="in-h2">{kind === 'table' ? 'Rows to review' : `${KINDS[kind].label} to review`}</h2>
+        <FlaggedTable kind={kind} res={res} />
+      </section>
+      {res.notes.length > 0 && (
+        <section className="in-section">
+          <h3 className="in-h3">Notes from reading your data</h3>
+          <ul className="in-notes">{res.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────────────────────────
+export default function UploadPage() {
+  const [saved] = useState(recall);              // a job still running when the page was left
+  const [kind, setKind] = useState(saved?.kind || 'table');
+  const [file, setFile] = useState(null);
+  const [refMode, setRefMode] = useState('order');
+  const [refFile, setRefFile] = useState(null);
+  const [split, setSplit] = useState({ column: '', cutoff: '' });
+  const [job, setJob] = useState(saved?.id ? { ...saved, stage: 'queued' } : null);   // { id, kind, startedAt, stage }
+  const [result, setResult] = useState(null); // { kind, raw }
+  const [error, setError] = useState(null);
+  const poll = useRef(null);
+
+  const follow = useCallback((j) => {
+    clearTimeout(poll.current);
+    const tick = async () => {
+      try {
+        const s = await api.getJob(j.id);
+        if (s.status === 'completed') { setJob(null); remember(null); setResult({ kind: j.kind, raw: s.result }); return; }
+        if (s.status === 'failed') { setJob(null); remember(null); setError(s.error || 'The analysis failed.'); return; }
+        setJob({ ...j, stage: s.status });
+        poll.current = setTimeout(tick, 1500);
+      } catch (e) { setJob(null); remember(null); setError(e.message); }
+    };
+    tick();
+  }, []);
+
+  useEffect(() => {
+    if (saved?.id) follow(saved);
+    return () => clearTimeout(poll.current);
+  }, [follow, saved]);
+
+  const chooseKind = (k) => { setKind(k); setFile(null); setRefFile(null); setRefMode('order'); setError(null); };
+  const chooseFile = (f) => {
+    if (!f) return;
+    const spec = KINDS[kind];
+    if (!f.name.toLowerCase().endsWith(spec.accept)) return setError(`Expected a ${spec.accept} file for ${spec.label.toLowerCase()}.`);
+    if (f.size > spec.maxMb * 1048576) return setError(`The file is larger than ${spec.maxMb} MB.`);
+    setError(null); setFile(f);
+  };
+
+  const ready = file && !job && (refMode !== 'file' || refFile) && (refMode !== 'column' || (split.column && split.cutoff));
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ready) return;
+    setError(null); setResult(null);
+    const startedAt = Date.now();
+    setJob({ id: null, kind, startedAt, stage: 'uploading' });
+    try {
+      const { job_id } = await api.submitAnalysis(kind, file, {
+        referenceFile: refMode === 'file' ? refFile : null,
+        splitColumn: refMode === 'column' ? split.column : null, splitCutoff: refMode === 'column' ? split.cutoff : null,
+      });
+      const j = { id: job_id, kind, startedAt };
+      remember(j);
+      follow(j);
+    } catch (err) { setJob(null); setError(err.message); }
+  };
+
+  return (
+    <main className="instrument">
+      <div className="in-page">
+        <h1 className="in-h1">Check a dataset</h1>
+        <p className="in-lede">Upload the data you are about to train on and a reference you trust. Veritas measures how far the new data departs from the reference and lists what to review.</p>
+
+        <form className="in-form" onSubmit={submit}>
+          <div className="in-kinds" role="radiogroup" aria-label="Data type">
+            {Object.entries(KINDS).map(([k, spec]) => (
+              <label key={k} className="in-kind">
+                <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => chooseKind(k)} disabled={!!job} />
+                <span>{spec.label}</span>
+              </label>
+            ))}
+          </div>
+          <p className="in-hint" style={{ margin: '-8px 0 0' }}>{KINDS[kind].format}</p>
+          <DropZone kind={kind} file={file} onFile={chooseFile} />
+          <ReferenceOptions kind={kind} mode={refMode} setMode={setRefMode} refFile={refFile} setRefFile={setRefFile} split={split} setSplit={setSplit} />
+          <div className="in-actions">
+            <button className="in-btn" type="submit" disabled={!ready}>{job ? 'Analysing…' : 'Analyse'}</button>
+            {error && <span className="in-error" role="alert">{error}</span>}
+          </div>
+        </form>
+
+        {job && <section className="in-section" style={{ marginTop: 28 }}><JobProgress stage={job.stage} startedAt={job.startedAt} /></section>}
+        {result && <Result kind={result.kind} raw={result.raw} />}
+      </div>
+    </main>
   );
 }

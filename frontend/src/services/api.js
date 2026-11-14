@@ -151,6 +151,19 @@ export const api = {
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
 
+    // Any data type as a background job: kind = table | images | audio | video. Returns { job_id }.
+    submitAnalysis: (kind, file, opts = {}) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
+        if (kind === 'table' && opts.splitColumn && opts.splitCutoff) {
+            formData.append('split_column', opts.splitColumn);
+            formData.append('split_cutoff', opts.splitCutoff);
+        }
+        return apiFormData(kind === 'table' ? '/analyze/upload?background=true' : `/analyze/${kind}`, formData);
+    },
+    getJob: (jobId) => apiFetch(`/jobs/${jobId}`),
+
     // Model Scan
     scanModel: (formData) => apiFormData('/analyze/model', formData),
     uploadModel: (file) => {
