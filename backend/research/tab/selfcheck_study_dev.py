@@ -18,6 +18,8 @@ from app.detection import veritas2 as v2
 
 PKL = os.path.expanduser("~/.cache/veritas-logs/selfcheck_dev.pkl")
 PKL2 = os.path.expanduser("~/.cache/veritas-logs/selfcheck2_dev.pkl")   # round 2: per-check row scores in every fold
+SPLIT = os.getenv("SPLIT", "dev")   # "test" only for the one held-out run of the chosen design (--test)
+PKL_TEST = os.path.expanduser("~/.cache/veritas-logs/selfcheck_test.pkl")
 CHECKS = ("label", "shift", "resid")
 K = 5
 RATES, SEEDS, CLEAN_PER_SEED = (0.01, 0.05), 3, 4
@@ -77,8 +79,17 @@ def checks_one(spec):
     return {"data_id": spec["data_id"], "seed": spec["seed"], "attack": spec["attack"], "rate": spec["rate"], "mask": mask, "rows": rows, "ev": ev}
 
 
+def test_one(spec):
+    """Held-out record: today's fallback (A) and the chosen self-check per-check lists, same poisoned dataset."""
+    r = checks_one(spec)
+    X, y, mask, k = poisoned_dataset(spec)
+    n_ref = int(len(y) * 0.7)
+    rows_a, ev_a = run(X[:n_ref], y[:n_ref], X[n_ref:], y[n_ref:], k, spec["manifest"]["calibration_fraction_of_reference"])
+    return {**r, "n_ref": n_ref, "rows_a": rows_a, "ev_a": ev_a}
+
+
 def specs():
-    m = bench_v2.load_manifest("full"); m["datasets"] = {"dev": m["datasets"]["dev"]}
+    m = bench_v2.load_manifest("full"); m["datasets"] = {SPLIT: m["datasets"][SPLIT]}
     m.update(poison_rates=list(RATES), seeds=SEEDS, clean_batches_per_seed=CLEAN_PER_SEED)
     return bench_v2.batch_specs(m)
 
@@ -137,4 +148,7 @@ if __name__ == "__main__":
     if "--analyze2" in sys.argv: analyze2()
     elif "--analyze" in sys.argv: analyze()
     elif "--checks" in sys.argv: collect(checks_one, PKL2)
+    elif "--test" in sys.argv:
+        assert SPLIT == "test"
+        collect(test_one, PKL_TEST)
     else: collect()

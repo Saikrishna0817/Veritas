@@ -68,3 +68,18 @@ def test_upload_reports_suspicious_cells_with_file_lines_and_original_values():
     assert {c["column"] for c in top["cells"]} & {"b", "label"}
     assert all(c["value"] in ("x", "y", "z") for row in cells for c in row["cells"] if c["column"] == "c")
     assert all(isinstance(c["value"], int) for row in cells for c in row["cells"] if c["is_label"])
+
+
+def test_no_reference_screening_lists_planted_rows():
+    from app.api.analysis_helpers import _orchestrate_csv
+    rng = np.random.default_rng(2)
+    n = 1000
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n)})
+    df["label"] = (df["a"] + df["b"] > 0).astype(int)
+    flipped = rng.choice(n, 40, replace=False)                  # spread through the whole file: nothing is trusted
+    df.loc[flipped, "label"] = 1 - df.loc[flipped, "label"]
+    result, _ = _orchestrate_csv(df.to_csv(index=False).encode(), "t.csv", "selfcheck-user", {"self_check": True})
+    assert result["mode"] == "self_check" and result["verdict"] == "SCREENED" and result["n_samples"] == n
+    lines = {r["csv_line"] - 2 for r in result["lists"]["label"][:40]}
+    assert len(lines & set(flipped)) >= 25                      # most of the top of the label list are the flips
+    assert result["lists"]["label"][0]["cells"][0]["is_label"]

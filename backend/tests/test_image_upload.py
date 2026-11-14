@@ -90,3 +90,26 @@ def test_bad_zips_fail_with_a_clear_message():
     job = _wait(r.json()["job_id"], h)
     assert job["status"] == "failed" and "zip" in job["error"]
     assert client.post("/api/v1/analyze/images", headers=h, files={"file": ("x.csv", b"a,b", "text/csv")}).status_code == 400
+
+
+def test_no_reference_screening_lists_backdoored_images():
+    import zipfile as zf_
+    ref, inc, bad = _dataset()
+    buf = io.BytesIO()   # one zip holding everything: the poison may be anywhere
+    with zf_.ZipFile(buf, "w") as out:
+        for part in (ref, inc):
+            with zf_.ZipFile(io.BytesIO(part)) as z:
+                for name in z.namelist():
+                    out.writestr(name, z.read(name))
+    h = _h("img-carol")
+    files = {"file": ("all.zip", buf.getvalue(), "application/zip")}
+    assert client.post("/api/v1/analyze/images", headers=h, data={"no_reference": "true"},
+                       files={**files, "reference_file": ("ref.zip", ref, "application/zip")}).status_code == 400
+    r = client.post("/api/v1/analyze/images", headers=h, data={"no_reference": "true"}, files=files)
+    assert r.status_code == 202, r.text
+    job = _wait(r.json()["job_id"], h)
+    assert job["status"] == "completed", job
+    res = job["result"]
+    assert res["mode"] == "self_check" and res["verdict"] == "SCREENED" and set(res["lists"]) == {"label", "resid", "chroma"}
+    listed = {f["file"] for c in ("label", "resid") for f in res["lists"][c]}
+    assert len(listed & bad) >= 0.5 * len(bad), (res["checks"], len(listed & bad))

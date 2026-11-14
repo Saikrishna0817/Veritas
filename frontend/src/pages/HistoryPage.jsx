@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, Result, fmt } from '../components/results';
 
-const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence', SUSPICIOUS: 'Evidence', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence' };
+const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence', SUSPICIOUS: 'Evidence', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence', SCREENED: 'Screened, no reference' };
 const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 function Detail({ id }) {

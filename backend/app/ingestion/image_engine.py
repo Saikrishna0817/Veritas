@@ -63,14 +63,20 @@ def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS
 
 
 def ingest_zip(zip_bytes: bytes, filename: str, reference_bytes: bytes | None, extensions, decode, noun: str, stack,
-               max_file: int = MAX_FILE) -> dict:
+               max_file: int = MAX_FILE, self_check: bool = False) -> dict:
     """Class-folder zip (plus an optional reference zip) -> stacked items, integer labels, reference split. Shared by
     the image and audio engines; ``stack`` turns the decoded list into one array."""
     warnings: list[str] = []
     main = _read_zip(zip_bytes, "zip file", warnings, extensions, decode, noun, max_file)
     ref = _read_zip(reference_bytes, "reference zip", warnings, extensions, decode, noun, max_file) if reference_bytes is not None else None
     rng = np.random.default_rng(0)
-    if ref is None:
+    if self_check:   # no reference at all: every item is checked against the others (reference_split = 0)
+        if ref is not None:
+            raise ValueError("Upload either a reference zip or choose no reference, not both.")
+        ref, main = [], [main[i] for i in rng.permutation(len(main))]
+        warnings.append(f"No reference: each {noun} was checked against the others. This is a screening that ranks what to "
+                        "look at first, not a verdict; changes that look like ordinary data cannot be found this way.")
+    elif ref is None:
         # Images have no natural order (zips list them class by class), so the reference is a random, per-class
         # 70% rather than the first 70% in the file.
         order = rng.permutation(len(main))
@@ -90,7 +96,9 @@ def ingest_zip(zip_bytes: bytes, filename: str, reference_bytes: bytes | None, e
         warnings.append(f"Using {keep_ref} reference and {keep_inc} incoming {noun}s of {len(ref)} and {len(main)} (limit {MAX_IMAGES}).")
         ref = [ref[i] for i in sorted(rng.choice(len(ref), keep_ref, replace=False))]
         main = [main[i] for i in sorted(rng.choice(len(main), min(keep_inc, len(main)), replace=False))]
-    if len(ref) < MIN_REFERENCE or len(main) < MIN_INCOMING:
+    if self_check and len(main) < MIN_REFERENCE + MIN_INCOMING:
+        raise ValueError(f"Need at least {MIN_REFERENCE + MIN_INCOMING} {noun}s to check without a reference; got {len(main)}.")
+    if not self_check and (len(ref) < MIN_REFERENCE or len(main) < MIN_INCOMING):
         raise ValueError(f"Need at least {MIN_REFERENCE} reference and {MIN_INCOMING} incoming {noun}s; got {len(ref)} and {len(main)}.")
     names = sorted({c for _, c, _ in ref + main})
     has_labels = len(names) > 1
@@ -108,7 +116,7 @@ def ingest_zip(zip_bytes: bytes, filename: str, reference_bytes: bytes | None, e
 
 
 class ImageIngestionEngine:
-    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None) -> dict:
-        out = ingest_zip(zip_bytes, filename, reference_bytes, EXTENSIONS, _decode_image, "image", lambda a, w: np.stack(a))
+    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None, self_check: bool = False) -> dict:
+        out = ingest_zip(zip_bytes, filename, reference_bytes, EXTENSIONS, _decode_image, "image", lambda a, w: np.stack(a), self_check=self_check)
         out["images"], out["n_images"] = out.pop("items"), out.pop("n_items")
         return out

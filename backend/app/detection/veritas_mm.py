@@ -203,3 +203,30 @@ def detect(d: dict) -> dict:
     rows = np.stack([r[n]["rows"] for n in admitted])
     return {"row_scores": rows.max(0), "row_check": [admitted[i] for i in rows.argmax(0)],
             "batch_evidence": max(max(c["evidence"] for c in r.values()), 0.0), "report": r}
+
+
+SELF_FOLDS = 5
+
+
+def self_check(R: np.ndarray, E: np.ndarray, y: np.ndarray, n_classes: int, pca_dims: int = 32, cal_fraction: float = 0.3) -> dict:
+    """No trusted reference: 5 folds, each checked against the other four, so every item is scored. Returns each
+    check's row scores and evidence (best fold minus log10(5) and its penalty). R: views (N, 32, 32, 3) uint8,
+    E: embeddings. A screening, not a verdict: the poison also sits in every fold's "reference"."""
+    from sklearn.decomposition import PCA
+    from sklearn.model_selection import KFold
+    P = pixel_features(R)
+    rows, ev = {}, {}
+    for tr, te in KFold(SELF_FOLDS, shuffle=True, random_state=0).split(R):
+        n_cal = int(len(tr) * cal_fraction)
+        fit, cal = tr[n_cal:], tr[:n_cal]
+        pca = PCA(min(pca_dims, len(tr) - 1), random_state=0).fit(E[tr])
+        zs = StandardScaler().fit(pca.transform(E[fit]))
+        ps = StandardScaler().fit(P[fit])
+        z = lambda idx: zs.transform(pca.transform(E[idx]))  # noqa: E731
+        d = {"X_fit": z(fit), "X_cal": z(cal), "X_inc": z(te), "y_fit": y[fit], "y_cal": y[cal], "y_inc": y[te], "n_classes": n_classes,
+             "P_fit": ps.transform(P[fit]), "P_cal": ps.transform(P[cal]), "P_inc": ps.transform(P[te]), "R_fit": R[fit], "R_cal": R[cal], "R_inc": R[te]}
+        for name, (cal_s, inc_s, *one) in components(d).items():
+            rows.setdefault(name, np.zeros(len(R)))[te] = v2.extrapolated_neg_log_p(cal_s, inc_s)
+            e = label_evidence(d, cal_s, one[0]) if name == "label" else v2.multi_tail_test(cal_s, inc_s, TAILS)
+            ev.setdefault(name, []).append(e)
+    return {name: {"rows": rows[name], "evidence": max(max(ev[name]) - np.log10(SELF_FOLDS) - PENALTY[name], 0.0)} for name in rows}

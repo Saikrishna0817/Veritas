@@ -12,10 +12,10 @@ EXTENSIONS = (".mp4", ".avi", ".mov", ".mkv", ".webm", ".m4v", ".mpg", ".mpeg")
 MAX_VIDEO_FILE = 200 << 20       # 200 MB per clip
 
 class VideoIngestionEngine:
-    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None) -> dict:
+    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None, self_check: bool = False) -> dict:
         # The decoder writes each clip to a private temp file (many containers need seeking); the suffix only helps
         # ffmpeg guess the container, it reads the real format from the bytes.
         out = ingest_zip(zip_bytes, filename, reference_bytes, EXTENSIONS, lambda raw: video.decode_bytes(raw, ".bin"), "clip",
-                         lambda a, w: np.stack(a), max_file=MAX_VIDEO_FILE)
+                         lambda a, w: np.stack(a), max_file=MAX_VIDEO_FILE, self_check=self_check)
         out["frames"], out["n_clips"] = out.pop("items"), out.pop("n_items")
         return out

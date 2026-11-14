@@ -296,7 +296,7 @@ class CSVIngestionEngine:
         return (values < edge).to_numpy()
 
     def ingest(self, csv_bytes: bytes, filename: str = "upload.csv", *, reference_bytes: bytes | None = None,
-               split_column: str | None = None, split_cutoff: str | None = None) -> Dict[str, Any]:
+               split_column: str | None = None, split_cutoff: str | None = None, self_check: bool = False) -> Dict[str, Any]:
         """
         Main ingestion method. Returns a structured dataset ready for detection.
 
@@ -304,6 +304,7 @@ class CSVIngestionEngine:
           * ``reference_bytes``: a separate CSV with the same columns (it is the reference, the main file is incoming)
           * ``split_column`` + ``split_cutoff``: rows of the main file strictly before the cutoff (number or date)
           * neither: the first 70% of the main file in file order
+          * ``self_check``: no reference at all; every row is checked against the other rows (reference_split = 0)
         
         Returns:
             {
@@ -422,7 +423,13 @@ class CSVIngestionEngine:
 
         # ── Reference / incoming split ─────────────────────────────────────
         n = len(features)
-        if is_reference is None:
+        if self_check:
+            if is_reference is not None:
+                raise ValueError("A self-check uses no reference: leave out the reference file and split column.")
+            split_idx = 0
+            warnings.append("No reference: every row was checked against the other rows. Without data you trust this is a "
+                            "screening, not a verdict; feature collisions and covariate shift cannot be found this way.")
+        elif is_reference is None:
             split_idx = int(n * 0.70)
             warnings.append(
                 f"Reference = first {split_idx} rows in file order; incoming = remaining {n - split_idx}. "
@@ -453,7 +460,7 @@ class CSVIngestionEngine:
         # Scale to [0, 1] using the REFERENCE rows only, so incoming rows cannot shape
         # the baseline. Incoming values are not clipped: a value outside the reference
         # range (>1 or <0) is exactly the kind of shift the detector should see.
-        ref = features[:split_idx]
+        ref = features[:split_idx] if split_idx else features    # self-check: scale on all rows
         col_min = ref.min(axis=0)
         col_range = ref.max(axis=0) - col_min
         col_range[col_range == 0] = 1  # avoid division by zero

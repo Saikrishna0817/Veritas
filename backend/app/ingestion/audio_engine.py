@@ -52,7 +52,7 @@ def _stack(clips: list[np.ndarray], warnings: list[str]) -> np.ndarray:
 
 
 class AudioIngestionEngine:
-    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None) -> dict:
-        out = ingest_zip(zip_bytes, filename, reference_bytes, EXTENSIONS, _decode_wav, "clip", _stack)
+    def ingest(self, zip_bytes: bytes, filename: str, reference_bytes: bytes | None = None, self_check: bool = False) -> dict:
+        out = ingest_zip(zip_bytes, filename, reference_bytes, EXTENSIONS, _decode_wav, "clip", _stack, self_check=self_check)
         out["clips"], out["n_clips"] = out.pop("items"), out.pop("n_items")
         return out

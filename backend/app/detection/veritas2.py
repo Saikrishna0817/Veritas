@@ -243,6 +243,39 @@ def cell_scores(d: dict, row_scores: np.ndarray, label_rows: np.ndarray | None) 
     return row_scores[:, None] + np.c_[feat, label]
 
 
+SELF_FOLDS = 5
+
+
+def self_check(X: np.ndarray, y: np.ndarray, n_classes: int) -> dict:
+    """No trusted reference: split the rows into 5 folds and check each fold against the other four, so every row is
+    scored. Returns each check's own row list (merging them buries label flips under backdoor rows) and its evidence,
+    the best fold's minus log10(5). Without a clean reference the evidence is a screening signal, not a verdict:
+    on held-out data poisoned files rarely reach it (docs/benchmark-v2-findings.md, "No reference").
+    Feature collisions and covariate shift cannot be found this way; label flips and backdoor triggers can."""
+    from sklearn.model_selection import KFold
+    rows = {"label": np.zeros(len(y)), "resid": np.zeros(len(y))}
+    evidence = {"label": [], "resid": []}
+    for tr, te in KFold(SELF_FOLDS, shuffle=True, random_state=0).split(X):
+        n_cal = int(len(tr) * CAL_FRACTION)
+        fit, cal = tr[n_cal:], tr[:n_cal]
+        scaler = StandardScaler().fit(X[fit])
+        d = {"X_fit": scaler.transform(X[fit]), "y_fit": y[fit], "X_cal": scaler.transform(X[cal]), "y_cal": y[cal],
+             "X_inc": scaler.transform(X[te]), "y_inc": y[te], "n_classes": n_classes}
+        if n_classes > 1:
+            ref, inc, one = label_crossfit_component(d)
+            rows["label"][te], _ = extrapolated_neg_log_p(ref, inc), evidence["label"].append(multi_tail_test(ref, one))
+        if X.shape[1] > 1:
+            cal_s, inc_s = residual_component(d)
+            rows["resid"][te], _ = extrapolated_neg_log_p(cal_s, inc_s), evidence["resid"].append(multi_tail_test(cal_s, inc_s))
+    checks = {c: {"rows": rows[c], "evidence": max(max(evidence[c]) - np.log10(SELF_FOLDS) - pen, 0.0)}
+              for c, pen in (("label", LABEL_PENALTY), ("resid", RESID_PENALTY)) if evidence[c]}
+    # where each row is unusual: -log10 share of the other rows at least as far from the column mean
+    Z = np.abs(StandardScaler().fit_transform(X))
+    unusual = np.stack([neg_log_p(Z[:, j], Z[:, j]) for j in range(X.shape[1])], axis=1)
+    return {"checks": checks, "column_scores": unusual,
+            "screening_evidence": max([c["evidence"] for c in checks.values()] or [0.0])}
+
+
 def verdict_for(evidence: float) -> tuple[str, float]:
     """(verdict, suspicion in [0, 1]); suspicion is piecewise linear so the verdict cut-offs land on
     the 0.15 / 0.35 / 0.65 thresholds the rest of the app already uses."""

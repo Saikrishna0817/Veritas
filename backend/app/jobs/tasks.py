@@ -19,6 +19,8 @@ def csv_upload(payload: dict, owner_id: str) -> dict:
             split["reference_bytes"] = store.get(payload["reference_key"])
         if payload.get("split_column"):
             split.update(split_column=payload["split_column"], split_cutoff=payload["split_cutoff"])
+        if payload.get("self_check"):
+            split["self_check"] = True
         result, dataset_id = _orchestrate_csv(content, payload["filename"], owner_id, split)
     finally:
         for key in keys:                       # uploads are kept only as long as the job needs them
@@ -56,7 +58,7 @@ def _zip_job(payload: dict, owner_id: str, orchestrate, source: str, noun: str) 
     keys = [payload["key"]] + ([payload["reference_key"]] if payload.get("reference_key") else [])
     try:
         reference = store.get(payload["reference_key"]) if payload.get("reference_key") else None
-        result = orchestrate(store.get(payload["key"]), payload["filename"], owner_id, reference)
+        result = orchestrate(store.get(payload["key"]), payload["filename"], owner_id, reference, bool(payload.get("self_check")))
     finally:
         for key in keys:
             store.delete(key)

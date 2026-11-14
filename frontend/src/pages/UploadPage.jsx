@@ -29,6 +29,7 @@ function DropZone({ kind, file, onFile, label = 'Choose a file or drop it here' 
 
 function ReferenceOptions({ kind, mode, setMode, refFile, setRefFile, split, setSplit }) {
   const table = kind === 'table';
+  const none = ['none', 'I have no trusted reference', 'Every item is checked against the others. You get ranked lists of what to look at, not a verdict, and attacks that look like ordinary data cannot be found this way.'];
   const opts = table
     ? [['order', 'First 70% of the file', 'Use when rows are in time order and the early rows are trusted.'],
        ['file', 'A separate reference file', 'A CSV you trust, with the same columns. The whole main file is then checked.'],
@@ -38,7 +39,7 @@ function ReferenceOptions({ kind, mode, setMode, refFile, setRefFile, split, set
   return (
     <fieldset className="in-fieldset">
       <legend className="in-legend">Trusted reference</legend>
-      {opts.map(([value, title, help]) => (
+      {[...opts, none].map(([value, title, help]) => (
         <div key={value}>
           <label className="in-radio">
             <input type="radio" name="ref" value={value} checked={mode === value} onChange={() => setMode(value)} />
@@ -158,6 +159,7 @@ export default function UploadPage() {
       const { job_id } = await api.submitAnalysis(kind, file, {
         referenceFile: refMode === 'file' ? refFile : null,
         splitColumn: refMode === 'column' ? split.column : null, splitCutoff: refMode === 'column' ? split.cutoff : null,
+        noReference: refMode === 'none',
       });
       const j = { id: job_id, kind, startedAt };
       remember(j);

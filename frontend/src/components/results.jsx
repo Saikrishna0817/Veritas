@@ -222,7 +222,44 @@ function FlaggedTable({ kind, res }) {
   );
 }
 
+// No trusted reference: ranked lists per check, deliberately without a verdict.
+function Screening({ kind, raw }) {
+  const noun = KINDS[kind].noun;
+  const notes = raw.dataset_info?.warnings || [];
+  return (
+    <div className="in-result">
+      <section className="in-section">
+        <div className="in-verdict">
+          <div className="in-gauge" aria-hidden="true" />
+          <div>
+            <h2 className="in-verdict-title">Screened without a reference</h2>
+            <p className="in-verdict-note">Every one of the {fmt(raw.n_samples)} {noun} was checked against the others. This ranks what to look at first; without data you trust it cannot say whether the set is poisoned.</p>
+            <div className="in-limits">
+              <span>Label flips and trigger patterns are found this way; changes that look like ordinary data (feature collisions, a shifted source) are not.</span>
+              <span>The top of each list is worth a look even when nothing is wrong: compare a few items with ones you know.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      {Object.entries(raw.lists || {}).map(([key, items]) => (
+        <section key={key} className="in-section">
+          <h2 className="in-h2">{raw.checks?.[key]?.description || key}</h2>
+          <p className="in-sub">The {fmt(items.length)} highest-ranked {noun} for this check, most unusual first.</p>
+          <FlaggedTable kind={kind} res={kind === 'table' ? { cells: items } : { items, nFlagged: items.length }} />
+        </section>
+      ))}
+      {notes.length > 0 && (
+        <section className="in-section">
+          <h3 className="in-h3">Notes from reading your data</h3>
+          <ul className="in-notes">{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+        </section>
+      )}
+    </div>
+  );
+}
+
 export function Result({ kind, raw }) {
+  if (raw.mode === 'self_check') return <Screening kind={kind} raw={raw} />;
   const res = normalise(kind, raw);
   return (
     <div className="in-result">

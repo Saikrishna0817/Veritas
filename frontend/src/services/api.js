@@ -159,6 +159,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
         if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
+        if (opts.noReference) formData.append('no_reference', 'true');
         if (kind === 'table' && opts.splitColumn && opts.splitCutoff) {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);

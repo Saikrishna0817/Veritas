@@ -42,6 +42,7 @@ class CompleteRequest(BaseModel):
     reference_upload_id: str | None = None
     split_column: str | None = None
     split_cutoff: str | None = None
+    self_check: bool = False
 
 
 @router.post("/uploads/presign")
@@ -99,6 +100,8 @@ async def complete_upload(body: CompleteRequest, user: dict = Depends(require_us
                 payload["reference_key"] = ref["storage_key"]
             if body.split_column or body.split_cutoff:
                 payload.update(split_column=body.split_column or None, split_cutoff=body.split_cutoff or None)
+            if body.self_check:
+                payload["self_check"] = True
             payload["charged"] = quota.charge_analysis(user, rows=max(1, main["size"] // BYTES_PER_ROW))
             job_id = job_store.submit("csv_upload", payload, owner_id=user["id"])
     except Exception:

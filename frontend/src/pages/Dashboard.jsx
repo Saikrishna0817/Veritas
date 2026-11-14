@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, fmt } from '../components/results';
 
-const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence of poisoning', SUSPICIOUS: 'Evidence of poisoning', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence found' };
+const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence of poisoning', SUSPICIOUS: 'Evidence of poisoning', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence found', SCREENED: 'Screened, no reference' };
 
 export default function Dashboard() {
   const [latest, setLatest] = useState(null);
