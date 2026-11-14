@@ -60,6 +60,14 @@ Held-out benchmark (CIFAR-10, GTSRB; docs/image-benchmark-findings.md, v8): row 
 5%; 81% of attacked batches flagged at 1%; clean batches flagged 2.9% at LOW_RISK. About 4 s for 420 images, 10 s
 for 3,000 on one CPU thread.
 
+## Audio-data check
+
+`POST /analyze/audio` takes a zip of PCM WAV files in class folders (optionally a reference zip). The image detector
+runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for the label and shift checks. Held-out
+(Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md): mean row AUPRC 0.59 at 1% and
+0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. Clean-label audio
+triggers are not detected.
+
 ## Model-file scanner
 
 Abstract pickle machine over the opcode stream (no import, no execution), deny list plus safe list plus
@@ -81,7 +89,7 @@ post-fix 339/339 is no longer a held-out number.
 - **Weakest attacks at 1%:** covariate shift (row AUPRC 0.18; 0.61 at 5%) and feature collision (0.39).
 - **Attack profile** names the closest of six known attacks; an attack of another kind will be given one of those names.
 - **Data types:** tables (numeric and categorical columns, up to 200,000 rows validated) and labelled images (up to
-  6,000 per check). Not audio, video or free text yet.
+  6,000 per check) and audio clips (PCM WAV, up to 6,000, at most 10 s used). Not video or free text yet.
 - **Images are checked at 32x32.** A trigger smaller than about 1/32 of the image side can vanish in the resize. Image
   results name the leading check, not an attack type; label flips at 1% are the weakest case (20% of batches flagged).
   Without a reference zip the reference is a random 70% of each class, so poison anywhere in the zip also lands in it.

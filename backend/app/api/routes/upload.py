@@ -137,24 +137,15 @@ async def analyze_uploaded_csv(
 MAX_ZIP_SIZE = 500 * 1024 * 1024
 
 
-@router.post("/analyze/images", status_code=202)
-async def analyze_image_zip(
-    request: Request,
-    file: UploadFile = File(..., description="Zip with one folder per class (cat/001.png, dog/002.jpg, ...)"),
-    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference images, same layout"),
-    user: dict = Depends(require_user),
-):
-    """Check an image dataset for poisoning. Always a background job (embedding images takes tens of seconds):
-    returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 images are used, resized to 32x32."""
-    from app.detection import image_embed
-    if not image_embed.available():
-        raise HTTPException(status_code=501, detail="Image analysis is not installed on this server (requirements-images.txt).")
+async def _submit_zip_job(request: Request, file: UploadFile, reference_file: UploadFile | None, user: dict,
+                          job_type: str, kind: str) -> JSONResponse:
+    """Shared by the image and audio uploads: validate, park the zips in blob storage, charge quota, queue the job."""
     client_ip = request.client.host if request.client else "unknown"
-    if not deps.analysis_rate_limiter.allow(f"images:{user['id']}:{client_ip}"):
+    if not deps.analysis_rate_limiter.allow(f"{job_type}:{user['id']}:{client_ip}"):
         raise HTTPException(status_code=429, detail="Too many analysis requests. Try again in one minute.")
     for f, what in ((file, "file"), (reference_file, "reference file")):
         if f is not None and (not f.filename or not is_safe_filename(f.filename) or not f.filename.lower().endswith(".zip")):
-            raise HTTPException(status_code=400, detail=f"The {what} must be a .zip of images.")
+            raise HTTPException(status_code=400, detail=f"The {what} must be a .zip of {kind}.")
     store = storage()
     payload = {"key": new_key(user["id"]), "filename": file.filename}
     store.put(payload["key"], await read_upload_limited(file, MAX_ZIP_SIZE))
@@ -168,7 +159,41 @@ async def analyze_image_zip(
             if key:
                 store.delete(key)
         raise
-    return JSONResponse(status_code=202, content={"job_id": job_store.submit("image_upload", payload, owner_id=user["id"]), "status": "queued"})
+    return JSONResponse(status_code=202, content={"job_id": job_store.submit(job_type, payload, owner_id=user["id"]), "status": "queued"})
+
+
+@router.post("/analyze/images", status_code=202)
+async def analyze_image_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip with one folder per class (cat/001.png, dog/002.jpg, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference images, same layout"),
+    user: dict = Depends(require_user),
+):
+    """Check an image dataset for poisoning. Always a background job (embedding images takes tens of seconds):
+    returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 images are used, resized to 32x32."""
+    from app.detection import image_embed
+    if not image_embed.available():
+        raise HTTPException(status_code=501, detail="Image analysis is not installed on this server (requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "image_upload", "images")
+
+
+@router.post("/analyze/audio", status_code=202)
+async def analyze_audio_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip of WAV files with one folder per class (dog/001.wav, rain/002.wav, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
+    user: dict = Depends(require_user),
+):
+    """Check an audio dataset for poisoning (PCM WAV, any rate, mixed to mono 16 kHz). Background job: returns
+    202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 clips, padded or trimmed to the median length (at most 10 s)."""
+    from app.detection import image_embed
+    try:
+        import torchaudio  # noqa: F401
+    except ImportError:
+        torchaudio = None
+    if not image_embed.available() or torchaudio is None:
+        raise HTTPException(status_code=501, detail="Audio analysis is not installed on this server (requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "audio_upload", "WAV files")
 
 
 def _owned(result: dict | None, user: dict) -> dict | None:

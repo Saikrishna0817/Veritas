@@ -1,5 +1,7 @@
-# Optional: image dataset analysis (POST /analyze/images). Install on top of requirements.txt.
-# CPU-only torch (much smaller):  pip install --index-url https://download.pytorch.org/whl/cpu torch==2.15.0 torchvision==0.29.2
+# Optional: image and audio dataset analysis (POST /analyze/images, /analyze/audio). Install on top of requirements.txt.
+# CPU-only torch (much smaller):
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.15.0 torchvision==0.29.2 torchaudio==2.11.1
 torch==2.15.0
 torchvision==0.29.2
+torchaudio==2.11.1
 pillow==13.0.0

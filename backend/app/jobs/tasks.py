@@ -48,26 +48,37 @@ def model_scan(payload: dict, owner_id: str) -> dict:
     return result
 
 
-def image_upload(payload: dict, owner_id: str) -> dict:
+def _zip_job(payload: dict, owner_id: str, orchestrate, source: str, noun: str) -> dict:
+    """Image or audio zip job: read the blobs, analyse, delete the blobs, save the result."""
     from app.api import dependencies as deps
-    from app.api.analysis_helpers import _orchestrate_images
 
     store = storage()
     keys = [payload["key"]] + ([payload["reference_key"]] if payload.get("reference_key") else [])
     try:
         reference = store.get(payload["reference_key"]) if payload.get("reference_key") else None
-        result = _orchestrate_images(store.get(payload["key"]), payload["filename"], owner_id, reference)
+        result = orchestrate(store.get(payload["key"]), payload["filename"], owner_id, reference)
     finally:
         for key in keys:
             store.delete(key)
     result["owner_id"] = owner_id
     result = deps.to_serializable(result)
-    deps.db.save_result(result, "image_upload", payload["filename"], owner_id=owner_id)
-    deps.db.log_audit_event(owner_id, "analysis.images_uploaded", "dataset", result["dataset_info"]["dataset_id"],
-                            {"filename": payload["filename"], "n_images": result["dataset_info"]["n_images"], "verdict": result["verdict"]})
+    deps.db.save_result(result, source, payload["filename"], owner_id=owner_id)
+    deps.db.log_audit_event(owner_id, f"analysis.{noun}s_uploaded", "dataset", result["dataset_info"]["dataset_id"],
+                            {"filename": payload["filename"], f"n_{noun}s": result["dataset_info"][f"n_{noun}s"], "verdict": result["verdict"]})
     return result
+
+
+def image_upload(payload: dict, owner_id: str) -> dict:
+    from app.api.analysis_helpers import _orchestrate_images
+    return _zip_job(payload, owner_id, _orchestrate_images, "image_upload", "image")
+
+
+def audio_upload(payload: dict, owner_id: str) -> dict:
+    from app.api.analysis_helpers import _orchestrate_audio
+    return _zip_job(payload, owner_id, _orchestrate_audio, "audio_upload", "clip")
 
 
 TASKS["csv_upload"] = csv_upload
 TASKS["image_upload"] = image_upload
+TASKS["audio_upload"] = audio_upload
 TASKS["model_scan"] = model_scan

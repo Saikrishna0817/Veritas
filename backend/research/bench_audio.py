@@ -13,6 +13,7 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse  # noqa: E402
 import json  # noqa: E402
 import time  # noqa: E402
+from collections import deque  # noqa: E402
 from concurrent.futures import ProcessPoolExecutor  # noqa: E402
 from datetime import date  # noqa: E402
 
@@ -34,6 +35,23 @@ CACHE = datasets.ROOT / "cache"
 
 def load_manifest() -> dict:
     return {**json.loads(MANIFEST_PATH.read_text()), "profile": "full"}
+
+
+def clean_embedding(ds: datasets.AudioSet, m: dict, img_emb: np.ndarray) -> np.ndarray:
+    """The embedding the label / shift checks use: ResNet-18 on the spectrogram image, or a HuBERT layer."""
+    if m.get("embedding", "resnet") == "resnet":
+        return img_emb
+    return np.load(datasets.ROOT / "cache" / f"{ds.name}-hubert.npz")[m["embedding"].split("-")[1]]
+
+
+def embed_changed(x: np.ndarray, img: np.ndarray, m: dict) -> np.ndarray:
+    if m.get("embedding", "resnet") == "resnet":
+        return embed_images(img)
+    import torch
+    from research.audio import hubert
+    torch.set_num_threads(4)          # batch preparation runs in this one process; the detector workers stay single-threaded
+    layer = int(m["embedding"].split("-l")[1])
+    return hubert.embed((np.clip(x, -1, 1) * 32767).astype(np.int16), layers=(layer,))[layer]
 
 
 def clean_views(ds: datasets.AudioSet, size: int):
@@ -61,8 +79,9 @@ def prepare_batch(spec: dict, ds: datasets.AudioSet, img: np.ndarray, emb: np.nd
         ctx = make_context(x, ds.n_classes, rng)
         idx = ATTACKS[spec["attack"]](x, y, rng, max(1, round(spec["rate"] * len(inc))), ctx)
         mask[idx] = True
-        R_inc[idx] = spectrogram_images(np.clip(x[idx], -1, 1), m["image_size"])
-        E_inc[idx], P_inc[idx] = embed_images(R_inc[idx]), pixel_features(R_inc[idx])
+        R_inc[idx] = spectrogram_images(np.clip(x[idx], -1, 1), m.get("check_size", m["image_size"]))
+        P_inc[idx] = pixel_features(R_inc[idx])
+        E_inc[idx] = embed_changed(x[idx], spectrogram_images(np.clip(x[idx], -1, 1), m["image_size"]), m)
     pca = PCA(m["pca_dims"], random_state=0).fit(emb[ref])
     d = detector_inputs(pca.transform(emb[ref]), ds.y[ref], pca.transform(E_inc), y, ds.n_classes,
                         m["calibration_fraction_of_reference"])
@@ -83,7 +102,9 @@ def jobs(m: dict):
     specs = batch_specs(m)
     for key in dict.fromkeys((s["split"], s["data_id"]) for s in specs):
         ds = datasets.load(key[1], key[0])
-        img, emb, pix = clean_views(ds, m["image_size"])
+        _, img_emb, _ = clean_views(ds, m["image_size"])
+        img, _, pix = clean_views(ds, m.get("check_size", m["image_size"]))   # what the pixel / shared checks see
+        emb = clean_embedding(ds, m, img_emb)
         for spec in (s for s in specs if (s["split"], s["data_id"]) == key):
             yield {"spec": spec, **prepare_batch(spec, ds, img, emb, pix)}
 
@@ -96,12 +117,21 @@ def main() -> None:
     args = parser.parse_args()
     m = load_manifest()
     m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
+    override = json.loads(os.getenv("VERITAS_AUDIO_OVERRIDE", "{}"))   # dev studies only: never tune on test
+    if override:
+        assert "test" not in m["datasets"], "overrides are for dev studies; the test run uses the manifest as written"
+        m.update(override)
     total, started, records = len(batch_specs(m)), time.perf_counter(), []
+    # Executor.map would prepare every batch before scoring the first; a small window keeps memory flat.
     with ProcessPoolExecutor(args.workers) as pool:
-        for i, rec in enumerate(pool.map(bench_mm.score_batch, jobs(m), chunksize=1), 1):
-            records.append(rec)
-            if i % 25 == 0 or i == total:
-                print(f"{i}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
+        pending = deque()
+        for job in jobs(m):
+            pending.append(pool.submit(bench_mm.score_batch, job))
+            while len(pending) > 2 * args.workers or (pending and pending[0].done()):
+                records.append(pending.popleft().result())
+                if len(records) % 25 == 0:
+                    print(f"{len(records)}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
+        records += [f.result() for f in pending]
     report = {"manifest": m, "label": args.label, "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = bench_mm.ROOT / "results" / f"{date.today().isoformat()}-benchmark-audio-{args.label}"

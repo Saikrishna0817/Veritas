@@ -147,22 +147,22 @@ async def run_csv_analysis(
 IMAGE_PCA_DIMS, IMAGE_CAL_FRACTION = 32, 0.3   # as benchmarked (manifest-mm-images-v8.json)
 
 
-def _orchestrate_images(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None) -> dict[str, Any]:
-    """Image zip -> veritas_mm result (blocking; runs in a background job). Builds the detector inputs exactly as the
-    benchmark does: PCA of the ResNet-18 embedding fitted on reference images, fit/calibration split of the reference."""
+def _mm_threads() -> int:
     import os
+    return min(4, os.cpu_count() or 1)
+
+
+def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info: dict) -> dict[str, Any]:
+    """Run veritas_mm on views R (N, 32, 32, 3) uint8 and embeddings E, with the reference first in ``ing``. Builds
+    the detector inputs exactly as the benchmarks do: PCA of E fitted on reference rows, fit/calibration split."""
     from sklearn.decomposition import PCA
     from sklearn.preprocessing import StandardScaler
     from threadpoolctl import threadpool_limits
-    from app.detection import image_embed, veritas2, veritas_mm
-    from app.ingestion.image_engine import ImageIngestionEngine
+    from app.detection import veritas2, veritas_mm
 
-    started = time.perf_counter()
-    ing = ImageIngestionEngine().ingest(zip_bytes, filename, reference_bytes)
-    R, y, s, names = ing["images"], ing["labels"], ing["reference_split"], ing["class_names"]
-    threads = min(4, os.cpu_count() or 1)
-    with threadpool_limits(threads):
-        E, P = image_embed.embed_images(R, threads=threads), veritas_mm.pixel_features(R)
+    y, s, names = ing["labels"], ing["reference_split"], ing["class_names"]
+    with threadpool_limits(_mm_threads()):
+        P = veritas_mm.pixel_features(R)
         n_cal = int(s * IMAGE_CAL_FRACTION)
         Z = PCA(min(IMAGE_PCA_DIMS, s - 1), random_state=0).fit(E[:s]).transform(E)
         zs, ps = StandardScaler().fit(Z[n_cal:s]), StandardScaler().fit(P[n_cal:s])
@@ -180,19 +180,44 @@ def _orchestrate_images(zip_bytes: bytes, filename: str, owner_id: str, referenc
     leading = max(checks, key=lambda n: checks[n]["evidence"]) if verdict != "CLEAN" else None
     return {
         "verdict": verdict, "overall_suspicion_score": suspicion, "batch_evidence": round(out["batch_evidence"], 3),
-        "source": "image_upload", "detection_mode": "image", "n_samples": len(y) - s,
+        "source": source, "detection_mode": noun, "n_samples": len(y) - s,
         "checks": checks, "leading_check": leading,
         "attack_classification": {"attack_type": leading or "unknown", "classification_status": "check_based",
                                   "description": veritas_mm.CHECKS[leading] if leading else "The batch is not suspicious."},
-        "flagged_images": [{"file": ing["paths"][s + i], "class": names[y[s + i]] if ing["has_labels"] else None,
-                            "score": round(float(out["row_scores"][i]), 3), "check": out["row_check"][i]}
-                           for i in flagged[:MAX_REPORTED_ROWS]],
+        f"flagged_{noun}s": [{"file": ing["paths"][s + i], "class": names[y[s + i]] if ing["has_labels"] else None,
+                              "score": round(float(out["row_scores"][i]), 3), "check": out["row_check"][i]}
+                             for i in flagged[:MAX_REPORTED_ROWS]],
         "n_flagged": int(len(flagged)),
-        "dataset_info": {"dataset_id": ing["dataset_id"], "filename": filename, "n_images": ing["n_images"],
-                         "n_reference": s, "n_incoming": len(y) - s, "class_names": names, "has_labels": ing["has_labels"],
-                         "image_size": "32x32 RGB (resized)", "warnings": ing["warnings"], "created_at": ing["created_at"]},
+        "dataset_info": {"dataset_id": ing["dataset_id"], "filename": ing["filename"], f"n_{noun}s": len(y), "n_reference": s,
+                         "n_incoming": len(y) - s, "class_names": names, "has_labels": ing["has_labels"], **extra_info,
+                         "warnings": ing["warnings"], "created_at": ing["created_at"]},
         "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
     }
+
+
+def _orchestrate_images(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None) -> dict[str, Any]:
+    """Image zip -> veritas_mm result (blocking; runs in a background job)."""
+    from app.detection import image_embed
+    from app.ingestion.image_engine import ImageIngestionEngine
+
+    started = time.perf_counter()
+    ing = ImageIngestionEngine().ingest(zip_bytes, filename, reference_bytes)
+    E = image_embed.embed_images(ing["images"], threads=_mm_threads())
+    return _run_mm(ing["images"], E, ing, started, "image_upload", "image", {"image_size": "32x32 RGB (resized)"})
+
+
+def _orchestrate_audio(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None) -> dict[str, Any]:
+    """WAV zip -> veritas_mm on spectrogram images, HuBERT layer-6 embeddings for the label and shift checks."""
+    import torch
+    from app.detection import audio
+    from app.ingestion.audio_engine import RATE, AudioIngestionEngine
+
+    started = time.perf_counter()
+    ing = AudioIngestionEngine().ingest(zip_bytes, filename, reference_bytes)
+    torch.set_num_threads(_mm_threads())
+    E = audio.embed(ing["clips"], layers=(audio.EMBED_LAYER,))[audio.EMBED_LAYER]
+    return _run_mm(audio.spectrogram_images(ing["clips"]), E, ing, started, "audio_upload", "clip",
+                   {"clip_seconds": round(ing["clips"].shape[1] / RATE, 2), "view": "32x32 log-mel spectrogram"})
 
 
 SCAN_SCORE = {"DANGEROUS": 1.0, "REVIEW": 0.5}
