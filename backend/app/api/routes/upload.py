@@ -196,6 +196,21 @@ async def analyze_audio_zip(
     return await _submit_zip_job(request, file, reference_file, user, "audio_upload", "WAV files")
 
 
+@router.post("/analyze/video", status_code=202)
+async def analyze_video_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip of video files with one folder per class (jump/001.mp4, run/002.avi, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
+    user: dict = Depends(require_user),
+):
+    """Check a video dataset for poisoning (mp4, avi, mov, mkv, webm, mpg; decoded by ffmpeg, 8 frames per clip).
+    Background job: returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 clips."""
+    from app.detection import image_embed, video
+    if not image_embed.available() or not video.available():
+        raise HTTPException(status_code=501, detail="Video analysis is not installed on this server (ffmpeg and requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "video_upload", "videos")
+
+
 def _owned(result: dict | None, user: dict) -> dict | None:
     """A cached result is returned only to the user who made it (admins can read any)."""
     if result and (result.get("owner_id") == user["id"] or user.get("role") == "admin"):

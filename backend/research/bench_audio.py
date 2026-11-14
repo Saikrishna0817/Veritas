@@ -109,35 +109,40 @@ def jobs(m: dict):
             yield {"spec": spec, **prepare_batch(spec, ds, img, emb, pix)}
 
 
+def run(m: dict, jobs_fn, splits: list[str], label: str, kind: str, workers: int) -> None:
+    """Score prepared batches in a process pool and write results/<date>-benchmark-<kind>-<label>.{json,md}.
+    Shared with bench_video."""
+    m["datasets"] = {k: v for k, v in m["datasets"].items() if k in splits}
+    override = json.loads(os.getenv(f"VERITAS_{kind.upper()}_OVERRIDE", "{}"))   # dev studies only: never tune on test
+    if override:
+        assert "test" not in m["datasets"], "overrides are for dev studies; the test run uses the manifest as written"
+        m.update(override)
+    total, started, records = len(batch_specs(m)), time.perf_counter(), []
+    # Executor.map would prepare every batch before scoring the first; a small window keeps memory flat.
+    with ProcessPoolExecutor(workers) as pool:
+        pending = deque()
+        for job in jobs_fn(m):
+            pending.append(pool.submit(bench_mm.score_batch, job))
+            while len(pending) > 2 * workers or (pending and pending[0].done()):
+                records.append(pending.popleft().result())
+                if len(records) % 25 == 0:
+                    print(f"{len(records)}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
+        records += [f.result() for f in pending]
+    report = {"manifest": m, "label": label, "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
+              "summary": aggregate(records, m), "batches": records}
+    out = bench_mm.ROOT / "results" / f"{date.today().isoformat()}-benchmark-{kind}-{label}"
+    out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")
+    out.with_suffix(".md").write_text(to_markdown(report) + "\n")
+    print(out.with_suffix(".md"))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--label", required=True)
     parser.add_argument("--splits", nargs="+", required=True, help="dev for tuning, test once for the headline")
     args = parser.parse_args()
-    m = load_manifest()
-    m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
-    override = json.loads(os.getenv("VERITAS_AUDIO_OVERRIDE", "{}"))   # dev studies only: never tune on test
-    if override:
-        assert "test" not in m["datasets"], "overrides are for dev studies; the test run uses the manifest as written"
-        m.update(override)
-    total, started, records = len(batch_specs(m)), time.perf_counter(), []
-    # Executor.map would prepare every batch before scoring the first; a small window keeps memory flat.
-    with ProcessPoolExecutor(args.workers) as pool:
-        pending = deque()
-        for job in jobs(m):
-            pending.append(pool.submit(bench_mm.score_batch, job))
-            while len(pending) > 2 * args.workers or (pending and pending[0].done()):
-                records.append(pending.popleft().result())
-                if len(records) % 25 == 0:
-                    print(f"{len(records)}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
-        records += [f.result() for f in pending]
-    report = {"manifest": m, "label": args.label, "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
-              "summary": aggregate(records, m), "batches": records}
-    out = bench_mm.ROOT / "results" / f"{date.today().isoformat()}-benchmark-audio-{args.label}"
-    out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")
-    out.with_suffix(".md").write_text(to_markdown(report) + "\n")
-    print(out.with_suffix(".md"))
+    run(load_manifest(), jobs, args.splits, args.label, "audio", args.workers)
 
 
 if __name__ == "__main__":

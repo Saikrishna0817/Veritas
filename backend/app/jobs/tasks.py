@@ -78,7 +78,13 @@ def audio_upload(payload: dict, owner_id: str) -> dict:
     return _zip_job(payload, owner_id, _orchestrate_audio, "audio_upload", "clip")
 
 
+def video_upload(payload: dict, owner_id: str) -> dict:
+    from app.api.analysis_helpers import _orchestrate_video
+    return _zip_job(payload, owner_id, _orchestrate_video, "video_upload", "clip")
+
+
 TASKS["csv_upload"] = csv_upload
 TASKS["image_upload"] = image_upload
 TASKS["audio_upload"] = audio_upload
+TASKS["video_upload"] = video_upload
 TASKS["model_scan"] = model_scan

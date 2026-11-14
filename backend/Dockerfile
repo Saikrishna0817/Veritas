@@ -9,14 +9,15 @@ ENV OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Image and audio dataset analysis (POST /analyze/images, /analyze/audio): CPU-only torch plus the ResNet-18 and
-# HuBERT-base weights, fetched at build time so
+# Image, audio and video dataset analysis (POST /analyze/images, /audio, /video): ffmpeg, CPU-only torch plus the
+# ResNet-18 and HuBERT-base weights, fetched at build time so
 # the server never downloads them. Build with --build-arg WITH_IMAGES=0 for a CSV-only image (~1 GB smaller).
 ARG WITH_IMAGES=1
 ENV TORCH_HOME=/opt/torch
 COPY requirements-images.txt /app/requirements-images.txt
 RUN if [ "$WITH_IMAGES" = "1" ]; then \
-        pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.15.0 torchvision==0.29.2 torchaudio==2.11.1 \
+        apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/* \
+        && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.15.0 torchvision==0.29.2 torchaudio==2.11.1 \
         && pip install --no-cache-dir pillow==13.0.0 \
         && python -c "import torchvision; torchvision.models.resnet18(weights='IMAGENET1K_V1')" \
         && python -c "import torchaudio; torchaudio.pipelines.HUBERT_BASE.get_model()"; \

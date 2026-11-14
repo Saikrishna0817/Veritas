@@ -31,7 +31,7 @@ def _decode_image(raw: bytes) -> np.ndarray:
 
 
 def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS, decode=_decode_image,
-              noun: str = "image") -> list[tuple[str, str, np.ndarray]]:
+              noun: str = "image", max_file: int = MAX_FILE) -> list[tuple[str, str, np.ndarray]]:
     """[(path, class name, decoded)] in path order. Unreadable or unsafe members are skipped and counted."""
     try:
         zf = zipfile.ZipFile(io.BytesIO(data))
@@ -45,7 +45,7 @@ def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS
         path = PurePosixPath(m.filename.replace("\\", "/"))
         if any(p.startswith(".") or p == "__MACOSX" for p in path.parts) or path.suffix.lower() not in extensions:
             continue                                   # system files and non-images are not counted as skipped
-        if m.file_size > MAX_FILE:
+        if m.file_size > max_file:
             skipped += 1
             continue
         total += m.file_size
@@ -58,16 +58,17 @@ def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS
             continue
         images.append((str(path), path.parent.name if len(path.parts) > 1 else "", arr))
     if skipped:
-        warnings.append(f"Skipped {skipped} {noun}(s) in the {what} that could not be read or were over {MAX_FILE >> 20} MB.")
+        warnings.append(f"Skipped {skipped} {noun}(s) in the {what} that could not be read or were over {max_file >> 20} MB.")
     return images
 
 
-def ingest_zip(zip_bytes: bytes, filename: str, reference_bytes: bytes | None, extensions, decode, noun: str, stack) -> dict:
+def ingest_zip(zip_bytes: bytes, filename: str, reference_bytes: bytes | None, extensions, decode, noun: str, stack,
+               max_file: int = MAX_FILE) -> dict:
     """Class-folder zip (plus an optional reference zip) -> stacked items, integer labels, reference split. Shared by
     the image and audio engines; ``stack`` turns the decoded list into one array."""
     warnings: list[str] = []
-    main = _read_zip(zip_bytes, "zip file", warnings, extensions, decode, noun)
-    ref = _read_zip(reference_bytes, "reference zip", warnings, extensions, decode, noun) if reference_bytes is not None else None
+    main = _read_zip(zip_bytes, "zip file", warnings, extensions, decode, noun, max_file)
+    ref = _read_zip(reference_bytes, "reference zip", warnings, extensions, decode, noun, max_file) if reference_bytes is not None else None
     rng = np.random.default_rng(0)
     if ref is None:
         # Images have no natural order (zips list them class by class), so the reference is a random, per-class

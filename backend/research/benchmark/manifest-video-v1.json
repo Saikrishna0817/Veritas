@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "veritas-video-poisoning-v1",
+  "created_at": "2026-11-14",
+  "immutable": true,
+  "random_seed": 20261115,
+  "source": "UCF-101 (Soomro et al. 2012) via the Hugging Face mirror MichiganNLP/ucf-101 (UCF101.zip, ZIP repack of the official RAR); official split 1 (groups separate dev and test). 8 frames per clip at 64x64; ResNet-18 ImageNet embedding averaged over frames; pixel and shared-pattern checks on a 2x2 mosaic of 4 frames (32x32). Attacks on decoded frames.",
+  "reference_fraction": 0.6,
+  "calibration_fraction_of_reference": 0.3,
+  "batch_rows": 3000,
+  "pca_dims": 32,
+  "datasets": {
+    "dev": [
+      {
+        "data_id": "ucf101"
+      }
+    ],
+    "test": [
+      {
+        "data_id": "ucf101",
+        "batch_rows": 3000
+      }
+    ]
+  },
+  "attacks": [
+    "label_flip_random",
+    "label_flip_targeted",
+    "patch_backdoor",
+    "blended_backdoor",
+    "clean_label_backdoor",
+    "duplicate_flood",
+    "class_noise"
+  ],
+  "poison_rates": [
+    0.01,
+    0.03,
+    0.05,
+    0.1
+  ],
+  "seeds": 5,
+  "clean_batches_per_seed": 24,
+  "detectors": [
+    "veritas_mm",
+    "mm_label",
+    "mm_shift",
+    "mm_pixel",
+    "mm_dup",
+    "mm_cell",
+    "mm_resid",
+    "mm_chroma"
+  ],
+  "metrics": {
+    "row": [
+      "auroc",
+      "auprc",
+      "precision_at_k"
+    ],
+    "batch": {
+      "tpr_at_clean_fpr": 0.05,
+      "tail_quantile": 0.99
+    },
+    "ci": {
+      "method": "cluster bootstrap over datasets",
+      "resamples": 1000,
+      "level": 0.95
+    }
+  },
+  "policy": "Tune only on the dev split (trainlist01 groups); the test split (testlist01 groups) is the headline. Never edit this file in place: create a new benchmark_id for any change.",
+  "sha256": {
+    "UCF101.zip": "e84a281c4033058e12a73db6b937be7a663bc677a96b0bfdaca253312f9c2258",
+    "UCF101TrainTestSplits-RecognitionTask.zip (official crcv.ucf.edu and mirror, identical)": "5c0d1a53b8ed364a2ac830a73f405e51bece7d98ce1254fd19ed4a36b224bd27"
+  }
+}

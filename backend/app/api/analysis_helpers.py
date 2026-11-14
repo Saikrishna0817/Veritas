@@ -220,6 +220,19 @@ def _orchestrate_audio(zip_bytes: bytes, filename: str, owner_id: str, reference
                    {"clip_seconds": round(ing["clips"].shape[1] / RATE, 2), "view": "32x32 log-mel spectrogram"})
 
 
+def _orchestrate_video(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None) -> dict[str, Any]:
+    """Video zip -> veritas_mm on the temporal mean of the frames, mean ResNet-18 frame embedding for the label and
+    shift checks (manifest-video-v2, chosen on dev)."""
+    from app.detection import video
+    from app.ingestion.video_engine import VideoIngestionEngine
+
+    started = time.perf_counter()
+    ing = VideoIngestionEngine().ingest(zip_bytes, filename, reference_bytes)
+    E = video.embed_clips(ing["frames"], threads=_mm_threads())
+    return _run_mm(video.temporal_mean(ing["frames"]), E, ing, started, "video_upload", "clip",
+                   {"view": f"{video.N_FRAMES} frames at {video.FRAME_SIZE}x{video.FRAME_SIZE}; their 32x32 mean for the pixel checks"})
+
+
 SCAN_SCORE = {"DANGEROUS": 1.0, "REVIEW": 0.5}
 
 

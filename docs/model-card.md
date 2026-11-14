@@ -68,6 +68,14 @@ runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for th
 0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. Clean-label audio
 triggers are not detected.
 
+## Video-data check
+
+`POST /analyze/video` takes a zip of video files in class folders. ffmpeg decodes 8 frames per clip; the image detector
+runs on the frames' temporal mean, with the mean ResNet-18 frame embedding for the label and shift checks. Held-out
+(UCF-101 testlist01 groups; docs/video-benchmark-findings.md): mean row AUPRC 0.53 at 1% and 0.75 at 5%; 46% / 86% of
+attacked batches flagged; clean batches flagged 4.2% at LOW_RISK, 2.5% at SUSPICIOUS (nominal 1%). Clean-label video
+triggers are not detected, and only static every-frame triggers were tested.
+
 ## Model-file scanner
 
 Abstract pickle machine over the opcode stream (no import, no execution), deny list plus safe list plus
@@ -89,7 +97,7 @@ post-fix 339/339 is no longer a held-out number.
 - **Weakest attacks at 1%:** covariate shift (row AUPRC 0.18; 0.61 at 5%) and feature collision (0.39).
 - **Attack profile** names the closest of six known attacks; an attack of another kind will be given one of those names.
 - **Data types:** tables (numeric and categorical columns, up to 200,000 rows validated) and labelled images (up to
-  6,000 per check) and audio clips (PCM WAV, up to 6,000, at most 10 s used). Not video or free text yet.
+  6,000 per check) audio clips (PCM WAV, up to 6,000, at most 10 s used) and video clips (8 frames each, up to 6,000). Not free text yet.
 - **Images are checked at 32x32.** A trigger smaller than about 1/32 of the image side can vanish in the resize. Image
   results name the leading check, not an attack type; label flips at 1% are the weakest case (20% of batches flagged).
   Without a reference zip the reference is a random 70% of each class, so poison anywhere in the zip also lands in it.
