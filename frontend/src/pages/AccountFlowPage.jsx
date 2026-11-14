@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import Brand from '../components/Brand';
 
 const COPY = {
   signup: { title: 'Create your account', cta: 'Create account' },
@@ -8,8 +9,6 @@ const COPY = {
   forgot: { title: 'Reset your password', cta: 'Send reset link' },
   reset: { title: 'Choose a new password', cta: 'Change password' },
 };
-
-const input = 'w-full rounded-xl p-3 bg-black/40 border border-white/10 text-white';
 
 /** Public account pages: sign-up, email confirmation, forgot password, reset password. */
 export default function AccountFlowPage({ mode }) {
@@ -45,24 +44,25 @@ export default function AccountFlowPage({ mode }) {
 
   const copy = COPY[mode];
   return (
-    <main className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: 'var(--bg-void)' }}>
-      <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-[24px] p-10" style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(19,19,22,0.85)' }}>
-        <h1 className="text-2xl font-bold text-white m-0">{copy.title}</h1>
-        {mode === 'signup' && <input className={input} placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" />}
-        {(mode === 'signup' || mode === 'forgot') && <input className={input} type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />}
-        {(mode === 'signup' || mode === 'reset') && (
-          <input className={input} type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" />
-        )}
-        {error && <div className="text-red-400 text-sm font-bold" role="alert">{error}</div>}
-        {message && <div className="text-green-400 text-sm font-bold" role="status">{message}</div>}
-        {mode !== 'verify' && !message && (
-          <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-redPrimary text-white font-bold disabled:opacity-50">{busy ? 'Please wait…' : copy.cta}</button>
-        )}
-        <div className="text-sm text-gray-400 flex justify-between">
-          <Link to="/login" className="text-gray-300">Sign in</Link>
-          {mode !== 'signup' ? <Link to="/signup" className="text-gray-300">Create account</Link> : <Link to="/forgot-password" className="text-gray-300">Forgot password?</Link>}
+    <main className="instrument in-auth">
+      <div className="in-auth-box">
+        <Brand />
+        <h1 className="in-h2">{copy.title}</h1>
+        <form className="in-auth-form" onSubmit={submit}>
+          {mode === 'signup' && <label>Username<input className="in-input" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" /></label>}
+          {(mode === 'signup' || mode === 'forgot') && <label>Email<input className="in-input" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" /></label>}
+          {(mode === 'signup' || mode === 'reset') && (
+            <label>Password<input className="in-input" type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" /></label>
+          )}
+          {error && <p className="in-error" role="alert" style={{ margin: 0 }}>{error}</p>}
+          {message && <p className="in-ok" role="status" style={{ margin: 0 }}>{message}</p>}
+          {mode !== 'verify' && !message && <button className="in-btn" type="submit" disabled={busy}>{busy ? 'Please wait…' : copy.cta}</button>}
+        </form>
+        <div className="in-auth-alt">
+          <Link to="/login" className="in-link-text">Sign in</Link>
+          {mode !== 'signup' ? <Link to="/signup" className="in-link-text">Create an account</Link> : <Link to="/forgot-password" className="in-link-text">Forgot your password?</Link>}
         </div>
-      </form>
+      </div>
     </main>
   );
 }

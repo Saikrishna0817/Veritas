@@ -29,9 +29,31 @@
   font-family: var(--font-ui);
   font-size: 15px;
   line-height: 1.55;
-  min-height: calc(100vh - 120px);
-  padding: 48px 24px 96px;
+  min-height: 100vh;
 }
+
+/* The light app drops the old dark frame around #root (App sets body.light outside the admin console). */
+body.light { background: oklch(0.975 0.004 200); padding: 0; }
+body.light #root { background: transparent; border-radius: 0; min-height: 100vh; }
+
+.in-main { padding: 44px 24px 96px; }
+.in-shell { display: flex; flex-direction: column; min-height: 100vh; }
+.in-shell > .in-content { flex: 1; }
+
+/* ── App navigation ───────────────────────────────────────── */
+.in-nav { position: sticky; top: 0; z-index: 40; background: var(--sheet); border-bottom: 1px solid var(--rule); }
+.in-nav-inner { max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 28px; }
+.in-brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 9px; }
+.in-brand-mark { width: 12px; height: 22px; border-radius: 3px; background: var(--ink); box-shadow: 5px 0 0 var(--accent); margin-right: 6px; }
+.in-links { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
+.in-link { padding: 7px 12px; border-radius: 7px; color: var(--ink-2); text-decoration: none; font-weight: 500; white-space: nowrap; }
+.in-link:hover { color: var(--ink); background: var(--rule-soft); }
+.in-link.active { color: var(--ink); background: var(--accent-wash); }
+.in-link:focus-visible, .in-brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.in-user { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 14px; white-space: nowrap; }
+.in-footer { border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 13.5px; }
+.in-footer-inner { max-width: 1080px; margin: 0 auto; padding: 22px 24px 28px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; }
+.in-footer a { color: var(--ink-2); }
 
 .instrument * { box-sizing: border-box; }
 .in-page { max-width: 1080px; margin: 0 auto; }
@@ -101,6 +123,8 @@
 .in-gauge[data-v="LOW_RISK"] { background: var(--ev-1); }
 .in-gauge[data-v="SUSPICIOUS"] { background: var(--ev-2); }
 .in-gauge[data-v="CONFIRMED_POISONED"] { background: var(--ev-3); }
+.in-gauge[data-v="DANGEROUS"] { background: var(--ev-3); }
+.in-gauge[data-v="REVIEW"] { background: var(--ev-2); }
 .in-verdict-title { font-size: 28px; line-height: 1.2; font-weight: 600; letter-spacing: -0.012em; margin: 0; }
 .in-verdict-note { color: var(--ink-2); max-width: 70ch; margin: 6px 0 0; }
 .in-facts { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 16px 0 0; padding: 0; list-style: none; color: var(--ink-2); font-size: 14px; }
@@ -147,14 +171,19 @@
 .in-cell b { font-weight: 600; font-family: var(--font-ui); }
 .in-cell em { font-style: normal; font-family: var(--font-num); color: var(--ink); background: var(--ev-wash); padding: 0 5px; border-radius: 4px; }
 .in-cell small { color: var(--ink-3); font-family: var(--font-num); font-size: 12px; }
-.in-path { font-family: var(--font-num); font-size: 13.5px; word-break: break-all; }
+.in-path { font-family: var(--font-num); font-size: 13.5px; overflow-wrap: anywhere; }
+.in-table .in-path { overflow-wrap: normal; white-space: nowrap; }   /* tables scroll sideways on phones instead */
 .in-tag { font-size: 12.5px; color: var(--ink-2); }
 .in-table-foot { display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 12px; color: var(--ink-3); font-size: 13.5px; }
 .in-empty { color: var(--ink-2); max-width: 70ch; }
 .in-notes { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; display: grid; gap: 4px; max-width: 80ch; }
 
 @media (max-width: 720px) {
-  .instrument { padding: 28px 16px 72px; }
+  .in-main { padding: 28px 16px 72px; }
+  .in-nav-inner { padding: 10px 16px 6px; gap: 6px 14px; height: auto; flex-wrap: wrap; justify-content: space-between; }
+  .in-links { order: 3; flex-basis: 100%; margin: 0 -12px; }
+  .in-table { min-width: 560px; }
+  .in-user span { display: none; }
   .in-h1 { font-size: 27px; }
   .in-verdict-title { font-size: 22px; }
   .in-meter, .in-scale-head { grid-template-columns: 1fr 56px; }
@@ -163,6 +192,51 @@
   .in-profile { grid-template-columns: 1fr; }
   .in-prob { grid-template-columns: 1fr 1fr 44px; }
   .in-tick-label[data-x="2"] { display: none; }   /* too close to 1/20 at phone width */
+}
+
+/* ── Lists, summaries, simple pages ───────────────────────── */
+.in-link-text { color: var(--accent-strong); font-weight: 500; text-decoration: none; }
+.in-link-text:hover { text-decoration: underline; }
+.in-row-link { cursor: pointer; }
+.in-row-link:hover td { background: var(--accent-wash); }
+.in-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; white-space: nowrap; }
+.in-chip::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--ev-0); }
+.in-chip[data-v="LOW_RISK"]::before { background: var(--ev-1); }
+.in-chip[data-v="SUSPICIOUS"]::before { background: var(--ev-2); }
+.in-chip[data-v="CONFIRMED_POISONED"]::before, .in-chip[data-v="DANGEROUS"]::before { background: var(--ev-3); }
+.in-chip[data-v="REVIEW"]::before { background: var(--ev-2); }
+.in-latest { display: grid; gap: 0; border-top: 1px solid var(--rule); }
+.in-latest-row { display: grid; grid-template-columns: 110px 1fr auto; gap: 18px; align-items: baseline; padding: 16px 0; border-bottom: 1px solid var(--rule-soft); }
+.in-latest-row .in-tag { font-weight: 600; color: var(--ink); font-size: 14px; }
+.in-filter { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.in-pill { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink-2); cursor: pointer; }
+.in-pill[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.in-back { display: inline-block; margin-bottom: 18px; }
+.in-prose { max-width: 70ch; color: var(--ink-2); }
+.in-prose p { margin: 0 0 12px; }
+.in-steps-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 75ch; }
+.in-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 28px; }
+
+/* ── Sign-in pages ────────────────────────────────────────── */
+.in-auth { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; }
+.in-auth-box { width: 100%; max-width: 400px; }
+.in-auth-box .in-brand { margin-bottom: 28px; }
+.in-auth-form { display: grid; gap: 14px; margin-top: 22px; }
+.in-auth-form label { display: grid; gap: 6px; font-weight: 500; font-size: 14px; }
+.in-auth-form .in-input { min-width: 0; width: 100%; font-family: var(--font-ui); font-size: 15px; padding: 10px 12px; }
+.in-auth-alt { margin-top: 20px; color: var(--ink-2); font-size: 14px; display: grid; gap: 6px; }
+.in-ok { color: var(--accent-strong); font-weight: 500; }
+
+@media (max-width: 720px) {
+  .in-latest-row { grid-template-columns: 1fr auto; }
+  .in-latest-row > :nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+}
+
+@media print {
+  body.light { background: white; }
+  .in-nav, .in-footer, .in-actions, .in-back, select { display: none !important; }
+  .in-main { padding: 0; }
+  .in-table-wrap { overflow: visible; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,271 +1,58 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
-import Marquee from 'react-fast-marquee';
-import { Line, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ComposedChart
-} from 'recharts';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import { ChevronRight, Loader, BrainCircuit, FileText, ShieldAlert, User } from 'lucide-react';
-// three.js is ~1 MB; load the decorative hero after the page is interactive.
-const Tactile3DHero = lazy(() => import('../components/Tactile3DHero'));
+import { KINDS, KIND_OF_SOURCE, fmt } from '../components/results';
 
-// ── Sub-components for Metrics ────────────────────────────────────────────────
+const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence of poisoning', SUSPICIOUS: 'Evidence of poisoning', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence found' };
 
-function MetricCard({ label, value, unit = '', color = 'var(--red-primary)', sublabel }) {
-  return (
-    <div className="bg-bgPanel p-5 relative overflow-hidden rounded-[20px] border border-borderHairline group hover:bg-bgPanelRaised transition-colors">
-      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: color }} />
-      <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-2">{label}</div>
-      <div className="text-[40px] font-mono font-extrabold tracking-tight text-textPrimary flex items-baseline gap-1">
-        <span style={{ color }}>{value}</span>
-        {unit && <span className="text-sm text-textMuted font-normal">{unit}</span>}
-      </div>
-      {sublabel && <div className="text-xs text-textMuted mt-1.5 font-medium">{sublabel}</div>}
-    </div>
-  );
-}
-
-// ── Expandable Feature Cards (How SPECTRA Helps) ─────────────────────────────
-
-const features = [
-  {
-    id: 'f1',
-    title: 'Audit Datasets, Scan Model Files',
-    desc: 'Check a dataset for wrong labels and shifted rows, or scan a model file to see whether loading it can run code.',
-    icon: <BrainCircuit className="w-8 h-8 text-white" />,
-  },
-  {
-    id: 'f2',
-    title: 'Analyst Evidence Summaries',
-    desc: 'Export a JSON summary of layer scores, verdict, and limitations. Experimental analyst support — not a certification or legal evidence package.',
-    icon: <FileText className="w-8 h-8 text-white" />,
-  },
-  {
-    id: 'f3',
-    title: 'Blue Team Review Workflow',
-    desc: 'Review the latest analysis, queue human-in-the-loop decisions, and optionally run an explicit synthetic demo. Not a live 24/7 SOC feed.',
-    icon: <ShieldAlert className="w-8 h-8 text-white" />,
-  },
-];
-
-function ExpandableFeatures() {
-  const [expandedId, setExpandedId] = useState('f2');
-
-  return (
-    <div className="flex flex-col md:flex-row gap-4 w-full h-80">
-      {features.map((feat) => {
-        const isExpanded = expandedId === feat.id;
-        return (
-          <motion.div
-            key={feat.id}
-            layout
-            onClick={() => setExpandedId(feat.id)}
-            className={`cursor-pointer rounded-[20px] overflow-hidden p-6 relative border border-borderHairline flex flex-col justify-end
-              ${isExpanded ? 'bg-redDim/20 border-redPrimary/30 flex-[3]' : 'bg-bgPanel text-textPrimary flex-1 hover:bg-bgPanelRaised'}
-            `}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          >
-            <motion.div layout="position" className="mb-4 w-12 h-12 rounded-[10px] border border-borderHairline flex items-center justify-center bg-redPrimary">
-              {feat.icon}
-            </motion.div>
-            <motion.h3 layout="position" className="text-xl font-display font-bold tracking-tight mb-2 whitespace-nowrap text-textPrimary">
-              {feat.title}
-            </motion.h3>
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.p
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="text-textSecondary text-[18px] leading-relaxed"
-                >
-                  {feat.desc}
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Main Dashboard ────────────────────────────────────────────────────────────
-
-export default function Dashboard({ wsEvents = [] }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [trustScore, setTrustScore] = useState(null);
-  const [timeline, setTimeline] = useState([]);
-  const [loading, setLoading] = useState(false);
+export default function Dashboard() {
+  const [latest, setLatest] = useState(null);
   const [error, setError] = useState(null);
-  const [analystMode, setAnalystMode] = useState(false);
-
   useEffect(() => {
-    if (user?.role === 'admin') {
-      navigate('/admin', { replace: true });
-    }
-  }, [user, navigate]);
-
-  useEffect(() => {
-    api.getTrustScore().then(setTrustScore).catch(() => {});
-    api.getAttackTimeline().then((d) => setTimeline(d.timeline || [])).catch(() => {});
+    api.getAnalysisHistory(200).then((d) => {
+      const byKind = {};
+      for (const r of d.results || []) {
+        const k = KIND_OF_SOURCE[r.source];
+        if (k && !byKind[k]) byKind[k] = r;        // rows arrive newest first
+      }
+      setLatest(byKind);
+    }).catch((e) => setError(e.message));
   }, []);
-
-  useEffect(() => {
-    if (wsEvents.some((e) => e.event === 'attack_confirmed')) {
-      api.getTrustScore().then(setTrustScore).catch(() => {});
-    }
-  }, [wsEvents]);
-
-  const handleRunDemo = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.runDemo();
-      const ts = await api.getTrustScore();
-      setTrustScore(ts);
-      setTimeline(result.timeline || []);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="w-full">
-      {/* ── 1. Hero Section (Dark Theme) ────────────────────────────────────── */}
-      <section className="bg-transparent pt-16 pb-12 px-6 md:px-12 rounded-t-[28px]" style={{ overflow: 'visible' }}>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-0 items-center" style={{ overflow: 'visible', position: 'relative' }}>
-          <div className="space-y-6 relative z-10 py-12">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-redPrimary/10 border border-redPrimary/30 text-redBright font-mono text-xs font-bold tracking-wider uppercase">
-              <User className="w-3.5 h-3.5" /> USER DASHBOARD
-            </div>
-            <h1 className="text-[80px] md:text-[96px] font-display font-bold tracking-tighter text-textPrimary leading-[1.05]">
-              Uncompromising<br/>
-              <span className="text-redPrimary border-b-[4px] border-redPrimary">AI Security.</span>
-            </h1>
+    <main className="in-main"><div className="in-page">
+      <h1 className="in-h1">Overview</h1>
+      <p className="in-lede">Check a dataset before you train on it. Veritas compares it with a reference you trust and lists the rows or files that look poisoned.</p>
+      <Link to="/upload" className="in-btn" style={{ display: 'inline-block', textDecoration: 'none' }}>Check data</Link>
 
-            <p className="text-[18px] md:text-[19px] text-textSecondary max-w-lg leading-relaxed">
-              SPECTRA/VERITAS provides enterprise-grade data poisoning detection, proxy impact analysis, and continuous model security.
-            </p>
-            <div className="flex items-center gap-6">
-              <button
-                onClick={handleRunDemo}
-                disabled={loading}
-                className="group flex items-center justify-center gap-2 bg-redPrimary text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-redBright hover:shadow-red-glow transition-all disabled:opacity-50"
-              >
-                {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Run Demo'}
-                {!loading && <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />}
-              </button>
-              
-              {/* Analyst Mode Toggle */}
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative">
-                  <input type="checkbox" className="sr-only" checked={analystMode} onChange={() => setAnalystMode(!analystMode)} />
-                  <div className={`block w-14 h-8 rounded-full transition-colors ${analystMode ? 'bg-redPrimary' : 'bg-bgPanelRaised'}`}></div>
-                  <div className={`dot absolute left-1 top-1 w-6 h-6 rounded-full transition-transform ${analystMode ? 'transform translate-x-6 bg-white' : 'bg-textSecondary'}`}></div>
+      <section className="in-section" style={{ marginTop: 40 }}>
+        <h2 className="in-h2">Latest result for each data type</h2>
+        <p className="in-sub">Open one for its evidence and the items to review. <Link to="/history" className="in-link-text">All analyses</Link></p>
+        {error && <p className="in-error" role="alert">{error}</p>}
+        {latest && (
+          <div className="in-latest">
+            {Object.entries(KINDS).map(([k, spec]) => {
+              const r = latest[k];
+              return (
+                <div key={k} className="in-latest-row">
+                  <span className="in-tag">{spec.label}</span>
+                  {r ? <span><span className="in-path">{r.filename}</span> <span className="in-hint">· {fmt(r.n_samples)} incoming {spec.noun} · {new Date(r.created_at).toLocaleDateString()}</span></span>
+                     : <span className="in-hint">Not checked yet</span>}
+                  {r ? <Link to={`/history/${r.id}`} className="in-chip in-link-text" data-v={r.verdict}>{VERDICT_WORDS[r.verdict] || r.verdict}</Link>
+                     : <Link to="/upload" className="in-link-text">Check {spec.label.toLowerCase()}</Link>}
                 </div>
-                <div className="text-sm font-bold text-textPrimary group-hover:text-redPrimary transition-colors">
-                  Analyst Mode
-                </div>
-              </label>
-            </div>
+              );
+            })}
           </div>
-          
-          {/* 3D Animation — absolutely positioned, oversized so rings are never clipped */}
-          <div style={{
-            position: 'absolute',
-            right: '-15%',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            width: '75vw',
-            height: '900px',
-            maxWidth: '1000px',
-            overflow: 'visible',
-            pointerEvents: 'none',
-            zIndex: 0
-          }}>
-             <Suspense fallback={null}><Tactile3DHero intensity={analystMode ? 2.0 : 0.5} /></Suspense>
-          </div>
+        )}
+      </section>
+
+      <section className="in-section">
+        <h2 className="in-h2">What a result means</h2>
+        <div className="in-prose">
+          <p>A verdict is a false-alarm level measured against your reference, not proof. “Evidence of poisoning” means one clean dataset in a hundred would look at least this unusual.</p>
+          <p>Every check was measured on held-out public datasets before it shipped; <Link to="/benchmarks" className="in-link-text">see how well each data type does</Link>, including what it misses.</p>
         </div>
       </section>
-
-      {/* ── 2. How Can SPECTRA Help? (Dark Theme) ─────────────────────────────── */}
-      <section className="bg-bgVoid py-24 px-6 md:px-12 text-textPrimary">
-        <div className="max-w-7xl mx-auto space-y-12">
-          <div className="flex justify-between items-end">
-            <h2 className="text-[56px] md:text-[64px] font-display font-bold tracking-tight max-w-lg leading-tight">
-              How Can SPECTRA Help?
-            </h2>
-            <p className="text-[18px] text-textSecondary max-w-sm text-right hidden md:block">
-              Interactive threat modeling and live detection tools designed for advanced security operations.
-            </p>
-          </div>
-          
-          <ExpandableFeatures />
-        </div>
-      </section>
-
-      {/* ── 3. Our Partners (Dark Theme Marquee) ──────────────────────────────── */}
-      <section className="bg-bgVoid border-t border-borderHairline py-12 overflow-hidden">
-        <Marquee speed={40} gradient={true} gradientColor={[0, 0, 0]} gradientWidth={100} autoFill>
-          {['NIST AI RMF', 'EU AI Act', 'MITRE ATLAS', 'ISO/IEC 42001', 'OWASP Top 10 for LLMs'].map((partner, i) => (
-            <div key={i} className="mx-12 text-xl font-bold tracking-wider text-textMuted uppercase hover:text-textPrimary transition-colors duration-300">
-              {partner}
-            </div>
-          ))}
-        </Marquee>
-      </section>
-
-      {/* ── 4. Dashboard Metrics (Dark Theme) ─────────────────────────────────── */}
-      <section className="bg-bgSurface py-16 px-6 md:px-12 rounded-b-[28px] border-t border-borderHairline">
-         <div className="max-w-7xl mx-auto space-y-8">
-            <h3 className="text-[56px] font-display font-bold text-textPrimary tracking-tight">Latest analysis</h3>
-            
-            {error && (
-              <div className="p-4 bg-redDim border border-redPrimary text-textPrimary text-[18px] font-mono rounded-xl shadow-red-glow">
-                ⚠️ Connection Error: {error}
-              </div>
-            )}
-
-            {trustScore && trustScore.data_source === 'none' && (
-              <div className="bg-bgPanel border border-borderHairline rounded-[20px] p-8 space-y-3">
-                <div className="font-mono text-xs text-textMuted uppercase tracking-widest">No analysis yet</div>
-                <p className="text-textSecondary">Upload a CSV or analyse a real dataset. Scores stay blank until then.</p>
-              </div>
-            )}
-            {trustScore && trustScore.has_analysis && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <MetricCard label="Verdict" value={(trustScore.verdict || '—').replace(/_/g, ' ')} color="var(--red-primary)" sublabel={trustScore.data_source} />
-                <MetricCard label="Poison Risk" value={trustScore.poison_risk} unit="%" color="var(--red-primary)" />
-                <MetricCard label="Flagged Rows" value={trustScore.flagged_rows} color="var(--status-warn)" />
-                <MetricCard label="Likely Attack" value={trustScore.likely_attack ? trustScore.likely_attack.label : 'none named'} color="var(--status-safe)"
-                  sublabel={trustScore.likely_attack ? `${Math.round(trustScore.likely_attack.probability * 100)}% probability` : 'batch not suspicious'} />
-              </div>
-            )}
-
-            {timeline.length > 0 && (
-              <div className="bg-bgPanel p-6 lg:p-8 rounded-[20px] border border-borderHairline mt-8 hover:bg-bgPanelRaised transition-colors">
-                <div className="text-[13px] font-bold tracking-[0.15em] text-textMuted mb-6">Threat Timeline Analysis</div>
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={timeline.slice(-24)} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="timestamp" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} tickFormatter={(v) => v.slice(11, 16)} />
-                    <YAxis yAxisId="left" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} domain={[0.7, 1.0]} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fill: 'var(--text-muted)', fontSize: 13, fontFamily: 'JetBrains Mono' }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'var(--bg-panel)', borderColor: 'var(--border-hairline)', borderRadius: '12px' }} />
-                    <Bar yAxisId="right" dataKey="poison_count" fill="var(--red-glow)" stroke="var(--red-primary)" name="Poison Count" radius={[4, 4, 0, 0]} />
-                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="var(--status-safe)" strokeWidth={2.5} dot={false} name="Accuracy" />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-         </div>
-      </section>
-    </div>
+    </div></main>
   );
 }

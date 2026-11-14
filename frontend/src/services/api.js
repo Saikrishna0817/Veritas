@@ -54,20 +54,6 @@ async function downloadFile(path, filename) {
     URL.revokeObjectURL(url);
 }
 
-export function createWebSocket(onMessage) {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // The browser sends the session cookie with the handshake; the server also checks the Origin header.
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/v1/detection-stream`);
-    ws.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            if (onMessage) onMessage(data);
-        } catch {
-            // ignore
-        }
-    };
-    return ws;
-}
 
 export const api = {
 
