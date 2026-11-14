@@ -1,5 +1,8 @@
-"""Worker process:  python -m app.jobs.worker   (needs VERITAS_REDIS_URL, the same database and the same storage as the API)."""
+"""Worker process:  python -m app.jobs.worker   (needs VERITAS_REDIS_URL, the same database and the same storage as the API).
+VERITAS_WORKER_QUEUES picks the queues (comma-separated, default "veritas"); the isolated media worker runs
+"veritas-untrusted" (see app.jobs.queue.UNTRUSTED_JOBS and docker-compose.yml)."""
 import logging
+import os
 
 import redis
 from rq import Queue, Worker
@@ -16,7 +19,8 @@ def main() -> None:
         raise SystemExit("VERITAS_REDIS_URL is not set")
     db.init_db()
     conn = redis.Redis.from_url(settings.redis_url)
-    Worker([Queue(QUEUE_NAME, connection=conn)], connection=conn).work()
+    names = [q.strip() for q in os.getenv("VERITAS_WORKER_QUEUES", QUEUE_NAME).split(",") if q.strip()]
+    Worker([Queue(n, connection=conn) for n in names], connection=conn).work()
 
 
 if __name__ == "__main__":

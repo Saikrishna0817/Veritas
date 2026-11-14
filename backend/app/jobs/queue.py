@@ -15,6 +15,10 @@ from app.models import database as db
 
 logger = logging.getLogger(__name__)
 QUEUE_NAME = "veritas"
+# Jobs that parse untrusted binary files (images, audio, video through ffmpeg, model files) go to their own queue, so
+# only the isolated worker-media container (no internet, read-only filesystem, capped resources) ever runs them.
+UNTRUSTED_QUEUE = "veritas-untrusted"
+UNTRUSTED_JOBS = {"image_upload", "audio_upload", "video_upload", "model_scan"}
 JOB_TIMEOUT = 1800                       # seconds a job may run (the RQ timeout)
 STALE_AFTER = {"running": JOB_TIMEOUT + 300, "queued": 6 * 3600}   # then its worker is presumed gone
 
@@ -53,20 +57,21 @@ def execute(job_id: str) -> None:
 class JobQueue:
     def __init__(self, max_workers: int = 2) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="analysis-job")
-        self._rq = None
+        self._rq: dict = {}
 
-    def _redis_queue(self):
-        if self._rq is None:
+    def _redis_queue(self, job_type: str):
+        name = UNTRUSTED_QUEUE if job_type in UNTRUSTED_JOBS else QUEUE_NAME
+        if name not in self._rq:
             import redis
             from rq import Queue
-            self._rq = Queue(QUEUE_NAME, connection=redis.Redis.from_url(settings.redis_url), default_timeout=JOB_TIMEOUT)
-        return self._rq
+            self._rq[name] = Queue(name, connection=redis.Redis.from_url(settings.redis_url), default_timeout=JOB_TIMEOUT)
+        return self._rq[name]
 
     def submit(self, job_type: str, payload: dict, owner_id: str) -> str:
         job_id = str(uuid.uuid4())
         db.create_job(job_id, job_type, owner_id, payload)
         if settings.redis_url:
-            self._redis_queue().enqueue("app.jobs.queue.execute", job_id, job_timeout=JOB_TIMEOUT, result_ttl=0)
+            self._redis_queue(job_type).enqueue("app.jobs.queue.execute", job_id, job_timeout=JOB_TIMEOUT, result_ttl=0)
         else:
             self._executor.submit(execute, job_id)
         return job_id

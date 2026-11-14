@@ -1,4 +1,4 @@
-# Full stack: Postgres, Redis, API, analysis worker, web (nginx). `docker compose up --build`
+# Full stack: Postgres, Redis, API, analysis worker, isolated media worker, web (nginx). `docker compose up --build`
 # Copy .env.example to .env first. For a public host put TLS (Cloudflare, Caddy, ...) in front and set
 # VERITAS_COOKIE_SECURE=true, CORS_ALLOW_ORIGINS=https://your.domain and VERITAS_PUBLIC_URL=https://your.domain.
 x-backend-env: &backend-env
@@ -34,6 +34,7 @@ services:
       POSTGRES_DB: veritas
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U veritas -d veritas"]
       interval: 10s
@@ -44,6 +45,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     command: ["redis-server", "--save", "", "--appendonly", "no"]   # queue + rate limits only; results live in Postgres
+    networks: [internal]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -57,6 +59,7 @@ services:
     environment: *backend-env
     volumes:
       - uploads:/uploads
+    networks: [internal, egress, web]   # egress: SMTP, Turnstile, S3
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -66,23 +69,56 @@ services:
       timeout: 5s
       retries: 3
 
-  worker:
+  worker:                     # CSV analyses (queue "veritas")
     build: ./backend
     restart: unless-stopped
     command: ["python", "-m", "app.jobs.worker"]
     environment: *backend-env
     volumes:
       - uploads:/uploads
+    networks: [internal, egress]   # egress only for S3 / R2 uploads
     depends_on:
       backend: { condition: service_healthy }   # the API container applies migrations first
+
+  # Everything that parses untrusted binary files (images, audio, video through ffmpeg, model files) runs here and only
+  # here: no internet (internal network: Postgres, Redis and the uploads volume only), read-only root filesystem,
+  # no capabilities, capped memory / CPU / processes. ffmpeg and the model scanner add per-process limits inside it.
+  # With S3/R2 storage (VERITAS_STORAGE_URL=s3://...) this worker must fetch uploads: add "egress" to its networks.
+  worker-media:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.jobs.worker"]
+    environment:
+      <<: *backend-env
+      VERITAS_WORKER_QUEUES: veritas-untrusted
+    volumes:
+      - uploads:/uploads
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=2g
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${MEDIA_WORKER_MEMORY:-6g}   # ResNet-18 + HuBERT + a 6,000-item batch
+    cpus: ${MEDIA_WORKER_CPUS:-2}
+    pids_limit: 256
+    depends_on:
+      backend: { condition: service_healthy }
 
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-5173}:5173"
+    networks: [web]
     depends_on:
       backend: { condition: service_healthy }
+
+networks:
+  internal:
+    internal: true            # no route to the internet
+  egress: {}
+  web: {}
 
 volumes:
   pgdata:

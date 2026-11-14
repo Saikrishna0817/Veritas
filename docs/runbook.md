@@ -1,6 +1,14 @@
 # Runbook
 
-Stack: `docker-compose.yml` = Postgres, Redis, API (`backend`), analysis worker (`worker`), nginx + SPA (`frontend`).
+Stack: `docker-compose.yml` = Postgres, Redis, API (`backend`), CSV worker (`worker`, queue `veritas`), isolated media
+worker (`worker-media`, queue `veritas-untrusted`: images, audio, video and model files), nginx + SPA (`frontend`).
+
+`worker-media` is the only container that parses untrusted binary files (ffmpeg, image decoders, pickle scanning). It is
+on the `internal` network only (Postgres, Redis, the uploads volume; no internet), with a read-only root filesystem, a
+2 GB `/tmp`, no capabilities, `no-new-privileges`, and memory / CPU / process caps (`MEDIA_WORKER_MEMORY`, default 6g;
+`MEDIA_WORKER_CPUS`, default 2). ffmpeg and the scanner add per-process limits inside it. With S3/R2 storage it must
+fetch uploads: add `egress` to its networks. The backend image is about 3.5 GB (CPU torch, torchaudio, ffmpeg and the
+ResNet-18 / HuBERT weights); `--build-arg WITH_IMAGES=0` builds a CSV-only image.
 Put TLS/CDN (Cloudflare, Caddy) in front; the API and Postgres/Redis ports are not published.
 
 ## First deploy
@@ -61,13 +69,13 @@ Not verified against real S3 or R2 (tests use a mocked bucket): check that a PUT
 ## Common incidents
 | Symptom | Check | Fix |
 |---|---|---|
-| Uploads accepted but jobs stay `queued` | `docker compose ps worker`, `logs worker` | restart worker; confirm `VERITAS_REDIS_URL` and shared `uploads` volume / S3 settings match the API |
+| Uploads accepted but jobs stay `queued` | `docker compose ps worker worker-media`, `logs worker-media` | CSV jobs need `worker`; images, audio, video and model scans need `worker-media`. Restart it; confirm `VERITAS_REDIS_URL` and the shared `uploads` volume / S3 settings (and `egress` for S3) |
 | Everyone gets 429 | rate limiter / quotas | `VERITAS_QUOTA_*`, limiter windows in `app/core/rate_limit.py`; Redis down falls back to per-process limits (see logs) |
 | Logins fail with 403 "Verify your email" | SMTP | set `VERITAS_SMTP_*`; without SMTP mails are only in the API log; admin can mark verified in SQL (`UPDATE users SET email_verified = 1 WHERE username = ...`) |
 | Browser shows CSRF 403s | cookie `veritas_csrf` missing | `VERITAS_COOKIE_SECURE=true` over plain HTTP drops the cookies; use HTTPS or set false for local only |
 | WebSocket closes immediately | `Origin` header | origin must be listed in `CORS_ALLOW_ORIGINS` |
 | Disk filling | `uploads` volume, `pgdata` | uploads are deleted after each job; results older than `VERITAS_RETENTION_DAYS` are purged at API start |
-| Hostile model file suspected | scanner worker | scans run in a `python -I` subprocess with CPU/memory limits; run the worker container without network access for defence in depth |
+| Hostile model or media file suspected | `logs worker-media` | it ran in `worker-media` (no internet, read-only, capped); scans run in a `python -I` subprocess and ffmpeg under rlimits. Delete the job's upload and the user's result if needed |
 
 ## Known limits (single-box design)
 - One API process (WebSocket registry and a few small caches are in-process); scale analysis with more `worker` replicas.

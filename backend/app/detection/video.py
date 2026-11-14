@@ -22,13 +22,23 @@ def available() -> bool:
     return shutil.which("ffmpeg") is not None
 
 
+def _limit_ffmpeg() -> None:
+    """Caps for the ffmpeg child: memory, CPU seconds, open files; it may write nothing but its stdout pipe."""
+    import resource
+    resource.setrlimit(resource.RLIMIT_AS, (2 << 30, 2 << 30))
+    resource.setrlimit(resource.RLIMIT_CPU, (DECODE_TIMEOUT, DECODE_TIMEOUT))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+
+
 def decode_frames(path: str) -> np.ndarray:
     """Video file -> (N_FRAMES, 64, 64, 3) uint8, evenly spaced over the clip. Raises on unreadable input."""
     frame = FRAME_SIZE * FRAME_SIZE * 3
     proc = subprocess.run(
         ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", path, "-an", "-sn", "-frames:v", str(MAX_DECODED),
          "-vf", f"scale={FRAME_SIZE}:{FRAME_SIZE}", "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1"],
-        capture_output=True, timeout=DECODE_TIMEOUT, check=True)
+        capture_output=True, timeout=DECODE_TIMEOUT, check=True, env={"PATH": os.environ.get("PATH", "")},
+        preexec_fn=_limit_ffmpeg if os.name == "posix" else None)
     n = len(proc.stdout) // frame
     if n == 0:
         raise ValueError("no video frames")
