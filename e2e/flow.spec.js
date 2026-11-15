@@ -31,6 +31,8 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
 
   await page.goto('/upload');
   await page.setInputFiles('input[type="file"]', csv());
+  await expect(page.getByRole('radio', { name: /no trusted reference/i })).toBeChecked();   // the default
+  await page.getByRole('radio', { name: /first 70%/i }).check();   // the planted rows sit in the last 30%: a verdict
   await page.getByRole('button', { name: /run poisoning detection/i }).click();
   await expect(page.getByText(/CONFIRMED|SUSPICIOUS/i).first()).toBeVisible({ timeout: 45000 });
   await expect(page.getByText(/Label Check/i).first()).toBeVisible();
@@ -96,6 +98,8 @@ test('a large CSV runs as a background job and opens the result', async ({ page 
   await signIn(page);
   await page.goto('/upload');
   await page.setInputFiles('input[type="file"]', file);
+  await expect(page.getByRole('radio', { name: /no trusted reference/i })).toBeChecked();   // the default
+  await page.getByRole('radio', { name: /first 70%/i }).check();   // the planted rows sit in the last 30%: a verdict
   await page.getByRole('button', { name: /run poisoning detection/i }).click();
   await expect(page.getByText(/running in the background/i)).toBeVisible({ timeout: 30000 });
   await expect(page.getByRole('heading', { level: 1, name: 'Examination' })).toBeVisible({ timeout: 200000 });

@@ -168,8 +168,9 @@ export const api = {
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
 
     // CSV Upload Analysis
-    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string, noReference?: boolean };
-    // default is the first 70% in file order. noReference screens every row against the others (no verdict).
+    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string, noReference?: boolean }.
+    // The choice is always sent: the server's default without a reference is a screening of every row (no verdict),
+    // so trusting the first 70% of the file has to be asked for with no_reference=false.
     uploadCSV: (file, opts = {}, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -178,7 +179,7 @@ export const api = {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);
         }
-        if (opts.noReference) formData.append('no_reference', 'true');
+        formData.append('no_reference', opts.noReference ? 'true' : 'false');
         return apiFormData(`/analyze/upload${background ? '?background=true' : ''}`, formData);
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
@@ -189,7 +190,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
         if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
-        if (opts.noReference) formData.append('no_reference', 'true');
+        formData.append('no_reference', opts.noReference ? 'true' : 'false');
         return apiFormData(`/analyze/${kind}`, formData, TIMEOUT_MS.upload);
     },
 

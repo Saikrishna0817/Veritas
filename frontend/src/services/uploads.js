@@ -63,7 +63,7 @@ async function tryDirect(kind, file, opts, onStage) {
     body.split_column = opts.splitColumn;
     body.split_cutoff = opts.splitCutoff;
   }
-  if (kind === 'csv' && opts.noReference) body.self_check = true;
+  if (kind === 'csv') body.self_check = Boolean(opts.noReference);   // always said: the server's default is a screening
   const { job_id } = await api.completeUpload(body);
   return job_id;
 }

@@ -96,7 +96,7 @@ describe('runAnalysis', () => {
     expect(api.presignUpload).toHaveBeenNthCalledWith(2, 'csv_reference', 'ref.csv', MB);
     // The browser forbids scripts from setting Content-Length, so it must not be passed on.
     expect(fetch).toHaveBeenCalledWith('https://bucket/main', expect.objectContaining({ method: 'PUT', headers: {}, body: large, credentials: 'omit' }));
-    expect(api.completeUpload).toHaveBeenCalledWith({ upload_id: 'u-main', reference_upload_id: 'u-ref', split_column: 'day', split_cutoff: 'x' });
+    expect(api.completeUpload).toHaveBeenCalledWith({ upload_id: 'u-main', reference_upload_id: 'u-ref', split_column: 'day', split_cutoff: 'x', self_check: false });
     expect(api.uploadCSV).not.toHaveBeenCalled();
   });
 

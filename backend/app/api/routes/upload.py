@@ -48,7 +48,7 @@ async def analyze_uploaded_csv(
     reference_file: UploadFile | None = File(None, description="Optional trusted reference CSV with the same columns; the main file is then all incoming"),
     split_column: str | None = Form(None, description="Optional column to split on (numbers or dates)"),
     split_cutoff: str | None = Form(None, description="Rows with split_column strictly below this are the trusted reference"),
-    no_reference: bool = Form(False, description="No trusted reference: check every row against the others (a screening, not a verdict)"),
+    no_reference: bool | None = Form(None, description="No trusted reference: check every row against the others (a screening, not a verdict). Default: true unless a reference file or split column is given; false = the first 70% of the file is the reference"),
     background: bool = Query(False, description="Return 202 + job_id immediately; poll GET /jobs/{job_id}"),
     user: dict = Depends(require_user),
 ):
@@ -84,6 +84,8 @@ async def analyze_uploaded_csv(
         split["reference_bytes"] = await read_upload_limited(reference_file, MAX_CSV_SIZE)
     if split_column or split_cutoff:
         split.update(split_column=split_column or None, split_cutoff=split_cutoff or None)
+    if no_reference is None:   # nothing said about a reference: assume there is none rather than trust 70% of the file
+        no_reference = reference_file is None and not (split_column or split_cutoff)
     if no_reference:
         split["self_check"] = True
 
@@ -143,7 +145,7 @@ MAX_ZIP_SIZE = 500 * 1024 * 1024
 
 
 async def _submit_zip_job(request: Request, file: UploadFile, reference_file: UploadFile | None, user: dict,
-                          job_type: str, kind: str, no_reference: bool = False) -> JSONResponse:
+                          job_type: str, kind: str, no_reference: bool | None = None) -> JSONResponse:
     """Shared by the image and audio uploads: validate, park the zips in blob storage, charge quota, queue the job."""
     client_ip = request.client.host if request.client else "unknown"
     if not deps.analysis_rate_limiter.allow(f"{job_type}:{user['id']}:{client_ip}"):
@@ -151,6 +153,8 @@ async def _submit_zip_job(request: Request, file: UploadFile, reference_file: Up
     for f, what in ((file, "file"), (reference_file, "reference file")):
         if f is not None and (not f.filename or not is_safe_filename(f.filename) or not f.filename.lower().endswith(".zip")):
             raise HTTPException(status_code=400, detail=f"The {what} must be a .zip of {kind}.")
+    if no_reference is None:   # nothing said about a reference: assume there is none rather than trust 70% of the zip
+        no_reference = reference_file is None
     if no_reference and reference_file is not None:
         raise HTTPException(status_code=400, detail="Upload either a reference zip or choose no reference, not both.")
     store = storage()
@@ -174,7 +178,7 @@ async def analyze_image_zip(
     request: Request,
     file: UploadFile = File(..., description="Zip with one folder per class (cat/001.png, dog/002.jpg, ...)"),
     reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference images, same layout"),
-    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    no_reference: bool | None = Form(None, description="No trusted reference: screen every item against the others. Default: true unless a reference zip is given; false = a random 70% of each class is the reference"),
     user: dict = Depends(require_user),
 ):
     """Check an image dataset for poisoning. Always a background job (embedding images takes tens of seconds):
@@ -190,7 +194,7 @@ async def analyze_audio_zip(
     request: Request,
     file: UploadFile = File(..., description="Zip of WAV files with one folder per class (dog/001.wav, rain/002.wav, ...)"),
     reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
-    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    no_reference: bool | None = Form(None, description="No trusted reference: screen every item against the others. Default: true unless a reference zip is given; false = a random 70% of each class is the reference"),
     user: dict = Depends(require_user),
 ):
     """Check an audio dataset for poisoning (PCM WAV, any rate, mixed to mono 16 kHz). Background job: returns
@@ -210,7 +214,7 @@ async def analyze_video_zip(
     request: Request,
     file: UploadFile = File(..., description="Zip of video files with one folder per class (jump/001.mp4, run/002.avi, ...)"),
     reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
-    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    no_reference: bool | None = Form(None, description="No trusted reference: screen every item against the others. Default: true unless a reference zip is given; false = a random 70% of each class is the reference"),
     user: dict = Depends(require_user),
 ):
     """Check a video dataset for poisoning (mp4, avi, mov, mkv, webm, mpg; decoded by ffmpeg, 8 frames per clip).

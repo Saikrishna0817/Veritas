@@ -11,18 +11,19 @@ const KIND_ICONS = { csv: Table2, images: ImageIcon, audio: AudioLines, video: C
 const KIND_OPTIONS = KIND_ORDER.map((id) => ({ id, label: DATA_KINDS[id].label, icon: KIND_ICONS[id] }));
 
 const STAGES = ['Reading schema', 'Splitting off the trusted reference', 'Label check', 'Distribution-shift check', 'Calibrating against clean rows'];
+// No reference comes first and is the default, as on the server: trusting part of the file is something to opt into.
 const NO_REFERENCE = { id: 'none', label: 'I have no trusted reference', hint: 'Every item is checked against the others: ranked lists, no verdict. Attacks that look like ordinary data are not found this way.' };
 const REF_MODES = {
   csv: [
+    NO_REFERENCE,
     { id: 'order', label: 'First 70% of this file', hint: 'Only works if the first rows are known good.' },
     { id: 'file', label: 'A separate trusted CSV', hint: 'Same columns as the batch.' },
     { id: 'column', label: 'Rows before a cutoff', hint: 'A number or date column, e.g. ingested_at < 2026-03-01.' },
-    NO_REFERENCE,
   ],
   media: [
+    NO_REFERENCE,
     { id: 'order', label: 'A random 70% of each class', hint: 'Poison anywhere in the zip also lands in the reference.' },
     { id: 'file', label: 'A separate trusted zip', hint: 'Same folder layout as the batch. Recommended.' },
-    NO_REFERENCE,
   ],
 };
 
@@ -49,7 +50,7 @@ export default function UploadPage() {
   const { run: start, loading, job, result, error, setError, reset: clearResult, resumedKind } = useAnalysisRun(KIND_ORDER);
   const [kind, setKind] = useState(resumedKind || 'csv');
   const [file, setFile] = useState(null);
-  const [refMode, setRefMode] = useState('order');
+  const [refMode, setRefMode] = useState('none');
   const [referenceFile, setReferenceFile] = useState(null);
   const [splitColumn, setSplitColumn] = useState('');
   const [splitCutoff, setSplitCutoff] = useState('');
@@ -58,7 +59,7 @@ export default function UploadPage() {
 
   const chooseKind = (k) => {
     if (k === kind) return;
-    setKind(k); setFile(null); setReferenceFile(null); setRefMode('order'); setError('');
+    setKind(k); setFile(null); setReferenceFile(null); setRefMode('none'); setError('');
   };
 
   const pick = (setter) => (f) => {

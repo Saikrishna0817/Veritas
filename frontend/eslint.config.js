@@ -32,4 +32,5 @@ export default defineConfig([
       'react/jsx-uses-vars': 'error',
     },
   },
+  { files: ['vite.config.js', 'playwright.config.js'], languageOptions: { globals: globals.node } },
 ])

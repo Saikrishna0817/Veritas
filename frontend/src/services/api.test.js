@@ -42,14 +42,14 @@ describe('requests', () => {
     const [url, init] = lastCall();
     expect(url).toBe('/api/v1/analyze/upload?background=true');
     expect(init.headers).toEqual({ 'X-CSRF-Token': 'abc=123' });
-    expect([...init.body.keys()]).toEqual(['file', 'reference_file', 'split_column', 'split_cutoff']);
+    expect([...init.body.keys()]).toEqual(['file', 'reference_file', 'split_column', 'split_cutoff', 'no_reference']);
   });
 
   it('only sends a split when both the column and the cutoff are set', async () => {
     await api.uploadCSV(new Blob(['x']), { splitColumn: 'day' });
     const [url, init] = lastCall();
     expect(url).toBe('/api/v1/analyze/upload');
-    expect([...init.body.keys()]).toEqual(['file']);
+    expect([...init.body.keys()]).toEqual(['file', 'no_reference']);
   });
 });
 
@@ -151,7 +151,14 @@ describe('media uploads', () => {
     const [url, init] = lastCall();
     expect(url).toBe('/api/v1/analyze/audio');
     expect(init.body.get('reference_file')).toBeTruthy();
-    expect(init.body.get('no_reference')).toBeNull();
+    expect(init.body.get('no_reference')).toBe('false');
+  });
+
+  it('always says whether there is a reference, since the server defaults to a screening', async () => {
+    await api.uploadCSV(new Blob(['a,b']), {});
+    expect(lastCall()[1].body.get('no_reference')).toBe('false');
+    await api.uploadMedia('video', new Blob(['zip']), {});
+    expect(lastCall()[1].body.get('no_reference')).toBe('false');
   });
 
   it('asks for a screening when there is no reference', async () => {

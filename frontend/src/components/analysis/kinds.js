@@ -12,7 +12,7 @@ export const DATA_KINDS = {
     label: 'Images', accept: '.zip', maxMb: 500, noun: 'images',
     format: 'A zip with one folder per class (cat/001.png). Up to 6,000 images are used, resized to 32×32.',
     limits: ['Images are checked at 32×32: a trigger smaller than about 1/32 of the image can vanish.',
-      'At 1% poison, label flips are ranked but rarely give a batch verdict (about 1 in 10 batches).'],
+      'At 1% poison, random label flips are ranked but rarely give a batch verdict (2 of 10 test batches).'],
   },
   audio: {
     label: 'Audio', accept: '.zip', maxMb: 500, noun: 'clips',
