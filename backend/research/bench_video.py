@@ -77,10 +77,12 @@ def prepare_batch(spec: dict, ds: datasets.VideoSet, img, emb, pix) -> dict:
 
 def jobs(m: dict, done=frozenset()):
     specs = [s for s in bench_audio.batch_specs(m) if bench_mm.spec_key(s) not in done]
-    for split in dict.fromkeys(s["split"] for s in specs):
-        ds = datasets.load(split)
+    for key in dict.fromkeys((s["split"], s["data_id"]) for s in specs):
+        ds = datasets.load(key[0], data_id=key[1])
+        if m.get("smoke_clips"):
+            ds = bench_audio.subset(ds, m["smoke_clips"], "frames")
         img, emb, pix = clean_views(ds, m.get("view", "mosaic"))
-        for spec in (s for s in specs if s["split"] == split):
+        for spec in (s for s in specs if (s["split"], s["data_id"]) == key):
             yield {"spec": spec, **prepare_batch(spec, ds, img, emb, pix)}
 
 
@@ -89,8 +91,10 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--label", required=True)
     parser.add_argument("--splits", nargs="+", required=True, help="dev for tuning, test once for the headline")
+    parser.add_argument("--smoke", type=int, help="wiring check on this many clips; not a result")
     args = parser.parse_args()
-    bench_audio.run(load_manifest(), jobs, args.splits, args.label, "video", args.workers)
+    m, label = (bench_audio.smoke(load_manifest(), args.smoke), args.label + "-smoke") if args.smoke else (load_manifest(), args.label)
+    bench_audio.run(m, jobs, args.splits, label, "video", args.workers)
 
 
 if __name__ == "__main__":

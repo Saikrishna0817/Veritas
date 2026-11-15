@@ -2,7 +2,8 @@
 
 Read with the standard-library ``wave`` module (both are 16-bit PCM WAV), resampled to 16 kHz, cached as int16 arrays.
 Splits keep dev and test clips apart: Speech Commands' validation list (dev) and testing list (test), which have
-disjoint speakers; ESC-50 folds 1-3 (dev) and 4-5 (test). Same two sources on both sides, so this is a weaker held-out
+disjoint speakers; ESC-50 folds 1-3 (dev) and 4-5 (test). UrbanSound8K (10 classes, <= 4 s, mixed rates and bit depths) is test-only:
+all 10 folds. Same two sources on both sides, so this is a weaker held-out
 test than the image track's separate datasets.
 """
 from __future__ import annotations
@@ -81,7 +82,34 @@ def _esc50(split: str):
     return x, np.array([classes.index(r["category"]) for r in rows]), classes
 
 
-LOADERS = {"speech_commands": _speech_commands, "esc50": _esc50}
+US8K_SHA256 = "bac1d1b642484a411d26802dd515102ca9111de689ee8ad4fc5c3b07cb2c2293"      # UrbanSound8K.tar.gz (Zenodo 1203745; published MD5 9aa69802bbf37fb986f71ec1483a196e)
+
+
+def _urbansound8k(split: str):
+    """All 10 official folds, whatever ``split`` is: a test-only dataset. Extracted once from the .tar.gz into
+    urbansound8k/data. Clips are decoded by the app's own WAV decoder and scaled like its ``_stack``; the few files it
+    cannot read (e.g. 32-bit float) are skipped, as an upload would skip them, and listed in skipped.txt."""
+    from app.ingestion.audio_engine import _decode_wav
+    base = ROOT / "urbansound8k" / "data" / "UrbanSound8K"
+    meta = sorted(csv.DictReader((base / "metadata" / "UrbanSound8K.csv").read_text().splitlines()),
+                  key=lambda r: (int(r["fold"]), r["slice_file_name"]))
+    classes = [c for _, c in sorted({(int(r["classID"]), r["class"]) for r in meta})]
+    xs, ys, skipped = [], [], []
+    for r in meta:
+        try:
+            x = _decode_wav((base / "audio" / f"fold{r['fold']}" / r["slice_file_name"]).read_bytes())
+        except Exception as e:     # noqa: BLE001 - any decode failure is one skipped clip
+            skipped.append(f"{r['slice_file_name']}\t{e}")
+            continue
+        out = np.zeros(4 * RATE, np.int16)
+        out[:min(len(out), len(x))] = (np.clip(x[:len(out)], -1, 1) * 32767).astype(np.int16)
+        xs.append(out)
+        ys.append(classes.index(r["class"]))
+    (ROOT / "urbansound8k" / "skipped.txt").write_text("\n".join(skipped))
+    return np.stack(xs), np.array(ys), classes
+
+
+LOADERS = {"speech_commands": _speech_commands, "esc50": _esc50, "urbansound8k": _urbansound8k}
 
 
 def load(name: str, split: str) -> AudioSet:

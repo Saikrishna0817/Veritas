@@ -7,6 +7,7 @@ file is byte-identical to the official one, SHA-256 in the manifest). Official s
 """
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import zipfile
 from concurrent.futures import ProcessPoolExecutor
@@ -20,6 +21,10 @@ from app.detection import video
 ROOT = Path.home() / ".cache" / "veritas-bench" / "video"
 ZIP = ROOT / "ucf101-hf" / "UCF101.zip"
 SPLITS = ROOT / "ucf101" / "UCF101TrainTestSplits-RecognitionTask.zip"
+
+
+HMDB = ROOT / "hmdb51"
+HMDB_SHA256 = {"hmdb51_org.rar": "TODO", "test_train_splits.rar": "TODO"}   # official Serre lab archives
 
 
 @dataclass
@@ -47,9 +52,48 @@ def _decode_member(name: str) -> np.ndarray:
         return video.decode_frames(tmp.name)
 
 
-def load(split: str, workers: int = 4) -> VideoSet:
-    """``split`` is 'dev' or 'test'. First call decodes (ffmpeg, in parallel) and caches; later calls memory-map."""
-    cache = ROOT / "cache" / f"ucf101-{split}"
+def _untar(archive: Path, dest: Path) -> None:
+    dest.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["bsdtar", "-xf", str(archive), "-C", str(dest)], check=True)     # RAR; our own download
+
+
+def _hmdb_list(split: str) -> list[str]:
+    """Official split 1 as '<class>/<clip>.avi', sorted. Extracts the outer RAR, the 51 class RARs and the split files
+    once. In the split files 1 = train (dev here), 2 = test, 0 = unused."""
+    raw, spl = HMDB / "raw", HMDB / "splits"
+    if not any(raw.glob("*/*.avi")):
+        _untar(HMDB / "hmdb51_org.rar", raw)
+        for rar in sorted(raw.glob("*.rar")):
+            _untar(rar, raw)
+    if not any(spl.rglob("*_split1.txt")):
+        _untar(HMDB / "test_train_splits.rar", spl)
+    want = "1" if split == "dev" else "2"
+    return sorted(f"{f.name[:-len('_test_split1.txt')]}/{name}" for f in spl.rglob("*_test_split1.txt")
+                  for name, flag in (line.split()[:2] for line in f.read_text().splitlines() if line.strip()) if flag == want)
+
+
+def _decode_path(path: str) -> np.ndarray:
+    return video.decode_frames(path)
+
+
+def _hmdb51(split: str, workers: int):
+    wanted = _hmdb_list(split)
+    with ProcessPoolExecutor(workers) as pool:
+        frames = np.stack(list(pool.map(_decode_path, [str(HMDB / "raw" / w) for w in wanted], chunksize=16)))
+    classes = sorted({w.split("/")[0] for w in wanted})
+    return frames, np.array([classes.index(w.split("/")[0]) for w in wanted]), classes
+
+
+def load(split: str, workers: int = 4, data_id: str = "ucf101") -> VideoSet:
+    """``split`` is 'dev' or 'test'; ``data_id`` 'ucf101' (default) or 'hmdb51'. First call decodes (ffmpeg, in
+    parallel) and caches; later calls memory-map."""
+    cache = ROOT / "cache" / f"{data_id}-{split}"
+    if data_id == "hmdb51" and not (cache / "frames.npy").exists():
+        frames, y, classes = _hmdb51(split, workers)
+        cache.mkdir(parents=True, exist_ok=True)
+        np.save(cache / "frames.npy", frames)
+        np.save(cache / "y.npy", y)
+        (cache / "classes.txt").write_text("\n".join(classes))
     if not (cache / "frames.npy").exists():
         wanted = _split_list(split)
         with zipfile.ZipFile(ZIP) as zf:
@@ -64,5 +108,5 @@ def load(split: str, workers: int = 4) -> VideoSet:
         np.save(cache / "frames.npy", frames)
         np.save(cache / "y.npy", np.array([classes.index(w.split("/")[0]) for w in wanted]))
         (cache / "classes.txt").write_text("\n".join(classes))
-    return VideoSet(f"ucf101-{split}", np.load(cache / "frames.npy", mmap_mode="r"), np.load(cache / "y.npy"),
+    return VideoSet(f"{data_id}-{split}", np.load(cache / "frames.npy", mmap_mode="r"), np.load(cache / "y.npy"),
                     (cache / "classes.txt").read_text().split("\n"))

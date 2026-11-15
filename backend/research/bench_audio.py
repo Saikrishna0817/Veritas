@@ -13,6 +13,7 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse  # noqa: E402
 import json  # noqa: E402
 import time  # noqa: E402
+from dataclasses import replace  # noqa: E402
 from datetime import date  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -39,7 +40,13 @@ def clean_embedding(ds: datasets.AudioSet, m: dict, img_emb: np.ndarray) -> np.n
     """The embedding the label / shift checks use: ResNet-18 on the spectrogram image, or a HuBERT layer."""
     if m.get("embedding", "resnet") == "resnet":
         return img_emb
-    return np.load(datasets.ROOT / "cache" / f"{ds.name}-hubert.npz")[m["embedding"].split("-")[1]]
+    path = datasets.ROOT / "cache" / f"{ds.name}-hubert.npz"
+    if not path.exists():        # datasets added after v3 have no precomputed cache: build it with the app's embedder
+        import torch
+        from research.audio import hubert
+        torch.set_num_threads(4)
+        np.savez(path, **{f"l{k}": v for k, v in hubert.embed(ds.wave).items()})
+    return np.load(path)[m["embedding"].split("-")[1]]
 
 
 def embed_changed(x: np.ndarray, img: np.ndarray, m: dict) -> np.ndarray:
@@ -95,11 +102,25 @@ def batch_specs(m: dict) -> list[dict]:
     return [{**s, "batch_rows": rows[(s["split"], s["data_id"])]} for s in bench_mm.batch_specs(m)]
 
 
+def smoke(m: dict, n: int) -> dict:
+    """Wiring check only: n evenly spaced clips, one seed, two attacks, one rate (``--smoke``; label gets '-smoke')."""
+    return {**m, "smoke_clips": n, "batch_rows": n, "seeds": 1, "clean_batches_per_seed": 1, "attacks": m["attacks"][:2],
+            "poison_rates": [0.1], "datasets": {k: [{"data_id": d["data_id"]} for d in v] for k, v in m["datasets"].items()}}
+
+
+def subset(ds, n: int, field: str):
+    """The first-to-last n evenly spaced items of a loaded set, named so no cache is shared with the full set."""
+    idx = np.linspace(0, len(ds.y) - 1, n).astype(int)
+    return replace(ds, name=ds.name + "-smoke", y=ds.y[idx], **{field: getattr(ds, field)[idx]})
+
+
 def jobs(m: dict, done=frozenset()):
     """Prepared batches, one dataset split at a time. Skips specs in done (a resumed run)."""
     specs = [s for s in batch_specs(m) if bench_mm.spec_key(s) not in done]
     for key in dict.fromkeys((s["split"], s["data_id"]) for s in specs):
         ds = datasets.load(key[1], key[0])
+        if m.get("smoke_clips"):
+            ds = subset(ds, m["smoke_clips"], "wave")
         _, img_emb, _ = clean_views(ds, m["image_size"])
         img, _, pix = clean_views(ds, m.get("check_size", m["image_size"]))   # what the pixel / shared checks see
         emb = clean_embedding(ds, m, img_emb)
@@ -131,8 +152,10 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--label", required=True)
     parser.add_argument("--splits", nargs="+", required=True, help="dev for tuning, test once for the headline")
+    parser.add_argument("--smoke", type=int, help="wiring check on this many clips; not a result")
     args = parser.parse_args()
-    run(load_manifest(), jobs, args.splits, args.label, "audio", args.workers)
+    m, label = (smoke(load_manifest(), args.smoke), args.label + "-smoke") if args.smoke else (load_manifest(), args.label)
+    run(m, jobs, args.splits, label, "audio", args.workers)
 
 
 if __name__ == "__main__":
