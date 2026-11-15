@@ -422,6 +422,15 @@ clean-label 0.94 / 0.96, duplicate floods 0.95 / 0.91, blended 0.80 / 0.87), chr
 noise 0.99-1.00); merged ranking 0.21 / 0.25. No clean set reached 1.3. Targeted flips and pure shift are not found
 without a reference.
 
+Held-out tables (12 test datasets, 432 attacked + 144 clean batches, poison anywhere in the file), whole-file row
+AUPRC, 1% / 5%: fallback (first 70% trusted) 0.06 / 0.10, label list 0.18 / 0.22, resid list 0.10 / 0.10. The label
+list finds random flips (0.54 / 0.66) and targeted flips (0.44 / 0.47); the resid list finds backdoors at 1%
+(out-of-range 0.32, in-range 0.18). Share of poisoned rows inside the shown lists (top 5%, 20-200 rows), either list:
+1% 0.54 (flips 0.75-0.79, backdoors 0.59-0.69), 5% 0.29. At 5% the lists are about as long as the poison, and
+backdoors at 5% fill the folds' "reference" too, so they fall out of the lists (0.15-0.26). Feature collisions are
+not found (0.00-0.01); covariate shift weakly at 1% (0.39). Clean files: 3.5% reach screening evidence 1.3, 0.7%
+reach 2.0, which is why no verdict is given.
+
 ## Combining the checks into one batch verdict (2026-11-15)
 
 `research/mm/combine_study_dev.py`, offline from the per-check evidence of the audio and video dev runs, each rule at
