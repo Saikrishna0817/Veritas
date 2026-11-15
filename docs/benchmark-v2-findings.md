@@ -396,3 +396,63 @@ right family (label flipping / backdoor / collision / shift) 86%.
 - Label flips are almost always recognised as label flipping; random vs targeted is close to a coin toss.
 - The classifier always names the closest of the six benchmarked attacks; it cannot say "something else".
 - Random and targeted label flips at 1% are unchanged (the residual check does not see them), as expected.
+
+## No reference (2026-11-15)
+
+When there is no trusted reference the poison may be anywhere in the file, including the part a split would call the
+reference. Today's fallback (first 70% as reference) never scores 70% of the rows. The self-check
+(`veritas2.self_check`, `veritas_mm.self_check`) splits the file into 5 folds and checks each against the other four,
+so every row is scored; the result is a screening (ranked lists), not a verdict.
+
+Dev, tables (`research/tab/selfcheck_study_dev.py`, whole-file row AUPRC, 1% / 5% poison): fallback 0.07 / 0.10,
+self-check merged 0.17 / 0.22. One list per check works better than a merged ranking: the label list finds flips at
+0.43-0.62 AUPRC, the column-consistency list backdoors at 0.20-0.35; collisions and covariate shift rank at chance
+(they look like ordinary data when there is nothing clean to compare with). Clean files reach 1.3 in 4.2% of cases,
+2.0 in 1.4%: the evidence is shown, but no verdict is given, because poison in every fold weakens it.
+
+Dev, images (`research/mm/selfcheck_study_dev.py`, fashion_mnist and cifar100): each check finds its own attacks
+(label: random flips 0.50 / 0.65; resid: patch, clean-label and duplicate floods 0.45-0.92; chroma: blended triggers
+and class noise 0.97-1.00) and the merged content ranking buried them (0.16 / 0.21). The app shows three lists:
+label, resid, chroma. Lists are the top 5% of the file (20 to 200 items), not a score cut-off: with poison in every
+fold the poisoned rows also sit in each "reference", so their scores stay moderate while their rank stays high.
+
+Held-out images (`SPLIT=test`, 7 attacks, 56 attacked + 16 clean sets, 79 s per set), row AUPRC 1% / 5%: label list
+0.16 / 0.18 (random flips 0.59 / 0.75; targeted flips 0.13 / 0.07), resid list 0.51 / 0.59 (patch 0.87 / 0.95,
+clean-label 0.94 / 0.96, duplicate floods 0.95 / 0.91, blended 0.80 / 0.87), chroma list 0.30 / 0.32 (blended and class
+noise 0.99-1.00); merged ranking 0.21 / 0.25. No clean set reached 1.3. Targeted flips and pure shift are not found
+without a reference.
+
+## Combining the checks into one batch verdict (2026-11-15)
+
+`research/mm/combine_study_dev.py`, offline from the per-check evidence of the audio and video dev runs, each rule at
+the clean false-alarm rate today's has on the same batches: attacked batches flagged at cut 1.3, today's max 0.640,
+weighted harmonic-mean p 0.645, Fisher 0.598; at cut 2.0, 0.588 / 0.579 / 0.388. An attack lights up one check, so
+adding the others mostly adds noise. Kept the max; nothing changed, so no held-out run.
+
+## Tables at 1% poison: a neighbour label check (2026-11-15)
+
+`research/tab/knn_study_dev.py`, dev: mean row AUPRC at 1% boosted trees (today) 0.37, nearest-neighbour label
+disagreement 0.28, their average 0.35; at 5% 0.52 / 0.47 / 0.51. Batches flagged at 1.3 at 1%: 0.16 / 0.10 / 0.19
+(within noise). Not shipped. With ~10 poisoned rows in a 1,000-row batch the limit is how few rows there are, not
+the label model; the earlier row studies reached the same conclusion with other models.
+
+## Clean-label triggers: within-class signature check `sig` (2026-11-15)
+
+The audio clean-label backdoor ranked at chance (dev row AUPRC 0.07 at 5%): the trigger sits on correctly labelled
+items of one class, so pooled checks see it as ordinary class similarity. `veritas_mm.class_signature_component`:
+per class, the high-pass residual of the incoming items minus the class's reference mean; the top singular vector of
+one half scores the other half (spectral signature, Tran et al. 2018, cross-fitted); the class's reference items on
+the same vector are the clean comparison. Two fixes were needed on dev: reference items leave themselves out of the
+mean (otherwise their deviations shrink), and scores are scaled per class and pooled into one tail test (per-class
+tests on ~14 reference items were badly anti-conservative: 25% of clean ESC-50 batches above 1.3).
+
+Dev (`research/mm/classsig_study_dev.py`), row AUPRC of the check alone, 1% / 5%: images clean-label 1.00 / 0.85-1.00,
+patch 0.77-1.00; Speech Commands clean-label 1.00 / 0.90, tone 0.80 / 1.00; ESC-50 no gain; video (UCF-101) at chance
+with 13% clean batches above 2.0, so it is off for video. Penalty 1.3 (row gate 2.3) chosen on the audio dev batches
+joined with the dev benchmark: clean alarms 1.4% before and after; clean-label batches flagged at 1% 0% -> 50%, tone
+17% -> 83%.
+
+Held-out (images manifest v9, audio manifest v3): not yet run. Two attempts were killed by the system memory reaper
+while another training job held most of the RAM. The app's limit texts still say clean-label triggers are not
+detected and will change only if the held-out numbers support it. The check is off in the no-reference screening
+(its lists were chosen on dev without it).

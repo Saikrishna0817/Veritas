@@ -27,13 +27,13 @@ from sklearn.preprocessing import StandardScaler
 
 from app.detection import veritas2 as v2
 
-GATE = {"shift": 3.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0, "chroma": 1.0}
-PENALTY = {"label": 0.1, "shift": 1.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0, "chroma": 1.0}  # -log10 share of the false-alarm budget
+GATE = {"shift": 3.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0, "chroma": 1.0, "sig": 2.3}
+PENALTY = {"label": 0.1, "shift": 1.0, "pixel": 1.0, "dup": 1.0, "cell": 1.0, "resid": 1.0, "chroma": 1.0, "sig": 1.3}  # -log10 share of the false-alarm budget
 TAILS = v2.TAILS
 CHECKS = {"label": "label check (labels that do not fit the image)", "shift": "distribution shift of the image content",
           "pixel": "low-level pixel statistics (patches, noise, blending)", "dup": "near-duplicate images",
           "cell": "a patch shared by several images", "resid": "a faint pattern shared by several images",
-          "chroma": "colour noise in flat regions"}
+          "chroma": "colour noise in flat regions", "sig": "a pattern shared within one class (clean-label trigger)"}
 
 # ── Pixel features ──────────────────────────────────────────────────────────────────────────────────────────────────
 GRID, RADIAL_BINS = 4, 8
@@ -132,6 +132,34 @@ def chroma_floor_component(d, block=4):
     return _split(d, ((blocks(r[..., 0] - r[..., 1]) + blocks(r[..., 1] - r[..., 2])) / 2).min(1))
 
 
+def class_signature_component(d, min_class=6):
+    """Clean-label triggers: the poison keeps its true label and sits in one class, so pooled checks see ordinary class
+    similarity. Per class, deviations of the incoming items from the class's reference mean (high-pass residual,
+    standardised); the top singular vector of half of them scores the other half (spectral signature, Tran et al.
+    2018, cross-fitted), and the class's reference items on the same vector are the clean comparison (leave-one-out
+    from the mean, as incoming items are out of it). Scores are divided by the class's reference mean so classes
+    share one tail test (research/mm/classsig_study_dev.py; per-class tests on small classes were anti-conservative)."""
+    flat = lambda a: _residual(a.astype(np.float32)).reshape(len(a), -1)  # noqa: E731
+    Fr, Fi, yr, yi = flat(d["R_cal"]), flat(d["R_inc"]), d["y_cal"], d["y_inc"]
+    sd = Fr.std(0) + 1e-6
+    cal_out, inc_out = [], np.zeros(len(yi))
+    for c in np.unique(yi):
+        rc, ic = np.flatnonzero(yr == c), np.flatnonzero(yi == c)
+        if len(rc) < min_class or len(ic) < min_class:
+            continue
+        mu = Fr[rc].mean(0)
+        A, B = (Fi[ic] - mu) / sd, (Fr[rc] - mu) / sd * (len(rc) / (len(rc) - 1))
+        hi, hr = np.arange(len(ic)) % 2, np.arange(len(rc)) % 2
+        inc, cal = np.zeros(len(ic)), np.zeros(len(rc))
+        for h in (0, 1):
+            v = np.linalg.svd(A[hi != h], full_matrices=False)[2][0]
+            inc[hi == h], cal[hr == h] = (A[hi == h] @ v) ** 2, (B[hr == h] @ v) ** 2
+        tot = cal.sum()
+        cal_out.append(cal / ((tot - cal) / (len(rc) - 1)))
+        inc_out[ic] = inc / (tot / len(rc))
+    return (np.concatenate(cal_out) if cal_out else np.zeros(1)), inc_out
+
+
 # ── Model-based checks ──────────────────────────────────────────────────────────────────────────────────────────────
 def pixel_component(d: dict):
     """(cal, inc) out-of-fold 'looks like the incoming batch' probabilities on pixel features."""
@@ -181,7 +209,9 @@ def components(d: dict) -> dict:
     compares the incoming rows with all reference rows, so a handful of poisoned rows can still give strong evidence."""
     r = full_reference(d)
     label = {"label": label_crossfit_component(d)} if d["n_classes"] > 1 else {}   # unlabeled: no label check
-    return {**label, "shift": v2.shift_component(r), "pixel": pixel_component(r),
+    # Off for video: clips of one class vary too much (dev: chance ranking, 13% clean alarms)
+    sig = {"sig": class_signature_component(r)} if d["n_classes"] > 1 and d.get("class_signature", True) else {}
+    return {**label, **sig, "shift": v2.shift_component(r), "pixel": pixel_component(r),
             "dup": duplicate_component(r), "cell": shared_residual_cell_component(r),
             "resid": shared_residual_component(r), "chroma": chroma_floor_component(r)}
 
@@ -224,7 +254,8 @@ def self_check(R: np.ndarray, E: np.ndarray, y: np.ndarray, n_classes: int, pca_
         ps = StandardScaler().fit(P[fit])
         z = lambda idx: zs.transform(pca.transform(E[idx]))  # noqa: E731
         d = {"X_fit": z(fit), "X_cal": z(cal), "X_inc": z(te), "y_fit": y[fit], "y_cal": y[cal], "y_inc": y[te], "n_classes": n_classes,
-             "P_fit": ps.transform(P[fit]), "P_cal": ps.transform(P[cal]), "P_inc": ps.transform(P[te]), "R_fit": R[fit], "R_cal": R[cal], "R_inc": R[te]}
+             "P_fit": ps.transform(P[fit]), "P_cal": ps.transform(P[cal]), "P_inc": ps.transform(P[te]), "R_fit": R[fit], "R_cal": R[cal], "R_inc": R[te],
+             "class_signature": False}   # not one of the screening lists (chosen on dev without it)
         for name, (cal_s, inc_s, *one) in components(d).items():
             rows.setdefault(name, np.zeros(len(R)))[te] = v2.extrapolated_neg_log_p(cal_s, inc_s)
             e = label_evidence(d, cal_s, one[0]) if name == "label" else v2.multi_tail_test(cal_s, inc_s, TAILS)

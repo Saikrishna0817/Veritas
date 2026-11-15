@@ -144,7 +144,32 @@ def analyze2():
                   + f"{np.mean([batch(r) >= 1.3 for r in g]):12.2f}")
 
 
+def analyze_test():
+    """Held-out: whole-file AUPRC of today's fallback (A) vs the self-check's label and column-consistency lists, and
+    the share of poisoned rows in the top-5% list the app shows (20-200 rows)."""
+    R = _load(PKL_TEST); atk = [r for r in R if r["attack"]]; cln = [r for r in R if not r["attack"]]
+    pen = {"label": v2.LABEL_PENALTY, "shift": v2.SHIFT_PENALTY, "resid": v2.RESID_PENALTY}
+    ev = lambda r: max(max(r["ev"][c]) - pen[c] for c in ("label", "resid")) - np.log10(K)  # noqa: E731
+    def full_a(r):
+        s = np.full(len(r["mask"]), -1e9); s[r["n_ref"]:] = r["rows_a"]; return s
+    def recall(r, c):
+        top = np.argsort(-r["rows"][c], kind="stable")[:min(200, max(20, int(0.05 * len(r["mask"]))))]
+        return r["mask"][top].sum() / max(r["mask"].sum(), 1)
+    print(f"held-out: {len(atk)} attacked, {len(cln)} clean; clean screening evidence >= 1.3 / 2.0: "
+          f"{np.mean([ev(r) >= 1.3 for r in cln]):.3f} / {np.mean([ev(r) >= 2 for r in cln]):.3f}")
+    print(f"{'attack':<22}rate   AUPRC fallback / label list / resid list   poisoned rows in the shown list: label / resid / either")
+    for rate in RATES:
+        for a in list(dict.fromkeys(r["attack"] for r in atk)) + ["MEAN"]:
+            g = [r for r in atk if r["rate"] == rate and a in ("MEAN", r["attack"])]
+            ap = lambda f: np.mean([average_precision_score(r["mask"], f(r)) for r in g])  # noqa: E731
+            either = np.mean([r["mask"][np.union1d(*[np.argsort(-r["rows"][c], kind="stable")[:min(200, max(20, int(0.05 * len(r["mask"]))))]
+                                                     for c in ("label", "resid")])].sum() / max(r["mask"].sum(), 1) for r in g])
+            print(f"{a[:21]:<22}{rate:4.2f}   {ap(full_a):.2f} / {ap(lambda r: r['rows']['label']):.2f} / {ap(lambda r: r['rows']['resid']):.2f}"
+                  f"                         {np.mean([recall(r, 'label') for r in g]):.2f} / {np.mean([recall(r, 'resid') for r in g]):.2f} / {either:.2f}")
+
+
 if __name__ == "__main__":
+    if "--analyze-test" in sys.argv: analyze_test(); sys.exit()
     if "--analyze2" in sys.argv: analyze2()
     elif "--analyze" in sys.argv: analyze()
     elif "--checks" in sys.argv: collect(checks_one, PKL2)

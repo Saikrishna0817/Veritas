@@ -46,6 +46,7 @@ export const CHECK_NAMES = {
   pixel: ['Pixel statistics', 'patches, noise and blending'], dup: ['Near-duplicates', 'copies of the same item'],
   cell: ['Shared patch', 'one local pattern repeated across items'], resid: ['Shared faint pattern', 'a faint pattern repeated across items'],
   chroma: ['Colour noise', 'noise in flat regions'],
+  sig: ['Within-class pattern', 'a pattern shared by part of one class, labels left correct'],
 };
 
 const SCALE_MAX = 8;

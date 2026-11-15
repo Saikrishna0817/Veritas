@@ -201,7 +201,7 @@ def _mm_threads() -> int:
     return min(4, os.cpu_count() or 1)
 
 
-def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info: dict) -> dict[str, Any]:
+def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info: dict, class_signature: bool = True) -> dict[str, Any]:
     """Run veritas_mm on views R (N, 32, 32, 3) uint8 and embeddings E, with the reference first in ``ing``. Builds
     the detector inputs exactly as the benchmarks do: PCA of E fitted on reference rows, fit/calibration split."""
     from sklearn.decomposition import PCA
@@ -220,7 +220,8 @@ def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info:
         part = lambda A, f: (f(A[n_cal:s]), f(A[:n_cal]), f(A[s:]))  # noqa: E731  (fit, cal, incoming)
         (Xf, Xc, Xi), (Pf, Pc, Pi), (Rf, Rc, Ri) = part(Z, zs.transform), part(P, ps.transform), part(R, lambda a: a)
         d = {"X_fit": Xf, "X_cal": Xc, "X_inc": Xi, "y_fit": y[n_cal:s], "y_cal": y[:n_cal], "y_inc": y[s:],
-             "n_classes": len(names), "P_fit": Pf, "P_cal": Pc, "P_inc": Pi, "R_fit": Rf, "R_cal": Rc, "R_inc": Ri}
+             "n_classes": len(names), "P_fit": Pf, "P_cal": Pc, "P_inc": Pi, "R_fit": Rf, "R_cal": Rc, "R_inc": Ri,
+             "class_signature": class_signature}
         out = veritas_mm.detect(d)
     verdict, suspicion = veritas2.verdict_for(out["batch_evidence"])
     cut = min(2.0, float(np.log10(s + 1)))
@@ -318,7 +319,7 @@ def _orchestrate_video(zip_bytes: bytes, filename: str, owner_id: str, reference
     ing = VideoIngestionEngine().ingest(zip_bytes, filename, reference_bytes, self_check)
     E = video.embed_clips(ing["frames"], threads=_mm_threads())
     return _run_mm(video.temporal_mean(ing["frames"]), E, ing, started, "video_upload", "clip",
-                   {"view": f"{video.N_FRAMES} frames at {video.FRAME_SIZE}x{video.FRAME_SIZE}; their 32x32 mean for the pixel checks"})
+                   {"view": f"{video.N_FRAMES} frames at {video.FRAME_SIZE}x{video.FRAME_SIZE}; their 32x32 mean for the pixel checks"}, class_signature=False)
 
 
 SCAN_SCORE = {"DANGEROUS": 1.0, "REVIEW": 0.5}
