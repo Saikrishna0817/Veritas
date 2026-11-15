@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "benchmark_id": "veritas-labelerrors-v1",
+ "created_at": "2026-11-15",
+ "immutable": true,
+ "source": {
+  "repo": "https://github.com/cleanlab/label-errors",
+  "commit": "6d5d6b31a13216290afc40e5c6319399c4d15c06",
+  "license": "Apache-2.0",
+  "paper": "Northcutt, Athalye, Mueller (2021), Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks, NeurIPS Datasets and Benchmarks; labelerrors.com",
+  "files": "mturk/<ds>_mturk.json (candidates, 5 Mechanical Turk votes each), original_test_labels/<ds>_test_set_original_labels.npy"
+ },
+ "datasets": ["cifar10", "cifar100", "mnist"],
+ "ground_truth": {
+  "confirmed": "candidate with mturk.given < 3 (fewer than 3 of 5 workers chose the given label alone). Reproduces the paper's counts exactly: 54 (CIFAR-10), 585 (CIFAR-100), 15 (MNIST). Tried first and rejected for not matching: given+both < 3 (37, 465, 15), which is what 'a majority did not accept the given label' would suggest; guessed+neither >= 3 gives 38/486/18 as given<guessed+neither and 18/318/23 as guessed>=3. The definition was chosen by matching published counts, not by any detector result.",
+  "all_candidates": "every candidate cleanlab flagged, unverified (secondary ground truth)",
+  "caveat": "Positives are only found among cleanlab's candidates (confident learning on a different model), so precision is a lower bound (unflagged errors count as clean) and the candidate set favours confident-learning-style detectors."
+ },
+ "order_check": "the test labels torchvision loads must equal original_test_labels exactly (asserted); ids index test-set rows",
+ "embedding": "ResNet-18 ImageNet penultimate layer (app.detection.image_embed), pixel features and PCA(32) fitted on reference rows, as bench_mm.prepare_batch; MNIST grey replicated to 3 channels",
+ "mode_a_reference": {
+  "n_reference": 6000,
+  "reference": "stratified random sample of the TRAINING set (clean labels)",
+  "batch_rows": 3000,
+  "calibration_fraction_of_reference": 0.3,
+  "pca_dims": 32,
+  "incoming": "the whole test set in seeded random order, scored in chunks of batch_rows; every image gets one row score",
+  "detector": "app.detection.veritas_mm.detect (class_signature on, as for images); reported: veritas_mm row scores and the label check alone"
+ },
+ "mode_b_no_reference": {
+  "chunk_rows": 5000,
+  "detector": "app.detection.veritas_mm.self_check on the test set in seeded random order; score = 'label' list rows"
+ },
+ "metrics": {
+  "base_rate": true, "auprc": true, "auroc": true,
+  "top_fractions": [0.01, 0.05],
+  "app_list": "per chunk the top min(200, max(20, 5% of chunk)) rows; recall and precision of the union",
+  "ci": {"method": "bootstrap over test images", "resamples": 1000, "level": 0.95}
+ },
+ "seed": 20261115,
+ "detector_commit": "722925d",
+ "policy": "No tuning on these results. Nothing is planted. Run once and quote the numbers as they come; any change to the detector or definitions means a new benchmark_id."
+}
