@@ -28,6 +28,7 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 from research.baselines import DETECTORS  # noqa: E402
 from research.bench_v2 import _row_metrics, aggregate, detector_inputs, to_markdown  # noqa: E402
 from research.mm import datasets  # noqa: E402
+from research.mm import ext_attacks  # noqa: E402
 from research.mm.attacks import ATTACKS, make_context  # noqa: E402
 from research.mm.detector import check_detector, mm_lead, pixel_c2st, veritas_mm  # noqa: E402
 from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
@@ -65,7 +66,7 @@ def prepare_batch(spec: dict, ds: datasets.ImageSet, emb: np.ndarray, pix: np.nd
     if spec["attack"]:
         ctx = make_context(raw, ds.n_classes, rng)
         n_poison = max(1, round(spec["rate"] * len(inc)))
-        idx = ATTACKS[spec["attack"]](raw, y, rng, n_poison, ctx)
+        idx = {**ATTACKS, **ext_attacks.ATTACKS}[spec["attack"]](raw, y, rng, n_poison, ctx)
         mask[idx] = True
         E_inc[idx], P_inc[idx] = embed_images(raw[idx]), pixel_features(raw[idx])
     pca = PCA(m["pca_dims"], random_state=0).fit(emb[ref])
