@@ -35,7 +35,7 @@ false-alarm level"), limits sit next to the claims they qualify, and nothing is 
    not proof of poisoning.
 2. **Point at the thing to fix.** Every result ends in a list the user can act on: rows with file line numbers, cells
    with the original value, files with class and the check that flagged them.
-3. **Say what was not checked.** Limits (clean-label triggers are not detected; images are checked at 32x32; at 1%
+3. **Say what was not checked.** Limits (clean-label triggers in audio and video are not detected; images are checked at 32x32; at 1%
    poison batch verdicts are weak) appear where they matter, not in a footer.
 4. **One workflow for every data type.** CSV, images, audio and video share one upload flow and one results layout;
    only the evidence specific to the type differs.
