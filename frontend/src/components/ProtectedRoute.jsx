@@ -1,12 +1,13 @@
-import { useAuth } from '../hooks/useAuth';
-import { ShieldAlert } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+const ROLE_WORDS = { admin: 'administrator', analyst: 'analyst', user: 'user' };
 
 export default function ProtectedRoute({ children, fallback, requiredRole }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <div className="p-8 text-textMuted font-mono text-sm">Checking session…</div>;
+    return <div className="instrument in-main in-hint" role="status">Checking your session…</div>;
   }
 
   if (!user) {
@@ -17,30 +18,18 @@ export default function ProtectedRoute({ children, fallback, requiredRole }) {
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    const isTargetingAdmin = requiredRole === 'admin';
+    const forAdmins = requiredRole === 'admin';
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-bgVoid text-textPrimary">
-        <div className="max-w-md w-full p-8 rounded-2xl bg-bgPanel border border-redPrimary/30 shadow-red-glow text-center space-y-6">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-redPrimary/10 border border-redPrimary/30 flex items-center justify-center">
-            <ShieldAlert className="w-7 h-7 text-redPrimary" />
-          </div>
-          <div>
-            <h2 className="font-display text-2xl font-bold tracking-tight text-white mb-2">403 Access Denied</h2>
-            <p className="text-sm font-mono text-textMuted leading-relaxed">
-              This module requires <span className="text-redPrimary font-bold uppercase">{requiredRole}</span> privilege. Your active role is <span className="text-textPrimary font-bold uppercase">{user.role}</span>.
-            </p>
-          </div>
-          <Link
-            to={isTargetingAdmin ? '/' : '/admin'}
-            className="inline-block w-full py-3 px-6 rounded-xl bg-redPrimary text-white font-mono text-xs font-bold uppercase tracking-wider hover:bg-redBright transition-all shadow-red-glow"
-          >
-            {isTargetingAdmin ? 'Return to User Dashboard' : 'Return to Admin Console'}
-          </Link>
-        </div>
-      </div>
+      <main className="in-main"><div className="in-page">
+        <h1 className="in-h1">{forAdmins ? 'This page is for administrators' : 'This page is not available to your account'}</h1>
+        <p className="in-lede">
+          You are signed in as <b>{user.name || user.username}</b> ({ROLE_WORDS[user.role] || user.role}).
+          {forAdmins ? ' An administrator can change your role.' : ''}
+        </p>
+        <Link to={forAdmins ? '/' : '/admin'} className="in-link-text">{forAdmins ? 'Go to the overview' : 'Go to the admin console'}</Link>
+      </div></main>
     );
   }
 
   return children;
 }
-

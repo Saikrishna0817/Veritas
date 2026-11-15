@@ -13,7 +13,8 @@ const VERDICTS = {
 
 function ScanResult({ result, onReset }) {
   const scan = result.scan || {};
-  const [title, note] = VERDICTS[result.verdict] || VERDICTS.REVIEW;
+  // An unknown code is shown as it is, never as another verdict.
+  const [title, note] = VERDICTS[result.verdict] || [result.verdict ? `Verdict: ${String(result.verdict).replace(/_/g, ' ').toLowerCase()}` : 'No verdict in this result', 'This verdict is not one the interface recognises. Download the scan to read it in full.'];
   const findings = scan.findings || [];
   const saveJson = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
