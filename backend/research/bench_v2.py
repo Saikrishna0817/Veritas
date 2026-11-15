@@ -55,7 +55,7 @@ def _openml(data_id: int):
     """fetch_openml's default ARFF parser breaks on categorical columns under pandas 3.1; liac-arff does not."""
     try:
         return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="auto")
-    except TypeError:
+    except Exception:  # a TypeError, or the same failure wrapped by sklearn's retry helper inside a worker process
         return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="liac-arff")
 
 
@@ -160,7 +160,9 @@ def detector_inputs(X_ref, y_ref, X_inc, y_inc, n_classes: int, cal_fraction: fl
             "X_ref_raw": X_ref, "y_ref": y_ref, "X_inc_raw": X_inc}
 
 
-def run_batch(spec: dict) -> dict:
+def make_batch(spec: dict):
+    """(detector inputs, row mask, cell mask, record header) for one batch. The cell mask marks every incoming
+    feature value and label the attack changed: shape (n_incoming, n_features + 1), the last column is the label."""
     m = spec["manifest"]
     X, y, name = load_dataset(spec["data_id"], m["max_rows"], m["random_seed"] + spec["seed"])
     rng = np.random.default_rng([m["random_seed"], spec["data_id"], spec["seed"],
@@ -183,21 +185,32 @@ def run_batch(spec: dict) -> dict:
     if spec["attack"]:
         n_poison = max(1, round(spec["rate"] * len(inc)))
         mask[ATTACKS[spec["attack"]](X_inc, y_inc, rng, n_poison, ctx)] = True
+    cells = np.c_[X_inc != X[inc], y_inc != y[inc]]
 
     d = detector_inputs(X_ref, y_ref, X_inc, y_inc, ctx["n_classes"], m["calibration_fraction_of_reference"])
 
     out = {k: spec[k] for k in ("split", "data_id", "seed", "attack", "rate", "rep")}
     out.update({"dataset": name, "data_hash": data_hash(X, y), "n_incoming": len(inc),
                 "n_poisoned": int(mask.sum()), "detectors": {}})
+    return d, mask, cells, out
+
+
+def run_batch(spec: dict) -> dict:
+    m = spec["manifest"]
+    d, mask, cells, out = make_batch(spec)
     limits = m.get("detector_seed_limits", {})
     for det_name, detect in DETECTORS.items():
         if spec["seed"] >= limits.get(det_name, m["seeds"]) or det_name not in (spec.get("only") or DETECTORS):
             continue  # too slow to run on every seed; see detector_seed_limits in the manifest
         started = time.perf_counter()
-        rows, batch = detect(d)
+        rows, batch, *extra = detect(d)   # veritas2 also returns per-cell scores and its attack guess
         res = {"batch_score": batch, "seconds": round(time.perf_counter() - started, 3)}
+        if len(extra) > 1:
+            res["attack_guess"] = extra[1]
         if mask.any():
             res.update(_row_metrics(np.asarray(rows, dtype=float), mask))
+            if extra:
+                res["cell_auprc"] = float(average_precision_score(cells.ravel(), extra[0].ravel()))
         out["detectors"][det_name] = res
     return out
 
@@ -253,7 +266,7 @@ def _mean_metric(det: str, attack: str, rate: float, metric: str):
 def aggregate(records: list[dict], m: dict) -> dict:
     ci = m["metrics"]["ci"]
     fpr = m["metrics"]["batch"]["tpr_at_clean_fpr"]
-    dets = [d for d in DETECTORS if any(d in r["detectors"] for r in records)]
+    dets = list(dict.fromkeys(d for r in records for d in r["detectors"]))  # whatever the run scored, first-seen order
     summary = {}
     for split in m["datasets"]:
         recs = [r for r in records if r["split"] == split]

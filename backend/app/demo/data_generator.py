@@ -103,29 +103,6 @@ def inject_backdoor_attack(samples: List[Dict], n_poison: int = 25) -> List[Dict
     return samples
 
 
-def inject_boiling_frog_attack(samples: List[Dict], n_poison: int = 40) -> List[Dict]:
-    """Boiling frog: gradual drift injection over many batches."""
-    clean = [s for s in samples if s["poison_status"] == "clean"]
-    targets = random.sample(clean, min(n_poison, len(clean)))
-    poison_start = datetime.now(timezone.utc) - timedelta(days=12)
-    
-    for i, s in enumerate(targets):
-        drift_factor = (i / n_poison) * 0.08  # gradual increase
-        fv = np.array(s["feature_vector"])
-        fv += np.random.normal(0, drift_factor, len(fv))
-        fv = np.clip(fv, 0, None)
-        s["feature_vector"] = fv.tolist()
-        s["features"] = {name: float(val) for name, val in zip(FEATURE_NAMES, fv)}
-        s["poison_status"] = "confirmed"
-        s["attack_type"] = "boiling_frog"
-        s["attack_subtype"] = "gradual_drift"
-        s["ingested_at"] = (poison_start + timedelta(hours=i * 7)).isoformat()
-        s["source_id"] = "src_crowdsource_api"
-        s["client_id"] = "fed_client_0091"
-    
-    return samples
-
-
 def inject_clean_label_attack(samples: List[Dict], n_poison: int = 20) -> List[Dict]:
     """
     Clean Label Attack: samples have CORRECT labels but are crafted in feature space
@@ -168,51 +145,6 @@ def inject_clean_label_attack(samples: List[Dict], n_poison: int = 20) -> List[D
     return samples
 
 
-def inject_gradient_poisoning_attack(samples: List[Dict], n_poison: int = 15) -> List[Dict]:
-    """
-    Gradient Poisoning (Federated context): malicious clients submit samples
-    with inverted gradient signals — features are perturbed in the direction
-    that maximally disrupts the model's learned weights for a specific class.
-    Simulated here as feature-space gradient inversion on a subset of samples.
-    """
-    # Target: malignant samples — invert their signal to look benign to the model
-    malignant = [s for s in samples if s["label"] == 1 and s["poison_status"] == "clean"]
-    targets = random.sample(malignant, min(n_poison, len(malignant)))
-    poison_time = datetime.now(timezone.utc) - timedelta(days=1)
-
-    # Benign centroid
-    benign = [s for s in samples if s["label"] == 0]
-    if not benign:
-        return samples
-    benign_centroid = np.mean([s["feature_vector"] for s in benign], axis=0)
-
-    for i, s in enumerate(targets):
-        fv = np.array(s["feature_vector"])
-        # Gradient inversion: move malignant samples toward benign centroid
-        # while keeping label as malignant — confuses gradient descent
-        direction = benign_centroid - fv
-        direction_norm = direction / (np.linalg.norm(direction) + 1e-8)
-        scale = 0.15 + (i / n_poison) * 0.10
-        fv_poisoned = fv + scale * direction_norm
-        # Also invert key discriminative features
-        fv_poisoned[0] = benign_centroid[0] + np.random.normal(0, 0.5)  # cell_radius
-        fv_poisoned[3] = benign_centroid[3] + np.random.normal(0, 10)   # cell_area
-        fv_poisoned = np.clip(fv_poisoned, 0, None)
-
-        s["feature_vector"] = fv_poisoned.tolist()
-        s["features"] = {name: float(val) for name, val in zip(FEATURE_NAMES, fv_poisoned)}
-        s["label"] = 1  # label stays malignant
-        s["label_name"] = "malignant"
-        s["poison_status"] = "confirmed"
-        s["attack_type"] = "gradient_poisoning"
-        s["attack_subtype"] = "gradient_inversion"
-        s["ingested_at"] = (poison_time + timedelta(hours=i * 1.5)).isoformat()
-        s["source_id"] = "src_federated_node_7"
-        s["client_id"] = "fed_client_0199"
-
-    return samples
-
-
 def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[str, Any]:
     """
     Generate the full demo dataset.
@@ -236,8 +168,8 @@ def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[st
     if scenario == "poisoned":
         # Pick a random subset of attacks with random intensities
         attacks = random.sample(
-            ["label_flip", "backdoor", "boiling_frog", "clean_label", "gradient_poisoning"],
-            k=random.randint(2, 5)
+            ["label_flip", "backdoor", "clean_label"],   # only attacks the detector is benchmarked on
+            k=random.randint(1, 3)
         )
         if "label_flip" in attacks:
             n = random.randint(15, 45)
@@ -245,15 +177,9 @@ def generate_demo_dataset(scenario: str = "random", seed: int = None) -> Dict[st
         if "backdoor" in attacks:
             n = random.randint(10, 35)
             samples = inject_backdoor_attack(samples, n_poison=n)
-        if "boiling_frog" in attacks:
-            n = random.randint(20, 55)
-            samples = inject_boiling_frog_attack(samples, n_poison=n)
         if "clean_label" in attacks:
             n = random.randint(10, 30)
             samples = inject_clean_label_attack(samples, n_poison=n)
-        if "gradient_poisoning" in attacks:
-            n = random.randint(8, 25)
-            samples = inject_gradient_poisoning_attack(samples, n_poison=n)
 
     n_poisoned = sum(1 for s in samples if s["poison_status"] == "confirmed")
     n_clean = len(samples) - n_poisoned

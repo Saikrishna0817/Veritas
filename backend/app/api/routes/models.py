@@ -52,18 +52,19 @@ async def scan_model(
 
     model_bytes = await read_upload_limited(model_file, MAX_SCAN_SIZE)
     model_filename = model_file.filename
-    quota.charge_scan(user, len(model_bytes))
+    charged = quota.charge_scan(user, len(model_bytes))
 
     if background:
         store = storage()
         key = new_key(user["id"], "model")
         store.put(key, model_bytes)
-        job_id = job_store.submit("model_scan", {"key": key, "filename": model_filename}, owner_id=user["id"])
+        job_id = job_store.submit("model_scan", {"key": key, "filename": model_filename, "charged": charged}, owner_id=user["id"])
         return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
         full_result = await run_model_analysis(model_bytes, model_filename)
     except Exception:
+        quota.refund(user["id"], charged)
         rid = getattr(request.state, "request_id", "-")
         logger.exception("Model scan failed [rid=%s]", rid)
         raise HTTPException(status_code=500, detail=f"Model scan failed. Check server logs (request ID: {rid}).")
@@ -91,62 +92,22 @@ async def get_model_scan_result(scan_id: str, user: dict = Depends(require_user)
 
 @router.get("/trust/score")
 async def get_trust_score(user: dict = Depends(require_user)):
-    """Trust scores from latest real analysis, or honest empty state (no fake Grade A)."""
+    """Headline numbers of the latest analysis: only what the detector measured, nothing derived from it."""
     r = deps.resolve_latest_result(user["id"], prefer="auto")
     if not r:
-        now = datetime.now(timezone.utc).isoformat()
-        return {
-            "has_analysis": False,
-            "data_source": "none",
-            "dataset_trust": {
-                "data_quality": None,
-                "poison_risk": None,
-                "behavioral_trust": None,
-                "overall": None,
-            },
-            "model_safety": {
-                "backdoor_risk": None,
-                "adversarial_robustness": None,
-                "prediction_stability": None,
-                "grade": None,
-            },
-            "updated_at": now,
-            "notice": "No analysis yet. Upload a CSV or analyse a real dataset.",
-        }
-
-    suspicion = r.get("overall_suspicion_score", 0.0) or 0.0
-    data_source = r.get("source", "unknown")
-
-    poison_risk = round(suspicion * 100, 1)
-    data_quality = round(max(0, 100 - poison_risk * 1.2), 1)
-    behavioral_trust = round(max(0, 100 - poison_risk * 0.8), 1)
-    overall = round((data_quality * 0.4 + (100 - poison_risk) * 0.35 + behavioral_trust * 0.25), 1)
-
-    backdoor_risk = "HIGH" if suspicion > 0.7 else "MEDIUM" if suspicion > 0.4 else "LOW"
-    adversarial_robustness = "LOW" if suspicion > 0.7 else "MEDIUM" if suspicion > 0.4 else "HIGH"
-    prediction_stability = round(max(70, 100 - suspicion * 30), 1)
-    grade = (
-        "F" if overall < 40
-        else "D" if overall < 55
-        else "C" if overall < 70
-        else "B" if overall < 85
-        else "A"
-    )
-
+        return {"has_analysis": False, "data_source": "none", "verdict": None, "poison_risk": None, "flagged_rows": None,
+                "likely_attack": None, "evidence": {}, "updated_at": datetime.now(timezone.utc).isoformat(),
+                "notice": "No analysis yet. Upload a CSV or analyse a real dataset."}
+    layers = r.get("layer_results") or {}
+    profile = r.get("attack_profile") or (r.get("details") or {}).get("attack_profile")
     return {
         "has_analysis": True,
-        "dataset_trust": {
-            "data_quality": data_quality,
-            "poison_risk": poison_risk,
-            "behavioral_trust": behavioral_trust,
-            "overall": overall,
-        },
-        "model_safety": {
-            "backdoor_risk": backdoor_risk,
-            "adversarial_robustness": adversarial_robustness,
-            "prediction_stability": prediction_stability,
-            "grade": grade,
-        },
+        "data_source": r.get("source", "unknown"),
+        "verdict": r.get("verdict"),
+        "poison_risk": round((r.get("overall_suspicion_score") or 0.0) * 100, 1),   # the verdict's 0-1 suspicion, as a percentage
+        "flagged_rows": len((layers.get("row_flags") or {}).get("flagged_indices_incoming") or []),
+        "likely_attack": ({"type": profile["likely"], "label": profile["label"], "probability": profile["probabilities"][profile["likely"]]}
+                          if profile else None),
+        "evidence": {name: (layers.get(name) or {}).get("evidence") for name in ("label_check", "shift_check", "resid_check")},
         "updated_at": datetime.now(timezone.utc).isoformat(),
-        "data_source": data_source,
     }

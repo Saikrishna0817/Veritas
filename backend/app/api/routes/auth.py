@@ -7,6 +7,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core import mailer
@@ -19,6 +20,7 @@ from app.models import database as db
 logger = logging.getLogger(__name__)
 router = APIRouter()
 login_rate_limiter = make_limiter("login", 5, 60)
+login_user_rate_limiter = make_limiter("login-user", 10, 900)   # per username, so guessing spread over many IPs is slowed too
 signup_rate_limiter = make_limiter("signup", 5, 3600)
 mail_rate_limiter = make_limiter("mail", 5, 3600)
 
@@ -81,9 +83,9 @@ async def _check_turnstile(token: Optional[str], request: Request) -> None:
         raise HTTPException(status_code=400, detail="Human check failed. Please try again.")
 
 
-def _send_verification(user_id: str, email: str) -> None:
+async def _send_verification(user_id: str, email: str) -> None:
     token = db.create_auth_token(user_id, "verify_email", VERIFY_TTL_MIN)
-    mailer.send(email, "Confirm your Veritas email",
+    await run_in_threadpool(mailer.send, email, "Confirm your Veritas email",
                 f"Welcome to Veritas.\n\nConfirm your email address (valid 24 hours):\n{settings.public_url}/verify-email?token={token}\n\n"
                 "If you did not sign up, ignore this message.")
 
@@ -92,6 +94,8 @@ def _send_verification(user_id: str, email: str) -> None:
 async def token(credentials: LoginRequest, request: Request, response: Response):
     if not login_rate_limiter.allow(_ip(request)):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Try again in one minute.")
+    if not login_user_rate_limiter.allow(credentials.username.lower()):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts for this account. Try again in 15 minutes.")
     user = authenticate_user(credentials.username, credentials.password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
@@ -127,7 +131,7 @@ async def signup(body: SignupRequest, request: Request):
     verified = not settings.require_email_verification
     user_id = db.create_user(body.username, hash_password(body.password), role="user", email=email, email_verified=verified)
     if not verified:
-        _send_verification(user_id, email)
+        await _send_verification(user_id, email)
     db.log_audit_event(user_id, "account.signup", "account", user_id, {})
     return {"message": "Account created." + ("" if verified else " Check your email to confirm your address."), "verification_required": not verified}
 
@@ -149,7 +153,7 @@ async def resend_verification(body: EmailRequest, request: Request):
     await _check_turnstile(body.turnstile_token, request)
     user = db.get_user_by_email(body.email.lower())
     if user and not user.get("email_verified", 1):
-        _send_verification(user["id"], user["email"])
+        await _send_verification(user["id"], user["email"])
     return {"message": "If that address has an unconfirmed account, a new link is on its way."}
 
 
@@ -161,7 +165,7 @@ async def password_reset_request(body: EmailRequest, request: Request):
     user = db.get_user_by_email(body.email.lower())
     if user:
         token = db.create_auth_token(user["id"], "reset_password", RESET_TTL_MIN)
-        mailer.send(user["email"], "Reset your Veritas password",
+        await run_in_threadpool(mailer.send, user["email"], "Reset your Veritas password",  # SMTP blocks: keep it off the event loop
                     f"Reset your password (valid 1 hour):\n{settings.public_url}/reset-password?token={token}\n\nIf you did not ask for this, ignore it.")
     return {"message": "If that address has an account, a reset link is on its way."}
 

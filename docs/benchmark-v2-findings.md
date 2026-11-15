@@ -281,4 +281,178 @@ Not verified / not done:
 
 ## Dependency bump check (numpy 2.5.4, pandas 3.1.0)
 
-Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges. All 12,000 per-batch detector outputs are identical to `final-r2` (bit-for-bit apart from timings), so the bumps did not move any score. `fetch_openml`'s default ARFF parser breaks on categorical columns under pandas 3.1, so the harness now falls back to `parser="liac-arff"`. Result: `backend/research/results/2026-11-07-benchmark-v2-deps-bump-numpy25-pandas31.*`. scikit-learn stays at 1.8.0 (its 1.9 bump fails tests and is not merged).
+Re-ran the 12 held-out test datasets (1,680 batches) after the Dependabot merges. All 12,000 per-batch detector outputs are identical to `final-r2` (bit-for-bit apart from timings), so the bumps did not move any score. `fetch_openml`'s default ARFF parser breaks on categorical columns under pandas 3.1, so the harness now falls back to `parser="liac-arff"`. Result: `backend/research/results/2026-11-07-benchmark-v2-deps-bump-numpy25-pandas31.*`.
+
+## Dependency bump check (scikit-learn 1.9.1)
+
+Re-ran the same 1,680 held-out batches on scikit-learn 1.9.1. Unlike the numpy/pandas bump, outputs are **not** bit-identical: about 45% of per-batch scores move (gradient-boosting internals changed), by up to 4.3 in `veritas2` batch score on individual batches. Aggregates stay within noise. `veritas2` mean batch detection at 5% false alarms by poison rate (1.8.0 → 1.9.1): 1% 0.150 → 0.144, 3% 0.647 → 0.611, 5% 0.747 → 0.744, 10% 0.886 → 0.872; mean row AUPRC at 5% poison 0.678 → 0.681 (95% intervals are about ±0.15 wide). No claim in the model card changes. The metadata unpickler allow-list also needed `sklearn._loss._loss` classes for 1.9 pickles. Result: `backend/research/results/2026-11-08-benchmark-v2-deps-bump-sklearn19.*`.
+
+## Cell-level localisation (2026-11-13)
+
+`veritas2.detect` now also returns `cell_scores`, shape (incoming rows, features + 1), the last column being the label:
+the row score plus how unusual the cell is. A feature value scores the -log10 share of clean values at least as far from
+the column mean, less log10(number of features); the label cell scores the label check. Ground truth is every value and
+label the attack changed (`bench_v2.make_batch`).
+
+Chosen on dev (`research/tab/cell_study_dev.py`) over: ridge residuals from the other features, their max with the
+marginal score, min(row, cell), and no column-count correction. Uncorrected marginal scores were slightly better on dev
+at 1% (0.28 vs 0.25) but blamed feature columns for label flips; the corrected version wins at 5-10% and inside poisoned rows.
+
+Held-out test (12 datasets, 1,440 attacked batches), cell AUPRC; random ranking = the share of changed cells (0.1-0.7%
+at 1% poison). "Row only" gives every cell of a row its row score.
+
+| Attack | 1% cells / row only | 5% cells / row only | In-row column ranking |
+|---|---|---|---|
+| Random label flip | 0.47 / 0.04 | 0.64 / 0.04 | 0.99 |
+| Targeted label flip | 0.55 / 0.06 | 0.71 / 0.05 | 0.99 |
+| Out-of-range backdoor | 0.39 / 0.08 | 0.81 / 0.22 | 0.98 |
+| In-range backdoor | 0.19 / 0.10 | 0.47 / 0.19 | 0.84 |
+| Feature collision | 0.08 / 0.20 | 0.30 / 0.53 | 0.74 |
+| Covariate shift | 0.01 / 0.01 | 0.15 / 0.10 | 0.56 |
+| Mean | 0.28 / 0.08 | 0.51 / 0.19 | 0.85 |
+
+Full table (3% and 10% too): `backend/research/results/2026-11-13-tabular-cells-test.md`.
+
+- Inside a truly poisoned row the changed cells are ranked first almost always for label flips and out-of-range backdoors.
+- Feature collision changes every feature of a row towards a victim, with in-range values; giving the whole row its row score
+  is better (0.20 vs 0.08 at 1%). Covariate shift (+1 std on 30% of columns) is barely found at any level, because the row
+  ranking itself is weak there.
+- Cell quality is capped by the tabular row ranking, which has not had the image track's upgrades (full reference set,
+  cross-fitted label check, several tail sizes). Those are the next lever.
+- Not yet shown in the app: `pipeline.py` passes only row scores to the report.
+
+## Row checks upgraded with the image track's lessons (2026-11-13)
+
+`veritas2` now: label check cross-fitted over all reference rows (5 GBM folds; one fold model per incoming row for the
+batch test, the mean of folds for the row list); shift check against all reference rows; batch evidence = best exact
+tail test over the top 0.03/0.1/0.3/1%, minus log10(4); penalties label 0.1, shift 1.0 (gate 3 unchanged); row scores
+extrapolated beyond the top clean row; cell scores compare with all reference rows.
+
+Chosen on dev (`research/tab/row_study_dev.py`, 720 attacked + 360 clean batches). Rejected there: logistic regression
+for the label check (faster, slightly worse rows), a per-claimed-class label test (no gain), and a marginal-outlier
+row check (38% of clean batches flagged: in-sample reference scores are not comparable to incoming ones).
+
+Held-out test (12 datasets, 1,440 attacked + 240 clean batches; `results/2026-11-13-benchmark-v2-final-r3-crossfit.*`;
+"before" is the sklearn 1.9 run of the previous detector on the same batches):
+
+| | Before | Now | cleanlab |
+|---|---|---|---|
+| Row AUPRC at 1% / 3% / 5% / 10% | 0.36 / 0.57 / 0.68 / 0.80 | 0.43 / 0.70 / 0.78 / 0.88 | 0.36 / 0.49 / 0.54 / 0.60 |
+| Batch detection at 5% clean false alarms, 1% / 3% / 5% / 10% | 0.14 / 0.61 / 0.74 / 0.87 | 0.44 / 0.76 / 0.84 / 0.94 | 0.14 / 0.47 / 0.55 / 0.63 |
+| Flagged at LOW_RISK (1.3), 1% / 5% | 19% / 76% | 37% / 82% | 51% / 72% |
+| Clean flagged at 1.3 / 2.0 / 4.0 (nominal 5 / 1 / 0.01%) | 7.1 / 0.8 / 0% | 3.3 / 1.3 / 0% | 27.5 / 18.3 / 6.2% |
+| Cell AUPRC at 1% / 5% | 0.28 / 0.51 | 0.35 / 0.60 | - |
+| Seconds per batch | 1.6 | 5.4 | 0.7 |
+
+Per attack at 1% (row AUPRC / flagged at 1.3): random flip 0.51 / 42%, targeted flip 0.60 / 37%, out-of-range backdoor
+0.52 / 55%, in-range backdoor 0.49 / 37%, feature collision 0.39 / 43%, covariate shift 0.04 / 8%.
+
+- The calibrated batch detection at 1% tripled (0.14 -> 0.44); every rate and every attack improved.
+- Clean false alarms are now under nominal at 1.3 (was over); 1.3% at 2.0 is over nominal by one batch (3 of 240).
+- cleanlab's raw cut-offs are not calibrated (27.5% of clean batches at 1.3), so its "flagged" share is not comparable.
+- Covariate shift is still barely found at 1%; it needs a check built for many small column shifts.
+- `bench_v2._openml` now falls back to the liac-arff parser on any parse error: inside worker processes the pandas 3.1
+  failure arrives wrapped by sklearn's retry helper, not as a TypeError, and killed the first run of this benchmark.
+
+## Residual check, thread cap and attack naming (2026-11-13)
+
+- **Residual check** (`veritas2.residual_component`): each column predicted from the others by ridge regression; a
+  row's score is its summed squared residuals, cross-fitted like the label check (reference rows out-of-fold, each
+  incoming row by one fold model). Gate 1, penalty 1. Chosen on dev (`research/tab/row2_study_dev.py`) over
+  Mahalanobis and nearest-neighbour distances; a 50-round label check (1.6 s faster) was rejected for losing 1% power.
+- **Thread cap** in `Veritas2.analyze`: one thread under 10,000 rows, up to 4 above. On a busy 12-core machine a
+  3,000-row table took 10 s with every core and 2.6 s with one. Scores are identical at any thread count (checked).
+- **Attack naming** (`veritas2.attack_profile`): nine numbers describing the most suspicious rows (is the label or a
+  feature blamed, do the same columns recur, are the claimed labels concentrated, out-of-range values, how clustered
+  the rows are, how many columns look unusual, and the three checks' evidence) go into a gradient-boosted classifier
+  fitted on the dev attacked batches (`app/detection/attack_profile.json`, plain JSON; dev leave-one-dataset-out
+  accuracy 0.76). Returned for every batch that is not CLEAN.
+
+Held-out test (`results/2026-11-13-benchmark-v2-final-r4-resid-attack.*`), against the previous run on the same batches:
+
+| | Before (r3) | Now (r4) |
+|---|---|---|
+| Row AUPRC at 1% / 3% / 5% / 10% | 0.43 / 0.70 / 0.78 / 0.88 | 0.49 / 0.73 / 0.80 / 0.88 |
+| Batch detection at 5% clean false alarms, 1% / 3% / 5% | 0.44 / 0.76 / 0.84 | 0.47 / 0.79 / 0.86 |
+| Flagged at 1.3, 1% / 5% | 37% / 82% | 42% / 85% |
+| Covariate shift row AUPRC at 1% / 5% | 0.04 / 0.53 | 0.18 / 0.61 |
+| Out-of-range backdoor row AUPRC at 1% | 0.52 | 0.73 |
+| Cell AUPRC at 1% / 5% | 0.35 / 0.60 | 0.38 / 0.60 |
+| Clean flagged at 1.3 / 2.0 / 4.0 (n = 240) | 3.3 / 1.3 / 0% | 3.7 / 1.3 / 0% |
+| Seconds per batch (one thread) | 5.4 | 5.6 |
+
+Attack naming on held-out flagged batches (n = 1,070): exact attack 74% (1%: 49%, 3%: 74%, 5%: 77%, 10%: 82%);
+right family (label flipping / backdoor / collision / shift) 86%.
+
+| Attack | Named exactly | Right family | Most common mistake |
+|---|---|---|---|
+| Out-of-range backdoor | 92% | 96% | in-range backdoor |
+| Covariate shift | 81% | 81% | in-range backdoor |
+| Feature collision | 78% | 78% | random label flip |
+| In-range backdoor | 68% | 69% | random label flip |
+| Random label flip | 61% | 96% | targeted flip |
+| Targeted label flip | 60% | 96% | random flip |
+
+- Label flips are almost always recognised as label flipping; random vs targeted is close to a coin toss.
+- The classifier always names the closest of the six benchmarked attacks; it cannot say "something else".
+- Random and targeted label flips at 1% are unchanged (the residual check does not see them), as expected.
+
+## No reference (2026-11-15)
+
+When there is no trusted reference the poison may be anywhere in the file, including the part a split would call the
+reference. Today's fallback (first 70% as reference) never scores 70% of the rows. The self-check
+(`veritas2.self_check`, `veritas_mm.self_check`) splits the file into 5 folds and checks each against the other four,
+so every row is scored; the result is a screening (ranked lists), not a verdict.
+
+Dev, tables (`research/tab/selfcheck_study_dev.py`, whole-file row AUPRC, 1% / 5% poison): fallback 0.07 / 0.10,
+self-check merged 0.17 / 0.22. One list per check works better than a merged ranking: the label list finds flips at
+0.43-0.62 AUPRC, the column-consistency list backdoors at 0.20-0.35; collisions and covariate shift rank at chance
+(they look like ordinary data when there is nothing clean to compare with). Clean files reach 1.3 in 4.2% of cases,
+2.0 in 1.4%: the evidence is shown, but no verdict is given, because poison in every fold weakens it.
+
+Dev, images (`research/mm/selfcheck_study_dev.py`, fashion_mnist and cifar100): each check finds its own attacks
+(label: random flips 0.50 / 0.65; resid: patch, clean-label and duplicate floods 0.45-0.92; chroma: blended triggers
+and class noise 0.97-1.00) and the merged content ranking buried them (0.16 / 0.21). The app shows three lists:
+label, resid, chroma. Lists are the top 5% of the file (20 to 200 items), not a score cut-off: with poison in every
+fold the poisoned rows also sit in each "reference", so their scores stay moderate while their rank stays high.
+
+Held-out images (`SPLIT=test`, 7 attacks, 56 attacked + 16 clean sets, 79 s per set), row AUPRC 1% / 5%: label list
+0.16 / 0.18 (random flips 0.59 / 0.75; targeted flips 0.13 / 0.07), resid list 0.51 / 0.59 (patch 0.87 / 0.95,
+clean-label 0.94 / 0.96, duplicate floods 0.95 / 0.91, blended 0.80 / 0.87), chroma list 0.30 / 0.32 (blended and class
+noise 0.99-1.00); merged ranking 0.21 / 0.25. No clean set reached 1.3. Targeted flips and pure shift are not found
+without a reference.
+
+## Combining the checks into one batch verdict (2026-11-15)
+
+`research/mm/combine_study_dev.py`, offline from the per-check evidence of the audio and video dev runs, each rule at
+the clean false-alarm rate today's has on the same batches: attacked batches flagged at cut 1.3, today's max 0.640,
+weighted harmonic-mean p 0.645, Fisher 0.598; at cut 2.0, 0.588 / 0.579 / 0.388. An attack lights up one check, so
+adding the others mostly adds noise. Kept the max; nothing changed, so no held-out run.
+
+## Tables at 1% poison: a neighbour label check (2026-11-15)
+
+`research/tab/knn_study_dev.py`, dev: mean row AUPRC at 1% boosted trees (today) 0.37, nearest-neighbour label
+disagreement 0.28, their average 0.35; at 5% 0.52 / 0.47 / 0.51. Batches flagged at 1.3 at 1%: 0.16 / 0.10 / 0.19
+(within noise). Not shipped. With ~10 poisoned rows in a 1,000-row batch the limit is how few rows there are, not
+the label model; the earlier row studies reached the same conclusion with other models.
+
+## Clean-label triggers: within-class signature check `sig` (2026-11-15)
+
+The audio clean-label backdoor ranked at chance (dev row AUPRC 0.07 at 5%): the trigger sits on correctly labelled
+items of one class, so pooled checks see it as ordinary class similarity. `veritas_mm.class_signature_component`:
+per class, the high-pass residual of the incoming items minus the class's reference mean; the top singular vector of
+one half scores the other half (spectral signature, Tran et al. 2018, cross-fitted); the class's reference items on
+the same vector are the clean comparison. Two fixes were needed on dev: reference items leave themselves out of the
+mean (otherwise their deviations shrink), and scores are scaled per class and pooled into one tail test (per-class
+tests on ~14 reference items were badly anti-conservative: 25% of clean ESC-50 batches above 1.3).
+
+Dev (`research/mm/classsig_study_dev.py`), row AUPRC of the check alone, 1% / 5%: images clean-label 1.00 / 0.85-1.00,
+patch 0.77-1.00; Speech Commands clean-label 1.00 / 0.90, tone 0.80 / 1.00; ESC-50 no gain; video (UCF-101) at chance
+with 13% clean batches above 2.0, so it is off for video. Penalty 1.3 (row gate 2.3) chosen on the audio dev batches
+joined with the dev benchmark: clean alarms 1.4% before and after; clean-label batches flagged at 1% 0% -> 50%, tone
+17% -> 83%.
+
+Held-out (images manifest v9, audio manifest v3): not yet run. Two attempts were killed by the system memory reaper
+while another training job held most of the RAM. The app's limit texts still say clean-label triggers are not
+detected and will change only if the held-out numbers support it. The check is off in the no-reference screening
+(its lists were chosen on dev without it).

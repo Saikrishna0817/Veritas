@@ -29,7 +29,10 @@ def _name_tokens(col: str) -> set:
 
 
 _REF_COL = "__veritas_is_reference"
+_ROW_COL = "__veritas_source_row"      # 0-based data row in the file it came from; travels through cleaning
 MIN_REFERENCE_ROWS, MIN_INCOMING_ROWS = 30, 10
+MAX_CATEGORIES = 50     # text columns with up to this many distinct values become category codes (as in the benchmark)
+MAX_CLASSES = 100       # more label values than this is treated as a regression target
 
 
 class CSVIngestionEngine:
@@ -47,6 +50,7 @@ class CSVIngestionEngine:
         self.feature_columns: List[str] = []
         self.has_labels: bool = False
         self.detection_mode: str = "supervised"  # or "unsupervised"
+        self.categories: Dict[str, List[str]] = {}   # text column -> its values, in code order
 
     # ── Schema Detection ──────────────────────────────────────────────────────
 
@@ -102,6 +106,24 @@ class CSVIngestionEngine:
         ]
         return feature_cols
 
+    def _encode_text_columns(self, df: pd.DataFrame, exclude: set, warnings: List[str]) -> pd.DataFrame:
+        """Low-cardinality text columns become integer category codes (missing = its own code) so poisoned
+        categorical values are checked too; free-text and ID-like text columns are dropped, with a warning."""
+        df, dropped = df.copy(), []
+        for col in df.columns:
+            if col in exclude or pd.api.types.is_numeric_dtype(df[col]) or pd.api.types.is_bool_dtype(df[col]):
+                continue
+            if df[col].nunique() <= MAX_CATEGORIES:
+                codes, uniques = pd.factorize(df[col], sort=True)
+                df[col] = codes.astype(float)                                 # NaN -> -1, a category of its own
+                self.categories[str(col)] = [str(u) for u in uniques]
+            else:
+                dropped.append(str(col))
+        if dropped:
+            warnings.append(f"Ignored {len(dropped)} text column(s) with more than {MAX_CATEGORIES} distinct values: "
+                            + ", ".join(dropped[:5]) + (f" (+{len(dropped) - 5} more)" if len(dropped) > 5 else ""))
+        return df
+
     def _encode_label_column(self, series: pd.Series) -> np.ndarray:
         """Encode labels as integer classes 0..k-1 (missing values become their own class)."""
         codes, uniques = pd.factorize(series, sort=True)
@@ -111,7 +133,7 @@ class CSVIngestionEngine:
     # ── Data Cleaning Pipeline ─────────────────────────────────────────────────
     #
     # Real-world CSV uploads are messy. This pipeline runs BEFORE data reaches
-    # the 5 detection layers, ensuring they receive clean numeric matrices.
+    # the detector, ensuring it receives a clean numeric matrix.
     #
     # Steps:
     #   1. Force numeric coercion (catch stray strings in numeric columns)
@@ -274,7 +296,7 @@ class CSVIngestionEngine:
         return (values < edge).to_numpy()
 
     def ingest(self, csv_bytes: bytes, filename: str = "upload.csv", *, reference_bytes: bytes | None = None,
-               split_column: str | None = None, split_cutoff: str | None = None) -> Dict[str, Any]:
+               split_column: str | None = None, split_cutoff: str | None = None, self_check: bool = False) -> Dict[str, Any]:
         """
         Main ingestion method. Returns a structured dataset ready for detection.
 
@@ -282,6 +304,7 @@ class CSVIngestionEngine:
           * ``reference_bytes``: a separate CSV with the same columns (it is the reference, the main file is incoming)
           * ``split_column`` + ``split_cutoff``: rows of the main file strictly before the cutoff (number or date)
           * neither: the first 70% of the main file in file order
+          * ``self_check``: no reference at all; every row is checked against the other rows (reference_split = 0)
         
         Returns:
             {
@@ -343,6 +366,7 @@ class CSVIngestionEngine:
                 "excluded from features and labels."
             )
         label_col = self._detect_label_column(df, exclude=set(ground_truth_cols) | extra_excluded)
+        df = self._encode_text_columns(df, exclude=set(ground_truth_cols) | extra_excluded | {label_col}, warnings=warnings)
         feature_cols = self._detect_feature_columns(df, label_col, exclude=set(ground_truth_cols) | extra_excluded)
 
         if len(feature_cols) == 0:
@@ -355,8 +379,10 @@ class CSVIngestionEngine:
             warnings.append("More than 100 features detected. Keeping top 100 by variance.")
 
         # ── Clean Data ─────────────────────────────────────────────────────
+        n_ref_file = int(is_reference.sum()) if split_method == "reference_file" else 0
+        df = df.assign(**{_ROW_COL: np.r_[np.arange(n_ref_file), np.arange(len(df) - n_ref_file)]})
         if is_reference is not None:
-            df = df.assign(**{_REF_COL: is_reference})   # cleaning drops rows; this tag travels with them
+            df = df.assign(**{_REF_COL: is_reference})   # cleaning drops rows; these tags travel with them
         df_clean, feature_cols = self._clean_dataframe(
             df, feature_cols, label_col=label_col, warnings=warnings
         )
@@ -377,7 +403,9 @@ class CSVIngestionEngine:
             try:
                 labels = self._encode_label_column(df_clean[label_col])
                 n_classes = len(np.unique(labels))
-                if n_classes > 20:
+                raw = df_clean[label_col]
+                continuous = pd.api.types.is_float_dtype(raw) and not np.allclose(raw.dropna(), raw.dropna().round())
+                if n_classes > MAX_CLASSES or (continuous and n_classes > 20):
                     warnings.append(f"Label column has {n_classes} unique values — treating as regression target, running unsupervised mode.")
                     has_labels = False
                     labels = None
@@ -395,7 +423,13 @@ class CSVIngestionEngine:
 
         # ── Reference / incoming split ─────────────────────────────────────
         n = len(features)
-        if is_reference is None:
+        if self_check:
+            if is_reference is not None:
+                raise ValueError("A self-check uses no reference: leave out the reference file and split column.")
+            split_idx = 0
+            warnings.append("No reference: every row was checked against the other rows. Without data you trust this is a "
+                            "screening, not a verdict; feature collisions and covariate shift cannot be found this way.")
+        elif is_reference is None:
             split_idx = int(n * 0.70)
             warnings.append(
                 f"Reference = first {split_idx} rows in file order; incoming = remaining {n - split_idx}. "
@@ -420,10 +454,13 @@ class CSVIngestionEngine:
                 f"incoming = {n - split_idx} rows."
             )
 
+        source_rows = df_clean.pop(_ROW_COL).to_numpy(int)
+        from_ref_file = np.arange(n) < (split_idx if split_method == "reference_file" else 0)
+
         # Scale to [0, 1] using the REFERENCE rows only, so incoming rows cannot shape
         # the baseline. Incoming values are not clipped: a value outside the reference
         # range (>1 or <0) is exactly the kind of shift the detector should see.
-        ref = features[:split_idx]
+        ref = features[:split_idx] if split_idx else features    # self-check: scale on all rows
         col_min = ref.min(axis=0)
         col_range = ref.max(axis=0) - col_min
         col_range[col_range == 0] = 1  # avoid division by zero
@@ -442,7 +479,10 @@ class CSVIngestionEngine:
                 "batch_id": f"batch_{i // 100}",
                 "source_id": filename,
                 "client_id": "upload_client",
-                "split": "reference" if i < split_idx else "incoming"
+                "split": "reference" if i < split_idx else "incoming",
+                # where the row is in the user's file: line 1 is the header
+                "source_file": "reference" if from_ref_file[i] else "main",
+                "csv_line": int(source_rows[i]) + 2,
             }
             samples.append(sample)
 
@@ -500,5 +540,6 @@ class CSVIngestionEngine:
             "warnings": warnings,
             "reference_split": split_idx,
             "original_df": df_clean,
+            "categories": self.categories,
             "created_at": datetime.now(timezone.utc).isoformat()
         }

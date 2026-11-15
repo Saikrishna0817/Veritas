@@ -7,12 +7,13 @@ to reach a verdict on single-layer attacks (docs/benchmark-v2-findings.md). It i
 
 import numpy as np
 
-from .veritas2 import Veritas2, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
+from .veritas2 import Veritas2, LABEL_PENALTY, RESID_PENALTY, SHIFT_PENALTY, SUSPICIOUS_AT, verdict_for
 
 # Suspicion thresholds used by the defense and review-queue code; ``veritas2.verdict_for`` maps onto them.
 THRESHOLD_CONFIRMED  = 0.65
 THRESHOLD_SUSPICIOUS = 0.35
 THRESHOLD_LOW_RISK   = 0.15
+TOP_CELLS = 3
 
 
 class DetectionPipeline:
@@ -25,16 +26,8 @@ class DetectionPipeline:
         self.y_reference      = None
 
     def fit_baseline(self, X_reference, y_reference=None) -> None:
-        if isinstance(X_reference, list):
-            samples = X_reference
-            X = np.array([s["feature_vector"] for s in samples], dtype=float)
-            y = np.array([s.get("label", 0) for s in samples], dtype=int)
-            col_min = X.min(axis=0); col_rng = X.max(axis=0) - col_min
-            col_rng[col_rng == 0] = 1; X = (X - col_min) / col_rng
-        else:
-            X = np.array(X_reference, dtype=float)
-            y = np.array(y_reference if y_reference is not None else
-                         np.zeros(len(X_reference), dtype=int))
+        X = np.array(X_reference, dtype=float)
+        y = np.array(y_reference if y_reference is not None else np.zeros(len(X), dtype=int))
 
         self.X_reference = X
         self.y_reference = y
@@ -52,42 +45,29 @@ class DetectionPipeline:
     def _analyze_v2(self, X: np.ndarray, y: np.ndarray) -> dict:
         r = self.v2.analyze(X, y)
         flagged = r["flagged_indices"]
-        label_ev = r["evidence"].get("label", 0.0)
+        label_ev = max(r["evidence"].get("label", 0.0) - LABEL_PENALTY, 0.0)
         shift_ev = max(r["evidence"]["shift"] - SHIFT_PENALTY, 0.0)  # same weighting as the batch statistic
+        resid_ev = max(r["evidence"].get("resid", 0.0) - RESID_PENALTY, 0.0)
+        cells = r["cell_scores"] if "label" in r["evidence"] else r["cell_scores"][:, :-1]   # unlabeled: no label cell to blame
         # "layer3" keeps the row-flag keys the report and quarantine code read.
         details = {
             "label_check": {"evidence": label_ev, "alarm": label_ev >= SUSPICIOUS_AT, "ran": "label" in r["evidence"]},
             "shift_check": {"evidence": shift_ev, "alarm": shift_ev >= SUSPICIOUS_AT, "in_row_ranking": r["shift_in_ranking"]},
+            "resid_check": {"evidence": resid_ev, "alarm": resid_ev >= SUSPICIOUS_AT, "in_row_ranking": r["resid_in_ranking"]},
             "row_flags": {"flagged_indices": [len(self.X_reference) + i for i in flagged], "flagged_indices_incoming": flagged,
                        "flagged_ratio": len(flagged) / max(len(X), 1), "row_scores": [round(float(v), 3) for v in r["row_scores"]],
-                       "suspicion_score": r["suspicion"]},
+                       "suspicion_score": r["suspicion"],
+                       # the 3 most suspicious cells of each flagged row: [column index, score]; index n_features = the label
+                       "top_cells": {i: [[int(j), round(float(cells[i, j]), 3)]
+                                         for j in np.argsort(-cells[i], kind="stable")[:TOP_CELLS]] for i in flagged}},
             "warnings": r["warnings"],
+            "attack_profile": r["attack_profile"],   # None when the batch is CLEAN or unlabeled
         }
         return {
-            "verdict": r["verdict"], "overall_suspicion": r["suspicion"], "layer_scores": {"label_check": verdict_for(label_ev)[1], "shift_check": verdict_for(shift_ev)[1]},  # 0-1 for the UI
+            "verdict": r["verdict"], "overall_suspicion": r["suspicion"], "layer_scores": {"label_check": verdict_for(label_ev)[1], "shift_check": verdict_for(shift_ev)[1], "resid_check": verdict_for(resid_ev)[1]},  # 0-1 for the UI
             "details": details,
             "thresholds": {"confirmed": THRESHOLD_CONFIRMED, "suspicious": THRESHOLD_SUSPICIOUS, "low_risk": THRESHOLD_LOW_RISK},
         }
-
-    @classmethod
-    def from_split(
-        cls,
-        X: np.ndarray,
-        y: np.ndarray,
-        reference_fraction: float = 0.70,
-        random_state: int         = 42,
-    ) -> tuple:
-        n   = len(X)
-        rng = np.random.RandomState(random_state)
-        idx     = rng.permutation(n)
-        split   = int(n * reference_fraction)
-        ref_idx = idx[:split]
-        inc_idx = idx[split:]
-
-        pipeline = cls(random_state=random_state)
-        pipeline.fit_baseline(X[ref_idx], y[ref_idx])
-        result = pipeline.analyze(X[inc_idx], y[inc_idx])
-        return pipeline, result
 
     # Adapters used by the upload, dataset and defense code.
 
@@ -95,7 +75,6 @@ class DetectionPipeline:
         X        = ingested["features"]
         labels   = ingested.get("labels")
         split    = ingested["reference_split"]
-        samples  = ingested["samples"]
 
         if labels is None:
             labels = np.zeros(len(X), dtype=int)
@@ -111,16 +90,9 @@ class DetectionPipeline:
         return self._normalise(result, X_inc)
 
     def run(self, samples: list) -> dict:
-        X = np.array([s["feature_vector"] for s in samples], dtype=float)
+        X = np.array([s["feature_vector"] for s in samples], dtype=float)   # the detector standardises columns itself
         y = np.array([s.get("label", 0) for s in samples], dtype=int)
-
-        col_min   = X.min(axis=0)
-        col_range = X.max(axis=0) - col_min
-        col_range[col_range == 0] = 1
-        X = (X - col_min) / col_range
-
-        n   = len(X)
-        split = int(n * 0.70)
+        split = int(len(X) * 0.70)
         self.fit_baseline(X[:split], y[:split])
         result = self.analyze(X[split:], y[split:])
 
@@ -129,12 +101,12 @@ class DetectionPipeline:
     @staticmethod
     def _normalise(result: dict, X_inc: np.ndarray) -> dict:
         details = result["details"]
-        label, shift = details["label_check"], details["shift_check"]
+        label, shift, resid = details["label_check"], details["shift_check"], details["resid_check"]
         overall = result["overall_suspicion"]
         return {
             "overall_suspicion_score": overall, "overall_suspicion": overall, "verdict": result["verdict"],
-            "layer_results": {"label_check": label, "shift_check": shift, "row_flags": details["row_flags"]},
-            "layer_scores": result["layer_scores"], "n_layers_alarmed": int(label["alarm"]) + int(shift["alarm"]),
+            "layer_results": {"label_check": label, "shift_check": shift, "resid_check": resid, "row_flags": details["row_flags"]},
+            "layer_scores": result["layer_scores"], "n_layers_alarmed": int(label["alarm"]) + int(shift["alarm"]) + int(resid["alarm"]),
             "n_samples": len(X_inc), "requires_human_review": THRESHOLD_SUSPICIOUS <= overall < THRESHOLD_CONFIRMED,
-            "thresholds": result["thresholds"], "warnings": details["warnings"],
+            "thresholds": result["thresholds"], "warnings": details["warnings"], "attack_profile": details["attack_profile"],
         }

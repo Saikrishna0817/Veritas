@@ -48,6 +48,7 @@ async def analyze_uploaded_csv(
     reference_file: UploadFile | None = File(None, description="Optional trusted reference CSV with the same columns; the main file is then all incoming"),
     split_column: str | None = Form(None, description="Optional column to split on (numbers or dates)"),
     split_cutoff: str | None = Form(None, description="Rows with split_column strictly below this are the trusted reference"),
+    no_reference: bool = Form(False, description="No trusted reference: check every row against the others (a screening, not a verdict)"),
     background: bool = Query(False, description="Return 202 + job_id immediately; poll GET /jobs/{job_id}"),
     user: dict = Depends(require_user),
 ):
@@ -74,7 +75,7 @@ async def analyze_uploaded_csv(
 
     content = await read_upload_limited(file, MAX_CSV_SIZE)
     filename = file.filename
-    quota.charge_analysis(user, rows=content.count(b"\n"))
+    charged = quota.charge_analysis(user, rows=content.count(b"\n"))
     split: dict = {}
     if reference_file is not None:
         if not reference_file.filename or not is_safe_filename(reference_file.filename) \
@@ -83,25 +84,31 @@ async def analyze_uploaded_csv(
         split["reference_bytes"] = await read_upload_limited(reference_file, MAX_CSV_SIZE)
     if split_column or split_cutoff:
         split.update(split_column=split_column or None, split_cutoff=split_cutoff or None)
+    if no_reference:
+        split["self_check"] = True
 
     if background:
         # The upload waits in blob storage for a worker; the API process does no analysis and holds no bytes.
         store = storage()
-        payload = {"key": new_key(user["id"]), "filename": filename}
+        payload = {"key": new_key(user["id"]), "filename": filename, "charged": charged}
         store.put(payload["key"], content)
         if "reference_bytes" in split:
             payload["reference_key"] = new_key(user["id"])
             store.put(payload["reference_key"], split["reference_bytes"])
         if split.get("split_column"):
             payload.update(split_column=split["split_column"], split_cutoff=split["split_cutoff"])
+        if split.get("self_check"):
+            payload["self_check"] = True
         job_id = job_store.submit("csv_upload", payload, owner_id=user["id"])
         return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
 
     try:
         full_result, dataset_id = await run_csv_analysis(content, filename, user["id"], source="upload", split=split)
     except ValueError as exc:
+        quota.refund(user["id"], charged)
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception:
+        quota.refund(user["id"], charged)
         rid = getattr(request.state, "request_id", "-")
         logger.exception("CSV analysis failed [rid=%s]", rid)
         raise HTTPException(
@@ -130,6 +137,88 @@ async def analyze_uploaded_csv(
     background_tasks.add_task(deps.broadcast_demo_events, ws_manager, full_result, user["id"])
 
     return JSONResponse(content=full_result)
+
+
+MAX_ZIP_SIZE = 500 * 1024 * 1024
+
+
+async def _submit_zip_job(request: Request, file: UploadFile, reference_file: UploadFile | None, user: dict,
+                          job_type: str, kind: str, no_reference: bool = False) -> JSONResponse:
+    """Shared by the image and audio uploads: validate, park the zips in blob storage, charge quota, queue the job."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not deps.analysis_rate_limiter.allow(f"{job_type}:{user['id']}:{client_ip}"):
+        raise HTTPException(status_code=429, detail="Too many analysis requests. Try again in one minute.")
+    for f, what in ((file, "file"), (reference_file, "reference file")):
+        if f is not None and (not f.filename or not is_safe_filename(f.filename) or not f.filename.lower().endswith(".zip")):
+            raise HTTPException(status_code=400, detail=f"The {what} must be a .zip of {kind}.")
+    if no_reference and reference_file is not None:
+        raise HTTPException(status_code=400, detail="Upload either a reference zip or choose no reference, not both.")
+    store = storage()
+    payload = {"key": new_key(user["id"]), "filename": file.filename, "self_check": no_reference}
+    store.put(payload["key"], await read_upload_limited(file, MAX_ZIP_SIZE))
+    if reference_file is not None:
+        payload["reference_key"] = new_key(user["id"])
+        store.put(payload["reference_key"], await read_upload_limited(reference_file, MAX_ZIP_SIZE))
+    try:
+        payload["charged"] = quota.charge_analysis(user)
+    except HTTPException:
+        for key in (payload["key"], payload.get("reference_key")):
+            if key:
+                store.delete(key)
+        raise
+    return JSONResponse(status_code=202, content={"job_id": job_store.submit(job_type, payload, owner_id=user["id"]), "status": "queued"})
+
+
+@router.post("/analyze/images", status_code=202)
+async def analyze_image_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip with one folder per class (cat/001.png, dog/002.jpg, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference images, same layout"),
+    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    user: dict = Depends(require_user),
+):
+    """Check an image dataset for poisoning. Always a background job (embedding images takes tens of seconds):
+    returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 images are used, resized to 32x32."""
+    from app.detection import image_embed
+    if not image_embed.available():
+        raise HTTPException(status_code=501, detail="Image analysis is not installed on this server (requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "image_upload", "images", no_reference)
+
+
+@router.post("/analyze/audio", status_code=202)
+async def analyze_audio_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip of WAV files with one folder per class (dog/001.wav, rain/002.wav, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
+    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    user: dict = Depends(require_user),
+):
+    """Check an audio dataset for poisoning (PCM WAV, any rate, mixed to mono 16 kHz). Background job: returns
+    202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 clips, padded or trimmed to the median length (at most 10 s)."""
+    from app.detection import image_embed
+    try:
+        import torchaudio  # noqa: F401
+    except ImportError:
+        torchaudio = None
+    if not image_embed.available() or torchaudio is None:
+        raise HTTPException(status_code=501, detail="Audio analysis is not installed on this server (requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "audio_upload", "WAV files", no_reference)
+
+
+@router.post("/analyze/video", status_code=202)
+async def analyze_video_zip(
+    request: Request,
+    file: UploadFile = File(..., description="Zip of video files with one folder per class (jump/001.mp4, run/002.avi, ...)"),
+    reference_file: UploadFile | None = File(None, description="Optional zip of trusted reference clips, same layout"),
+    no_reference: bool = Form(False, description="No trusted reference: screen every item against the others"),
+    user: dict = Depends(require_user),
+):
+    """Check a video dataset for poisoning (mp4, avi, mov, mkv, webm, mpg; decoded by ffmpeg, 8 frames per clip).
+    Background job: returns 202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 clips."""
+    from app.detection import image_embed, video
+    if not image_embed.available() or not video.available():
+        raise HTTPException(status_code=501, detail="Video analysis is not installed on this server (ffmpeg and requirements-images.txt).")
+    return await _submit_zip_job(request, file, reference_file, user, "video_upload", "videos", no_reference)
 
 
 def _owned(result: dict | None, user: dict) -> dict | None:

@@ -1,0 +1,83 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "veritas-audio-poisoning-v2",
+  "created_at": "2026-11-14",
+  "immutable": true,
+  "random_seed": 20261114,
+  "source": "Speech Commands v0.02 (download.tensorflow.org) and ESC-50 (github.com/karoldvl/ESC-50); log-mel spectrogram images, HuBERT-base (torchaudio, layer 6, mean over time) embeddings for the label and shift checks; pixel and shared-pattern checks on 32x32 spectrogram images; attacks applied to raw 16 kHz waveforms",
+  "reference_fraction": 0.6,
+  "calibration_fraction_of_reference": 0.3,
+  "batch_rows": 3000,
+  "image_size": 32,
+  "pca_dims": 32,
+  "datasets": {
+    "dev": [
+      {
+        "data_id": "speech_commands"
+      },
+      {
+        "data_id": "esc50",
+        "batch_rows": 1200
+      }
+    ],
+    "test": [
+      {
+        "data_id": "speech_commands"
+      },
+      {
+        "data_id": "esc50",
+        "batch_rows": 800
+      }
+    ]
+  },
+  "attacks": [
+    "label_flip_random",
+    "label_flip_targeted",
+    "tone_backdoor",
+    "blended_backdoor",
+    "clean_label_backdoor",
+    "duplicate_flood",
+    "class_noise"
+  ],
+  "poison_rates": [
+    0.01,
+    0.03,
+    0.05,
+    0.1
+  ],
+  "seeds": 5,
+  "clean_batches_per_seed": 12,
+  "detectors": [
+    "veritas_mm",
+    "mm_label",
+    "mm_shift",
+    "mm_pixel",
+    "mm_dup",
+    "mm_cell",
+    "mm_resid",
+    "mm_chroma"
+  ],
+  "metrics": {
+    "row": [
+      "auroc",
+      "auprc",
+      "precision_at_k"
+    ],
+    "batch": {
+      "tpr_at_clean_fpr": 0.05,
+      "tail_quantile": 0.99
+    },
+    "ci": {
+      "method": "cluster bootstrap over datasets",
+      "resamples": 1000,
+      "level": 0.95
+    }
+  },
+  "policy": "Tune only on the dev split (Speech Commands validation speakers, ESC-50 folds 1-3); the test split (testing speakers, folds 4-5) is the headline. Never edit this file in place: create a new benchmark_id for any change.",
+  "sha256": {
+    "speech_commands_v0.02.tar.gz": "af14739ee7dc311471de98f5f9d2c9191b18aedfe957f4a6ff791c709868ff58",
+    "ESC-50-master.zip": "805afc618aff80eff0641d51311647871fead5807da68bb18e43a27db47a79ce"
+  },
+  "embedding": "hubert-l6",
+  "chosen_on_dev": "hubert-l6 over ResNet-18 on the spectrogram (dev-v1 vs dev-v2) and over 64x64 check images (dev-v3: +0.03 AUPRC, 3-5x slower, more clean alarms)"
+}

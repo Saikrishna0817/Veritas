@@ -59,7 +59,7 @@ async def run_demo(
         all_samples = data["samples"][:300]
         # pipeline.run() fits its own baseline on the first 70% of the batch.
         result = deps.new_detection_pipeline().run(all_samples)
-        attack_class = deps.classifier.classify(result["layer_results"], all_samples)
+        attack_class = deps.classifier.classify(result)
         pattern = deps.reconstructor.reconstruct(all_samples, attack_class, result["layer_results"])
         blast = deps.blast_mapper.map(all_samples, result["layer_results"])
         defense_action = deps.defense.decide_action(
@@ -212,7 +212,7 @@ async def analyze_real_dataset(
         data = deps.get_real_dataset(name)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    quota.charge_analysis(user)
+    charged = quota.charge_analysis(user)
 
     try:
         full_result, dataset_id = await run_csv_analysis(
@@ -227,6 +227,7 @@ async def analyze_real_dataset(
             },
         )
     except Exception:
+        quota.refund(user["id"], charged)
         rid = getattr(request.state, "request_id", "-")
         logger.exception("Real-dataset analysis failed [dataset=%s, rid=%s]", name, rid)
         raise HTTPException(
