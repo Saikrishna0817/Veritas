@@ -2,15 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { runAnalysis, waitForJob, pendingJob } from '../services/uploads';
 
 /**
- * Runs a CSV check or model scan and tracks it. Small files return directly; large ones become a background job
- * shown as `job` ({ filename, stage, startedAt, jobId }). A job left running when the page closed is picked up again.
+ * Runs a check or model scan and tracks it. Small files return directly; large ones and media zips become a
+ * background job shown as `job` ({ filename, stage, startedAt, jobId, kind }). A job left running when the page
+ * closed is picked up again. `kinds` is one kind or a list (the Check data page runs several); the first is the
+ * default for run(), and `resumedKind` says which kind a picked-up job is.
  */
-export function useAnalysisRun(kind) {
+export function useAnalysisRun(kinds) {
+  const list = Array.isArray(kinds) ? kinds : [kinds];
+  const [defaultKind] = list;
   // A job left running when the page closed is shown straight away and picked up again below.
-  const [resumed] = useState(() => pendingJob.get(kind));
+  const [resumed] = useState(() => list.map((k) => pendingJob.get(k)).find(Boolean) || null);
   const [loading, setLoading] = useState(Boolean(resumed));
   const [job, setJob] = useState(() => (resumed
-    ? { filename: resumed.filename, stage: 'queued', startedAt: resumed.startedAt, jobId: resumed.jobId }
+    ? { filename: resumed.filename, stage: 'queued', startedAt: resumed.startedAt, jobId: resumed.jobId, kind: resumed.kind }
     : null));
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -36,7 +40,7 @@ export function useAnalysisRun(kind) {
 
   useEffect(() => () => abort.current?.abort(), []);
 
-  const run = useCallback((file, opts = {}) => {
+  const run = useCallback((file, opts = {}, kind = defaultKind) => {
     const ctrl = new AbortController();
     abort.current = ctrl;
     const startedAt = Date.now();
@@ -45,11 +49,11 @@ export function useAnalysisRun(kind) {
     return settle(runAnalysis(kind, file, opts, {
       signal: ctrl.signal,
       onJob,
-      onStage: (stage) => setJob({ filename: file.name, stage, startedAt, jobId: null }),
+      onStage: (stage) => setJob({ filename: file.name, stage, startedAt, jobId: null, kind }),
     }), ctrl.signal);
-  }, [kind, settle, onJob]);
+  }, [defaultKind, settle, onJob]);
 
   const reset = useCallback(() => { setResult(null); setError(''); }, []);
 
-  return { run, loading, job, result, error, setError, reset };
+  return { run, loading, job, result, error, setError, reset, resumedKind: resumed?.kind || null };
 }

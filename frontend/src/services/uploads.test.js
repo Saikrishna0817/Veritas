@@ -4,6 +4,7 @@ vi.mock('./api', () => ({
   api: {
     uploadCSV: vi.fn(),
     uploadModel: vi.fn(),
+    uploadMedia: vi.fn(),
     presignUpload: vi.fn(),
     completeUpload: vi.fn(),
     getJob: vi.fn(),
@@ -186,5 +187,30 @@ describe('pendingJob', () => {
     expect(() => pendingJob.set({ kind: 'csv' })).not.toThrow();
     expect(pendingJob.get('csv')).toBeNull();
     expect(() => pendingJob.clear()).not.toThrow();
+  });
+});
+
+describe('media zips', () => {
+  it('always run as a job, even when small, and never try direct upload', async () => {
+    api.uploadMedia.mockResolvedValue({ job_id: 'j-img' });
+    api.getJob.mockResolvedValue({ status: 'completed', result: { verdict: 'CLEAN', source: 'image_upload' } });
+    const stages = [];
+    const run = runAnalysis('images', { name: 'cats.zip', size: MB }, { noReference: true }, { onStage: (s) => stages.push(s) });
+    await vi.runAllTimersAsync();
+    await expect(run).resolves.toEqual({ verdict: 'CLEAN', source: 'image_upload' });
+    expect(api.uploadMedia).toHaveBeenCalledWith('images', expect.objectContaining({ name: 'cats.zip' }), { noReference: true });
+    expect(api.presignUpload).not.toHaveBeenCalled();
+    expect(stages).toEqual(['uploading']);
+    expect(pendingJob.get('images')).toBeNull();
+  });
+
+  it('passes a CSV screening to the direct upload as self_check', async () => {
+    api.presignUpload.mockResolvedValue({ upload_id: 'u1', url: 'https://bucket/put', method: 'PUT', headers: {} });
+    api.completeUpload.mockResolvedValue({ job_id: 'j1' });
+    api.getJob.mockResolvedValue({ status: 'completed', result: { verdict: 'SCREENED' } });
+    const run = runAnalysis('csv', large, { noReference: true });
+    await vi.runAllTimersAsync();
+    await run;
+    expect(api.completeUpload).toHaveBeenCalledWith({ upload_id: 'u1', self_check: true });
   });
 });

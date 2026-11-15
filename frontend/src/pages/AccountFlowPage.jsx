@@ -77,7 +77,7 @@ export default function AccountFlowPage({ mode }) {
         </div>
       ) : (
       <form onSubmit={submit} className="space-y-5">
-        {mode === 'signup' && <Field label="Username" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} autoComplete="username" />}
+        {mode === 'signup' && <Field label="Username" placeholder="Username" hint="Letters, digits, '.', '_' and '-'." value={form.username} onChange={set('username')} required minLength={3} maxLength={64} pattern="[A-Za-z0-9._\-]+" title="Letters, digits, '.', '_' and '-' only" autoComplete="username" />}
         {(mode === 'signup' || mode === 'forgot' || mode === 'resend') && <Field label="Email" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" />}
         {(mode === 'signup' || mode === 'reset') && (
           <Field label="Password" type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" />

@@ -14,8 +14,8 @@ function clock(ms) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Progress for a large file analysed as a background job. stage: 'uploading' | 'queued' | 'running'. */
-export default function JobCard({ filename, stage, startedAt, jobId }) {
+/** Progress for a large file or a media zip analysed as a background job. stage: 'uploading' | 'queued' | 'running'. */
+export default function JobCard({ filename, stage, startedAt, jobId, kind }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -28,7 +28,7 @@ export default function JobCard({ filename, stage, startedAt, jobId }) {
       <div className="p-6">
         <div className="flex items-baseline justify-between gap-3">
           <div className="min-w-0">
-            <div className="rule-label">Large file · running in the background</div>
+            <div className="rule-label">{['images', 'audio', 'video'].includes(kind) ? 'Dataset zip' : 'Large file'} · running in the background</div>
             <div className="mt-1 truncate font-mono text-sm">{filename}</div>
           </div>
           <span className="font-mono text-sm text-textSecondary tabular" aria-label="Elapsed time">{clock(now - startedAt)}</span>

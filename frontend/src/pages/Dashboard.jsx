@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowRight, FileCode2, Play, Radio, ScanLine, TriangleAlert, Gauge } from 'lucide-react';
 import { api } from '../services/api';
 import { Button, Reveal, ErrorNote, ErrorState, StatCard, VerdictBadge, Loading, EASE, DURATION, verdictInfo, orDash } from '../components/ui';
+import { DATA_KINDS, KIND_OF_SOURCE } from '../components/analysis/kinds';
 
 // three.js is heavy; the specimen loads after the readout is on screen.
 const Specimen3D = lazy(() => import('../components/Specimen3D'));
@@ -19,6 +20,9 @@ const EVENT_COPY = {
   defense_triggered: (d) => `${(d?.action || 'action').replace(/_/g, ' ')} · ${d?.samples_affected ?? '?'} rows held back`,
   human_review_required: () => 'Case opened for human review',
 };
+
+const SOURCE_LABELS = { upload: 'table upload', real_dataset: 'reference dataset', demo: 'sample batch', model_scan: 'model scan', image_upload: 'images', audio_upload: 'audio', video_upload: 'video' };
+const RECENT = 8;
 
 function pct(v) {
   return v == null ? '—' : `${Math.round(v * 100)}%`;
@@ -136,6 +140,57 @@ function BenchLedger() {
 }
 
 
+/** The newest result for each data type, from the history list (newest first). */
+function LatestByKind({ history, error, onRetry }) {
+  const latest = {};
+  for (const r of history?.results || []) {
+    const k = KIND_OF_SOURCE[r.source];
+    if (k && !latest[k]) latest[k] = r;
+  }
+  return (
+    <div className="panel overflow-hidden">
+      <div className="flex flex-col gap-2 border-b border-borderHairline p-6 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-medium">Latest by data type</h2>
+          <p className="mt-2 max-w-[62ch] text-sm text-textSecondary">Tables, images, audio and video each go through their own checks. Open one for its evidence and the items to review.</p>
+        </div>
+        <Link to="/upload" className="-my-3 inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">Examine a batch →</Link>
+      </div>
+      {history === null && error ? (
+        <ErrorState error={error} onRetry={onRetry} className="m-2 border-0 bg-transparent p-4" />
+      ) : history === null ? (
+        <Loading className="p-6">Loading…</Loading>
+      ) : (
+        <ul className="grid gap-px bg-borderHairline sm:grid-cols-2 xl:grid-cols-4">
+          {Object.entries(DATA_KINDS).map(([k, spec]) => {
+            const r = latest[k];
+            return (
+              <li key={k} className="flex min-w-0 flex-col gap-3 bg-bgPanel p-6">
+                <div className="rule-label">{spec.label}</div>
+                {r ? (
+                  <>
+                    <VerdictBadge verdict={r.verdict} short={false} />
+                    <div className="min-w-0">
+                      <div className="truncate font-mono text-sm" title={r.filename}>{r.filename || r.id}</div>
+                      <div className="mt-0.5 text-xs text-textMuted">{orDash(r.n_samples, (n) => n.toLocaleString())} {spec.noun} · {timeAgo(r.created_at)}</div>
+                    </div>
+                    <Link to={`/history/${r.id}`} className="mt-auto inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">Open result →</Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-textSecondary">Not checked yet.</p>
+                    <Link to="/upload" className="mt-auto inline-flex min-h-[44px] items-center text-sm text-violet hover:text-[var(--red-bright)]">Check {spec.label.toLowerCase()} →</Link>
+                  </>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /** Stat cards in the style of the reference's dashboard: label, round icon chip, big number with a small unit. */
 function StatRow({ stats, usage }) {
   const verdicts = stats?.by_verdict || {};
@@ -147,7 +202,7 @@ function StatRow({ stats, usage }) {
   const dash = '—';
   return (
     <section aria-label="Your numbers" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Batches examined" icon={ScanLine} value={loading ? dash : orDash(stats.total_analyses)} note="uploads, reference datasets and sample batches" />
+      <StatCard label="Batches examined" icon={ScanLine} value={loading ? dash : orDash(stats.total_analyses)} note="every dataset check, any data type" />
       <StatCard
         label="Batches flagged"
         icon={TriangleAlert}
@@ -179,7 +234,8 @@ export default function Dashboard({ wsEvents = [] }) {
   const [historyError, setHistoryError] = useState(null);
 
   const loadCounts = () => {
-    api.getHistory(null, 8).then((d) => { setHistory(d); setHistoryError(null); }).catch(setHistoryError);
+    // Enough rows to find the newest result of each data type; Recent runs shows the first few.
+    api.getHistory(null, 100).then((d) => { setHistory(d); setHistoryError(null); }).catch(setHistoryError);
     api.getUsage().then(setUsage).catch(() => setUsage(null));   // the quota card shows a dash
   };
   const load = () => {
@@ -253,6 +309,8 @@ export default function Dashboard({ wsEvents = [] }) {
 
       <Reveal><StatRow stats={history ? history.stats || {} : undefined} usage={usage} /></Reveal>
 
+      <Reveal className="mt-16"><LatestByKind history={history} error={historyError} onRetry={load} /></Reveal>
+
       <Reveal className="mt-16"><BenchLedger /></Reveal>
 
       {/* Recent work + live tape */}
@@ -269,12 +327,15 @@ export default function Dashboard({ wsEvents = [] }) {
               <Loading className="p-6">Loading recent runs…</Loading>
             ) : history.results?.length ? (
               <ul className="divide-y divide-borderHairline">
-                {history.results.map((r) => {
+                {history.results.slice(0, RECENT).map((r) => {
+                  const name = r.filename || r.model_filename || r.id;
                   return (
                     <li key={`${r.source}-${r.id}`} className="grid grid-cols-[1fr_auto] items-center gap-4 px-6 py-4">
                       <div className="min-w-0">
-                        <div className="truncate font-mono text-sm">{r.filename || r.model_filename || r.id}</div>
-                        <div className="mt-0.5 text-xs text-textMuted">{r.source?.replace('_', ' ')} · {timeAgo(r.created_at)}</div>
+                        {r.source === 'model_scan'
+                          ? <div className="truncate font-mono text-sm">{name}</div>
+                          : <Link to={`/history/${r.id}`} className="block truncate font-mono text-sm hover:text-violet">{name}</Link>}
+                        <div className="mt-0.5 text-xs text-textMuted">{SOURCE_LABELS[r.source] || r.source?.replace(/_/g, ' ')} · {timeAgo(r.created_at)}</div>
                       </div>
                       <VerdictBadge verdict={r.verdict} kind={r.source === 'model_scan' ? 'model' : 'data'} />
                     </li>

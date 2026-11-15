@@ -1,5 +1,6 @@
 /**
- * How a file reaches the analysis, chosen by size:
+ * How a file reaches the analysis. Image, audio and video zips always go to POST /analyze/{images|audio|video},
+ * which answers with a job id. CSVs and model files are chosen by size:
  *
  *   small  -> one request that returns the result (POST /analyze/upload, /analyze/model)
  *   large  -> direct to S3/R2 when the server has it (POST /uploads/presign, PUT, POST /uploads/complete),
@@ -62,11 +63,18 @@ async function tryDirect(kind, file, opts, onStage) {
     body.split_column = opts.splitColumn;
     body.split_cutoff = opts.splitCutoff;
   }
+  if (kind === 'csv' && opts.noReference) body.self_check = true;
   const { job_id } = await api.completeUpload(body);
   return job_id;
 }
 
+export const MEDIA_KINDS = ['images', 'audio', 'video'];
+
 async function startJob(kind, file, opts, onStage) {
+  if (MEDIA_KINDS.includes(kind)) {     // no direct-to-storage path for zips on the server
+    onStage?.('uploading');
+    return (await api.uploadMedia(kind, file, opts)).job_id;
+  }
   const direct = await tryDirect(kind, file, opts, onStage);
   if (direct) return direct;
   onStage?.('uploading');
@@ -115,13 +123,13 @@ export async function waitForJob(jobId, { onJob, signal } = {}) {
 }
 
 /**
- * Run a CSV check or a model scan. kind: 'csv' | 'model'.
- * opts (csv): { referenceFile, splitColumn, splitCutoff }.
+ * Run a check or a model scan. kind: 'csv' | 'images' | 'audio' | 'video' | 'model'.
+ * opts (data): { referenceFile, splitColumn (csv only), splitCutoff (csv only), noReference }.
  * hooks: { onStage(stage), onJob(job), signal } — stage is 'uploading' | 'queued' | 'running'.
  */
 export async function runAnalysis(kind, file, opts = {}, hooks = {}) {
   const total = file.size + (opts.referenceFile?.size || 0);
-  if (total < BACKGROUND_FROM_BYTES) {
+  if (total < BACKGROUND_FROM_BYTES && !MEDIA_KINDS.includes(kind)) {
     return kind === 'model' ? api.uploadModel(file) : api.uploadCSV(file, opts);
   }
   const jobId = await startJob(kind, file, opts, hooks.onStage);

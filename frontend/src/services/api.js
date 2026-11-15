@@ -22,7 +22,8 @@ function handleUnauthorized() {
 
 // How long a request may wait for the server's answer before the page says so. Inline analyses run while the
 // request is open, so they get longer; large files go through background jobs instead (services/uploads.js).
-export const TIMEOUT_MS = { default: 30_000, analysis: 180_000, download: 120_000 };
+// Media zips (up to 500 MB) only upload in the request and then run as a job, so their limit covers the upload alone.
+export const TIMEOUT_MS = { default: 30_000, analysis: 180_000, download: 120_000, upload: 600_000 };
 
 // A request that never reached the server (offline, DNS, server down) rejects with a bare TypeError such as
 // "Failed to fetch". Give it words a person can act on and mark it, so pages can tell it from a server error.
@@ -46,13 +47,28 @@ async function send(url, init, timeoutMs = TIMEOUT_MS.default) {
     }
 }
 
+// FastAPI validation errors (422) arrive as a list of { loc, type, msg, ctx }; each becomes a plain sentence.
+export function describeIssue({ loc = [], type, msg = '', ctx = {} } = {}) {
+    const field = String(loc[loc.length - 1] || 'value').replace(/_/g, ' ');
+    const Field = field.charAt(0).toUpperCase() + field.slice(1);
+    if (type === 'string_pattern_mismatch' && field === 'username') return "Username can use only letters, digits, '.', '_' and '-'.";
+    if (type === 'string_too_short') return `${Field} must be at least ${ctx.min_length} characters.`;
+    if (type === 'string_too_long') return `${Field} must be at most ${ctx.max_length} characters.`;
+    if (type === 'missing') return `${Field} is required.`;
+    return `${Field}: ${String(msg).replace(/^Value error, /, '')}`;
+}
+
+export function errorMessage(detail, fallback) {
+    if (Array.isArray(detail)) return detail.map(describeIssue).join(' ') || fallback;
+    if (typeof detail === 'string' && detail) return detail;
+    return fallback;
+}
+
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    // FastAPI validation errors carry a list in `detail`; show the first message instead of [object Object].
-    const detail = Array.isArray(body.detail) ? body.detail[0]?.msg : body.detail;
-    const err = new Error(detail || fallback);
+    const err = new Error(errorMessage(body?.detail, fallback));
     err.status = res.status;
     throw err;
 }
@@ -152,7 +168,8 @@ export const api = {
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST', timeoutMs: TIMEOUT_MS.analysis }),
 
     // CSV Upload Analysis
-    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order
+    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string, noReference?: boolean };
+    // default is the first 70% in file order. noReference screens every row against the others (no verdict).
     uploadCSV: (file, opts = {}, { background = false } = {}) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -161,9 +178,20 @@ export const api = {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);
         }
+        if (opts.noReference) formData.append('no_reference', 'true');
         return apiFormData(`/analyze/upload${background ? '?background=true' : ''}`, formData);
     },
     getLatestUpload: () => apiFetch('/analyze/upload/latest'),
+
+    // Image, audio and video datasets: a zip with one folder per class, always a background job. Returns { job_id }.
+    // kind: 'images' | 'audio' | 'video'; opts: { referenceFile?: File (zip), noReference?: boolean }.
+    uploadMedia: (kind, file, opts = {}) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
+        if (opts.noReference) formData.append('no_reference', 'true');
+        return apiFormData(`/analyze/${kind}`, formData, TIMEOUT_MS.upload);
+    },
 
     // Model Scan
     uploadModel: (file, { background = false } = {}) => {

@@ -10,11 +10,13 @@ Every page below is wired to the real backend through `src/services/api.js`; non
 | `/login` | `LoginPage` | anyone | `POST /auth/token`, `GET /auth/me` |
 | `/admin/login` | `AdminLoginPage` | anyone | `POST /auth/token` (role admin) |
 | `/signup`, `/verify-email`, `/forgot-password`, `/reset-password`, `/resend-verification` | `AccountFlowPage` | anyone | `/auth/signup`, `/auth/verify-email`, `/auth/password-reset/*`, `/auth/resend-verification` |
-| `/` (signed in) | `Dashboard` | signed in | `GET /analyze/upload/latest`, `GET /history`, `GET /account/usage`, `POST /demo/run`, WebSocket `/ws/v1/detection-stream` |
-| `/upload` | `UploadPage` | signed in | `POST /analyze/upload` (inline or `?background=true`), `POST /uploads/presign` + `/uploads/complete` when direct uploads are on, `GET /jobs/{id}` |
+| `/` (signed in) | `Dashboard` | signed in | `GET /analyze/upload/latest`, `GET /history?limit=100` (recent runs and the newest result per data type), `GET /account/usage`, `POST /demo/run`, WebSocket `/ws/v1/detection-stream` |
+| `/upload` | `UploadPage` | signed in | Tables: `POST /analyze/upload` (inline or `?background=true`), `POST /uploads/presign` + `/uploads/complete` when direct uploads are on. Image, audio and video zips: `POST /analyze/images`, `/analyze/audio`, `/analyze/video` (always a background job). All: `no_reference` / `self_check` for a screening without a reference, `GET /jobs/{id}` |
 | `/model-scan` | `ModelScanPage` | signed in | `POST /analyze/model`, `GET /jobs/{id}`, `GET /analyze/model/history` |
 | `/real-datasets` | `RealDatasetsPage` | signed in | `GET /datasets/real`, `POST /datasets/real/{id}/analyze`, `GET /datasets/real/{id}/download` |
 | `/history` | `HistoryPage` | signed in | `GET /history?source=&limit=` (50 → 100 → 200 with Show more), `GET /history/{id}`, `GET /analyze/model/{id}` |
+| `/history/:id` | `HistoryRunPage` | signed in | `GET /history/{id}` (the full saved result of a table, image, audio or video check) |
+| `/benchmarks` | `BenchmarksPage` | signed in | none (held-out numbers from `docs/*-benchmark-findings.md`) |
 | `/reports` | `ReportsPage` | signed in | `POST /reports/generate?source=auto\|upload\|real_dataset\|demo` |
 | `/forensics` | `ForensicsPage` (preview) | signed in | `GET /forensics/latest?source=auto\|upload\|real_dataset\|demo` |
 | `/blue-team` | `BlueTeamPage` (preview) | signed in | `GET /blueteam/status`, `/blueteam/incidents`, `/blueteam/playbooks`, `/blueteam/playbook/{type}`, `GET /defense/hitl/pending` (full queue; the status embeds only 5), `GET /history?limit=1` (to tell "nothing analysed" from a clean batch), `POST /defense/hitl/decide` |
@@ -42,6 +44,9 @@ Missing fields render as "—" (`orDash`, `percent`), and verdict codes the inte
 Field names are the backend's; these are the ones the interface depends on.
 
 - **Analysis result** (upload, reference dataset, sample batch, history detail): `verdict` (`CONFIRMED_POISONED` · `SUSPICIOUS` · `LOW_RISK` · `CLEAN`), `n_samples`, `elapsed_ms`, `dataset_info { filename, n_rows, has_labels, label_column, detection_mode }`, `layer_results { label_check, shift_check { evidence, alarm, ran }, row_flags { row_scores, flagged_indices_incoming } }`, `poison_note`.
+- **Image, audio or video result** (`source` `image_upload` · `audio_upload` · `video_upload`): `verdict`, `checks { <code> { evidence, in_row_ranking, description } }`, `leading_check`, `flagged_images` or `flagged_clips[] { file, class, score, check }`, `n_flagged`, `dataset_info { filename, n_reference, n_incoming, class_names, has_labels, image_size | view | clip_seconds, warnings }`.
+- **Screening without a reference** (any data type): `mode: "self_check"`, `verdict: "SCREENED"`, `n_samples`, `checks { <code> { evidence, description } }`, `lists { <code>: [...] }` (table rows as in `suspicious_cells`, files as in `flagged_*`). Shown as ranked lists, never as a verdict.
+- **Table extras**: `layer_results.resid_check { evidence, alarm, in_row_ranking }`, `suspicious_cells[] { csv_line, row_score, cells[] { column, value, score, is_label } }`, `attack_profile { likely, label, probabilities, features }`.
 - **Model scan**: `verdict` (`DANGEROUS` · `REVIEW` · `NO_CODE_EXECUTION_FOUND` · `SAFE_FORMAT`), `model_filename`, `scan { format, findings[] { severity, ... } }`. History: `{ scans[] }`.
 - **Audit event**: `id`, `action` (for example `analysis.uploaded`, `apikey.created`), `actor_id`, `resource_type`, `resource_id`, `details`, `created_at`.
 - **Background job**: `status` (`queued` · `running` · `completed` · `failed`), `result` when completed, `error` when failed.
@@ -73,6 +78,8 @@ These are documented, not worked around; none was added to the backend.
 | An admin's own activity | `GET /audit/events` returns everyone's events to an admin, newest 50 by default, with no actor filter | The Account page filters to the admin's own events client-side, so older ones of theirs can be missing | An `actor=me` parameter |
 | Editing an account | `/users` has list, create and delete only | Admins cannot change a role or reset a password; they delete and recreate | `PATCH /users/{id}` |
 | One "latest result" for the Overview | `GET /analyze/upload/latest` returns the server's in-memory latest of an upload or reference dataset (then the newest stored upload), never a sample batch | After a sample batch the Overview shows the result `POST /demo/run` returned, labelled "Synthetic sample batch · just run"; after a reload it shows the latest upload or reference run again | A `source` parameter, or a latest endpoint across all sources |
+| Filtering History by image, audio or video | `GET /history?source=` accepts only `demo`, `upload`, `real_dataset` and `model_scan` | The Images, Audio and Video filters pick those runs out of the newest 50 / 100 / 200 of all runs, and say so | Accept `image_upload`, `audio_upload` and `video_upload` in the `source` pattern |
+| Direct upload of media zips | `POST /uploads/presign` takes roles `csv`, `csv_reference` and `model` only | Image, audio and video zips (up to 500 MB) always go through the API | Presign roles for zips |
 | Cancelling a background job | No cancel endpoint | There is no Cancel control; leaving the page only stops watching, and the job still finishes and counts against the quota | `DELETE /jobs/{id}` |
 
 Endpoints deliberately not used: `/forensics/narrative` and `/blast-radius/latest` (already in `/forensics/latest`); `/forensics/timeline`, `/datasets/demo`, `/datasets/demo/samples` and `/detect/*` (synthetic demo data, not the user's); `/trust/score` (letter grades derived from one heuristic score, which would overstate what is measured); `/analyze/upload/{id}` (`/history/{id}` returns the same stored result).

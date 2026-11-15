@@ -59,9 +59,17 @@ describe('errors', () => {
     await expect(api.getUsage()).rejects.toMatchObject({ message: 'Daily analyses quota reached', status: 429 });
   });
 
-  it('shows the first message of a validation error list, not [object Object]', async () => {
-    fetch.mockResolvedValueOnce(fail(422, { detail: [{ msg: 'String should have at least 10 characters' }, { msg: 'second' }] }));
-    await expect(api.createUser({})).rejects.toThrow('String should have at least 10 characters');
+  it('turns a validation error list into sentences, not [object Object]', async () => {
+    fetch.mockResolvedValueOnce(fail(422, { detail: [
+      { loc: ['body', 'password'], type: 'string_too_short', msg: 'String should have at least 10 characters', ctx: { min_length: 10 } },
+      { loc: ['body', 'username'], type: 'string_pattern_mismatch', msg: 'String should match pattern' },
+    ] }));
+    await expect(api.createUser({})).rejects.toThrow("Password must be at least 10 characters. Username can use only letters, digits, '.', '_' and '-'.");
+  });
+
+  it('names the field of any other validation error', async () => {
+    fetch.mockResolvedValueOnce(fail(422, { detail: [{ loc: ['body', 'split_cutoff'], type: 'value_error', msg: 'Value error, not a date' }] }));
+    await expect(api.getUsage()).rejects.toThrow('Split cutoff: not a date');
   });
 
   it('falls back to the status text when the body is not JSON', async () => {
@@ -132,5 +140,24 @@ describe('errors', () => {
     fetch.mockResolvedValueOnce(fail(401, {}));
     await expect(api.getUsage()).rejects.toThrow();
     expect(location.assign).not.toHaveBeenCalled();
+  });
+});
+
+describe('media uploads', () => {
+  it('posts a zip with its reference to the endpoint for its kind', async () => {
+    const file = new Blob(['zip'], { type: 'application/zip' });
+    const reference = new Blob(['zip'], { type: 'application/zip' });
+    await api.uploadMedia('audio', file, { referenceFile: reference });
+    const [url, init] = lastCall();
+    expect(url).toBe('/api/v1/analyze/audio');
+    expect(init.body.get('reference_file')).toBeTruthy();
+    expect(init.body.get('no_reference')).toBeNull();
+  });
+
+  it('asks for a screening when there is no reference', async () => {
+    await api.uploadMedia('images', new Blob(['zip']), { noReference: true });
+    expect(lastCall()[1].body.get('no_reference')).toBe('true');
+    await api.uploadCSV(new Blob(['a,b']), { noReference: true });
+    expect(lastCall()[1].body.get('no_reference')).toBe('true');
   });
 });

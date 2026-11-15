@@ -4,6 +4,8 @@ export const DATA_VERDICTS = {
   SUSPICIOUS: { label: 'Suspicious', short: 'Suspicious', color: 'var(--status-warn)', p: 'p ≤ 0.01', blurb: 'Stronger evidence than 99% of clean batches. Review the ranked rows first.' },
   LOW_RISK: { label: 'Low risk', short: 'Low risk', color: 'var(--status-info)', p: 'p ≤ 0.05', blurb: 'Weak evidence; about 7% of clean batches reach this level. Spot-check the top rows.' },
   CLEAN: { label: 'Clean', short: 'Clean', color: 'var(--status-safe)', p: 'p > 0.05', blurb: 'Nothing here beyond what clean batches show. Small contamination (~1%) can still hide below this.' },
+  // No trusted reference: every item was checked against the others. Ranked lists, deliberately no verdict.
+  SCREENED: { label: 'Screened, no reference', short: 'Screened', color: 'var(--violet)', p: '—', blurb: 'Checked without a trusted reference, so there is no verdict: only ranked lists of what to look at first.' },
 };
 
 export const MODEL_VERDICTS = {

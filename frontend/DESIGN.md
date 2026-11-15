@@ -55,7 +55,7 @@ Point cloud of rows: lavender-white points, flagged rows in `--flag`, a sweep li
 
 ## Pages
 - `/` signed out and `/welcome`: public landing page (`pages/LandingPage.jsx`).
-- App shell: left rail with labels (the reference's dashboard mock shows an icon rail; labels are kept for nine destinations).
+- App shell: left rail with labels (the reference's dashboard mock shows an icon rail; labels are kept for ten destinations).
 
 ## Components — `src/components/ui/`
 Pages build from these and import them from `../components/ui`; no page keeps its own copy of a control.
@@ -74,9 +74,10 @@ Files: `layout.jsx`, `actions.jsx`, `choices.jsx`, `forms.jsx`, `data.jsx`, `fee
   - `Unavailable`: the server can't do this here (feature off on this deployment, 501/503, or not answering). Quiet grey, not red: it is nobody's mistake.
   - A failed refresh that still has data keeps the data and shows an `ErrorNote` above it.
   - `PageErrorBoundary` catches a page that fails to render, keeps the shell, and offers Try again.
-- **Errors from the API:** every call goes through `services/api.js`. Server errors carry `status` and the server's `detail` as the message; a request that never reached the server has `offline: true` and a readable message instead of "Failed to fetch".
+- **Analysis results:** `components/analysis/AnalysisResult.jsx` draws every dataset result: a table batch (verdict hero with the specimen, rows to review with the cells to blame, evidence per check, attack profile), an image/audio/video zip (the same hero without the specimen, files to review), and a screening without a reference (no verdict, one ranked list per check). Upload, History › full result and nothing else use it. `components/analysis/kinds.js` holds each data type's accepted file, format note and limits, and the words for check and attack codes. A result always ends with what the check cannot tell you.
+- **Errors from the API:** every call goes through `services/api.js`. Server errors carry `status` and the server's `detail` as the message (a validation list becomes one sentence per field); a request that never reached the server has `offline: true` and a readable message instead of "Failed to fetch".
 - **Dialog:** native `<dialog>` portalled to `<body>`: blurred backdrop, focus on the first field, Escape and backdrop click close. Only for irreversible actions that also need input (deleting the account).
 - **States:** every control has hover, `:focus-visible` (2px lavender ring), active (1px press), disabled (45% opacity, no press) and, where it waits on the API, loading.
 
 ## Honesty rules
-Heuristic features carry `PreviewTag`. Mock panels on the landing page are labelled "Example run". Benchmark numbers come only from `docs/model-card.md`.
+Heuristic features carry `PreviewTag`. Mock panels on the landing page are labelled "Example run". Benchmark numbers come only from `docs/model-card.md` and `docs/*-benchmark-findings.md`. A screening without a reference never shows a verdict colour other than the neutral violet `SCREENED`.

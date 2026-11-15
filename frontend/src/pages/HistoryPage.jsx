@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { RefreshCw, X, Download } from 'lucide-react';
+import { RefreshCw, X, Download, ArrowUpRight } from 'lucide-react';
 import { api } from '../services/api';
 import {
   DATA_VERDICTS, MODEL_VERDICTS, PageHeader, Button, IconButton, ErrorNote, ErrorState, Segmented, Table, VerdictBadge, Loading, Page, downloadJson,
@@ -10,11 +11,17 @@ import {
 const LIMITS = [50, 100, 200];
 const SOURCES = [
   { id: '', label: 'All' },
-  { id: 'upload', label: 'Uploads' },
+  { id: 'upload', label: 'Table uploads' },
+  { id: 'image_upload', label: 'Images' },
+  { id: 'audio_upload', label: 'Audio' },
+  { id: 'video_upload', label: 'Video' },
   { id: 'real_dataset', label: 'Reference datasets' },
   { id: 'demo', label: 'Sample batches' },
   { id: 'model_scan', label: 'Model scans' },
 ];
+const SOURCE_LABELS = Object.fromEntries(SOURCES.filter((s) => s.id).map((s) => [s.id, s.label]));
+// GET /history filters only these sources; the media ones are picked out of the unfiltered list here.
+const SERVER_SOURCES = new Set(['upload', 'real_dataset', 'demo', 'model_scan']);
 
 function verdictOf(v) {
   return DATA_VERDICTS[v] || MODEL_VERDICTS[v] || { label: v || '—', color: 'var(--text-muted)' };
@@ -36,6 +43,8 @@ function Detail({ row, onClose }) {
   const v = verdictOf(row.verdict);
   const flags = full?.layer_results?.row_flags;
   const scan = full?.scan;
+  const screening = full?.mode === 'self_check';
+  const mediaFlagged = full && !flags && !scan && !screening ? full.n_flagged : null;
   return (
     <motion.aside
       initial={{ opacity: 0.4, x: 24 }}
@@ -47,7 +56,7 @@ function Detail({ row, onClose }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="rule-label">{row.source?.replace('_', ' ')}</div>
+          <div className="rule-label">{SOURCE_LABELS[row.source] || row.source?.replace(/_/g, ' ')}</div>
           <div className="mt-1 break-all font-mono text-sm">{row.filename || row.model_filename}</div>
         </div>
         <IconButton icon={X} label="Close detail" onClick={onClose} className="-mr-2 -mt-2" />
@@ -59,15 +68,22 @@ function Detail({ row, onClose }) {
       {full && (
         <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-borderHairline pt-5 font-mono text-sm">
           {flags && <div><dt className="rule-label">Flagged rows</dt><dd className="mt-1 text-flag">{orDash(flags.flagged_indices_incoming?.length)}</dd></div>}
-          {full.n_samples != null && <div><dt className="rule-label">Rows checked</dt><dd className="mt-1">{full.n_samples.toLocaleString()}</dd></div>}
+          {mediaFlagged != null && <div><dt className="rule-label">Flagged files</dt><dd className="mt-1 text-flag">{mediaFlagged.toLocaleString()}</dd></div>}
+          {screening && <div><dt className="rule-label">Ranked lists</dt><dd className="mt-1">{Object.keys(full.lists || {}).length}</dd></div>}
+          {full.n_samples != null && <div><dt className="rule-label">{/^(image|audio|video)_upload$/.test(row.source) ? 'Files checked' : 'Rows checked'}</dt><dd className="mt-1">{full.n_samples.toLocaleString()}</dd></div>}
           {full.layer_results?.label_check && <div><dt className="rule-label">Label evidence</dt><dd className="mt-1">{full.layer_results.label_check.evidence?.toFixed(2)}</dd></div>}
           {full.layer_results?.shift_check && <div><dt className="rule-label">Shift evidence</dt><dd className="mt-1">{full.layer_results.shift_check.evidence?.toFixed(2)}</dd></div>}
           {scan && <div><dt className="rule-label">Format</dt><dd className="mt-1">{scan.format}</dd></div>}
           {scan && <div><dt className="rule-label">Findings</dt><dd className="mt-1">{orDash(scan.findings?.length)}</dd></div>}
         </dl>
       )}
+      {full && row.source !== 'model_scan' && (
+        <Link to={`/history/${row.id}`} className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-2.5 text-sm font-medium text-ink-900 transition-colors duration-200 hover:bg-[#EDC5FC]">
+          Open the full result <ArrowUpRight className="h-4 w-4" aria-hidden />
+        </Link>
+      )}
       {full && (
-        <Button variant="ghost" className="mt-6 w-full" onClick={() => downloadJson(full, `veritas_${row.source}_${row.id}.json`)}>
+        <Button variant="ghost" className="mt-3 w-full" onClick={() => downloadJson(full, `veritas_${row.source}_${row.id}.json`)}>
           <Download className="h-4 w-4" /> Download JSON
         </Button>
       )}
@@ -86,8 +102,14 @@ export default function HistoryPage() {
 
   useEffect(() => {
     let live = true;
-    api.getHistory(source || null, limit)
-      .then((d) => { if (live) { setData(d); setError(null); } })
+    const serverSide = !source || SERVER_SOURCES.has(source);
+    api.getHistory(serverSide ? source || null : null, limit)
+      .then((d) => {
+        if (!live) return;
+        const fetched = d.results?.length || 0;
+        setData(serverSide ? { ...d, fetched } : { ...d, fetched, results: (d.results || []).filter((r) => r.source === source) });
+        setError(null);
+      })
       .catch((e) => live && setError(e));
     return () => { live = false; };
   }, [source, nonce, limit]);
@@ -150,7 +172,7 @@ export default function HistoryPage() {
                     aria-selected={active}
                   >
                     <td className="max-w-[280px] truncate font-mono">{r.filename || r.model_filename || r.id}</td>
-                    <td className="nowrap text-textSecondary">{r.source?.replace('_', ' ')}</td>
+                    <td className="nowrap text-textSecondary">{SOURCE_LABELS[r.source] || r.source?.replace(/_/g, ' ')}</td>
                     <td><VerdictBadge verdict={r.verdict} kind={r.source === 'model_scan' ? 'model' : 'data'} /></td>
                     <td className="num font-mono text-textSecondary">{r.n_samples?.toLocaleString() ?? '—'}</td>
                     <td className="num font-mono text-xs text-textMuted">{r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</td>
@@ -159,9 +181,9 @@ export default function HistoryPage() {
               })}
             </tbody>
           </Table>
-          {data && results.length >= limit && (
+          {data && data.fetched >= limit && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-borderHairline px-3 py-3 text-sm text-textMuted">
-              <span>Showing the newest {results.length} runs.</span>
+              <span>{SERVER_SOURCES.has(source) || !source ? `Showing the newest ${results.length} runs.` : `Showing the ${SOURCE_LABELS[source].toLowerCase()} runs among your newest ${data.fetched}.`}</span>
               {limit < LIMITS.at(-1)
                 ? <Button variant="ghost" size="sm" onClick={() => setLimit(LIMITS[LIMITS.indexOf(limit) + 1])}>Show more</Button>
                 : <span>That is the most the server returns at once.</span>}

@@ -10,7 +10,7 @@ import {
 } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LogOut, Menu, X, LayoutGrid, ScanLine, FileCode2, Database, History, Microscope, Siren, FileText, ShieldCheck, UserRound,
+  LogOut, Menu, X, LayoutGrid, ScanLine, FileCode2, Database, History, Microscope, Siren, FileText, ShieldCheck, UserRound, Gauge,
 } from 'lucide-react';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
@@ -30,6 +30,8 @@ const UploadPage = lazy(() => import('./pages/UploadPage'));
 const ModelScanPage = lazy(() => import('./pages/ModelScanPage'));
 const RealDatasetsPage = lazy(() => import('./pages/RealDatasetsPage'));
 const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+const HistoryRunPage = lazy(() => import('./pages/HistoryRunPage'));
+const BenchmarksPage = lazy(() => import('./pages/BenchmarksPage'));
 const BlueTeamPage = lazy(() => import('./pages/BlueTeamPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage'));
@@ -47,6 +49,7 @@ const BASE_NAV_ITEMS = [
   { path: '/real-datasets', label: 'Reference datasets', icon: Database },
   { path: '/history', label: 'History', icon: History },
   { path: '/reports', label: 'Evidence reports', icon: FileText },
+  { path: '/benchmarks', label: 'Benchmarks', icon: Gauge },
   { path: '/forensics', label: 'Forensics', icon: Microscope, preview: true },
   { path: '/blue-team', label: 'Response desk', icon: Siren, preview: true },
   { path: '/account', label: 'Account', icon: UserRound },
@@ -74,7 +77,7 @@ function PageTitle() {
     if (loading) return;
     // The signed-out "/" and "/welcome" are the landing page; any other unknown path is the not-found page.
     const landing = pathname === '/welcome' || (pathname === '/' && !user);
-    const name = landing ? null : PAGE_TITLES[pathname] || 'Page not found';
+    const name = landing ? null : PAGE_TITLES[pathname] || (/^\/history\/[^/]+$/.test(pathname) ? 'Run' : 'Page not found');
     document.title = name ? `${name} · Veritas` : BASE_TITLE;
   }, [pathname, user, loading]);
   return null;
@@ -213,6 +216,8 @@ function AnimatedRoutes({ events }) {
           <Route path="/blue-team" element={<PageErrorBoundary name="Response desk"><BlueTeamPage /></PageErrorBoundary>} />
           <Route path="/reports" element={<PageErrorBoundary name="Evidence reports"><ReportsPage /></PageErrorBoundary>} />
           <Route path="/history" element={<PageErrorBoundary name="History"><HistoryPage /></PageErrorBoundary>} />
+          <Route path="/history/:id" element={<PageErrorBoundary name="Run"><HistoryRunPage /></PageErrorBoundary>} />
+          <Route path="/benchmarks" element={<PageErrorBoundary name="Benchmarks"><BenchmarksPage /></PageErrorBoundary>} />
           <Route path="/account" element={<PageErrorBoundary name="Account"><AccountPage /></PageErrorBoundary>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
