@@ -33,7 +33,7 @@ from sklearn.preprocessing import StandardScaler  # noqa: E402
 from research.baselines import DETECTORS  # noqa: E402
 
 ROOT = Path(__file__).parent
-MANIFEST_PATH = ROOT / "benchmark" / "manifest-v2.json"
+MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_TAB_MANIFEST", "manifest-v2.json")
 CACHE = Path(os.getenv("VERITAS_BENCH_CACHE", Path.home() / ".cache" / "veritas-bench"))
 MIN_CLASS_ROWS = 10
 

@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "benchmark_id": "veritas-tabular-poisoning-breadth-v1",
+  "created_at": "2026-11-16",
+  "immutable": true,
+  "random_seed": 20261106,
+  "source": "OpenML via sklearn.datasets.fetch_openml; data_id pins an immutable dataset version and sklearn verifies its checksum",
+  "max_rows": 3000,
+  "reference_fraction": 0.6,
+  "calibration_fraction_of_reference": 0.3,
+  "datasets": {
+    "test": [
+      {
+        "data_id": 4135,
+        "name": "Amazon_employee_access",
+        "why": "9 categorical columns, 32769 rows (subsampled to 3000), minority 5.8%"
+      },
+      {
+        "data_id": 40978,
+        "name": "Internet-Advertisements",
+        "why": "1558 features (1555 categorical), 3279 rows, minority 14%"
+      },
+      {
+        "data_id": 1486,
+        "name": "nomao",
+        "why": "118 features, 29 categorical, 34465 rows (subsampled), mixed types"
+      },
+      {
+        "data_id": 3,
+        "name": "kr-vs-kp",
+        "why": "36 categorical columns, all binary/ternary, balanced"
+      },
+      {
+        "data_id": 1056,
+        "name": "mc1",
+        "why": "heavy imbalance: minority 0.7% (about 21 rows in a 3000-row sample)"
+      },
+      {
+        "data_id": 1491,
+        "name": "one-hundred-plants-margin",
+        "why": "100 classes with 16 rows each, 64 features"
+      },
+      {
+        "data_id": 40670,
+        "name": "dna",
+        "why": "180 categorical features, 3 classes, 3186 rows"
+      },
+      {
+        "data_id": 1461,
+        "name": "bank-marketing",
+        "why": "45211 rows (subsampled), 9 categorical of 16, minority 11.7%"
+      }
+    ]
+  },
+  "attacks": [
+    "label_flip_random",
+    "label_flip_targeted",
+    "backdoor_ood",
+    "backdoor_inrange",
+    "feature_collision",
+    "covariate_shift"
+  ],
+  "poison_rates": [
+    0.01,
+    0.03,
+    0.05,
+    0.1
+  ],
+  "seeds": 5,
+  "clean_batches_per_seed": 4,
+  "detector_seed_limits": {
+    "veritas": 1
+  },
+  "metrics": {
+    "row": [
+      "auroc",
+      "auprc",
+      "precision_at_k"
+    ],
+    "batch": {
+      "tpr_at_clean_fpr": 0.05,
+      "tail_quantile": 0.99
+    },
+    "ci": {
+      "method": "cluster bootstrap over datasets",
+      "resamples": 1000,
+      "level": 0.95
+    }
+  },
+  "profiles": {
+    "smoke": {
+      "datasets": [
+        4135,
+        1056
+      ],
+      "seeds": 1,
+      "poison_rates": [
+        0.05
+      ],
+      "clean_batches_per_seed": 2
+    }
+  },
+  "policy": "New held-out datasets; detector frozen at 1f2c439; nothing tuned; quoted once. Never edit this file in place: create a new benchmark_id for any change."
+}
