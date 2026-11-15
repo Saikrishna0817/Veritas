@@ -1,224 +1,314 @@
-# 🛡️ AI Trust Forensics Platform v2.2
+# Veritas
 
-> **An experimental analyst-support platform for investigating risk signals consistent with adversarial data poisoning.**
+Veritas checks a training dataset for poisoning before you train a model on it. You upload a table, or a zip of
+images, audio or video in class folders, ideally with a reference set you trust. Veritas measures how far the new
+data departs from that reference and lists the rows or files to review first. A verdict is a calibrated false-alarm
+level ("evidence at the 1-in-10,000 level"), not proof that the data is poisoned. Veritas also scans model files for
+code that would run when the file is loaded.
 
-[![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react)](https://react.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
-
----
-
-## 🎯 What is this?
-
-**Data poisoning** is when an attacker secretly injects malicious training samples into an AI model's dataset. The model trains normally, passes all standard tests, gets deployed — and then silently causes harm. Our platform detects these attacks with a label check and a distribution-shift check against a trusted reference set (measured in `docs/benchmark-v2-findings.md`).
-
-Built for the **Sustainable Development Goals (SDG) Hackathon** — specifically targeting SDG 3 (Good Health), SDG 9 (Infrastructure), and SDG 16 (Strong Institutions).
+Product context and principles: [docs/PRODUCT.md](docs/PRODUCT.md). Accuracy, limits and data handling:
+[docs/model-card.md](docs/model-card.md).
 
 ---
 
-## ✨ Features
+## What you can check
 
-| Feature | Description |
-|---------|-------------|
-| **5-Layer Detection Pipeline** | Statistical shift → Spectral activation → Ensemble anomaly → Causal proof → Federated trust |
-| **Attack Type Classification** | Automatically identifies: label flip, backdoor, clean label, gradient poisoning, boiling frog |
-| **Proxy Impact Analysis** | Compares proxy-model outcomes with and without flagged rows; it does not prove an attack or deployment harm |
-| **Model File Scanner** | Static scan (never loads the file) of pickle/joblib, PyTorch, safetensors, ONNX, NumPy and GGUF files for anything that can run code when loaded, in an isolated worker process |
-| **Real Dataset Library** | Iris, Wine, Breast Cancer, Digits — with known-quantity poison injection for ground-truth validation |
-| **SQLite Persistence** | All analysis results stored permanently and queryable via the History page |
-| **Red Team Simulator** | Inject synthetic attacks and measure the platform's resilience in real time |
-| **Blue Team SOC** | Security Operations Centre — threat level, HITL review queue, incident log, response playbooks |
-| **Federated Trust** | Cosine similarity + EMA trust scoring for federated learning client safety |
-| **Evidence Summaries** | Draft analyst summaries mapped to NIST AI RMF concepts; not evidence, attribution, or compliance certification |
-| **Live WebSocket Feed** | Real-time event streaming for attack confirmations and defense actions |
+| Data | Upload | Size limit | What is read |
+|---|---|---|---|
+| Table | `.csv` with a label column | 200 MB | Text columns with up to 50 distinct values are checked as categories. |
+| Images | `.zip`, one folder per class (`cat/001.png`) | 500 MB | Up to 6,000 images, resized to 32×32. |
+| Audio | `.zip` of PCM WAV files, one folder per class (`dog/001.wav`) | 500 MB | Clips mixed to mono and padded or trimmed to one length. |
+| Video | `.zip` of mp4, avi, mov, mkv or webm files, one folder per class | 500 MB | 8 frames per clip. |
+
+**The reference.** A verdict needs data you trust:
+
+- a separate reference file (CSV) or zip;
+- for tables, the rows before a cutoff in a column you name;
+- or, if you opt in, the first 70% of a table or a random 70% of each class.
+
+With no reference, which is the default, every row or item is checked against the others. The result is a
+screening: one ranked list per check, and no verdict.
+
+**A result contains:**
+
+- the verdict, as a false-alarm level:
+
+  | Verdict | False-alarm level |
+  |---|---|
+  | `CONFIRMED_POISONED` | 1 in 10,000 |
+  | `SUSPICIOUS` | 1 in 100 |
+  | `LOW_RISK` | 1 in 20 |
+  | `CLEAN` | below 1 in 20 |
+  | `SCREENED` | no verdict; screening without a reference |
+
+- the evidence from each check, as −log₁₀ of a p-value measured against your reference;
+- the items to review: for tables, rows with their line in your file and the cells most to blame, as you wrote
+  them; for images, audio and video, files with their class and the check that flagged them;
+- for tables, which of six benchmarked attacks the suspicious rows look most like;
+- the limits of that check, shown next to the result. For example, images are checked at 32×32, so a smaller trigger
+  can vanish, and audio and video do not detect triggers added to correctly labelled clips. The full list is in
+  `frontend/src/components/results.jsx` (`KINDS`) and [docs/model-card.md](docs/model-card.md#known-limits).
+
+**The checks.**
+
+- **Tables (`backend/app/detection/veritas2.py`):** a cross-fitted label check, a distribution-shift check and a
+  column-consistency check. The shift and column checks join the row ranking only when their own evidence is strong.
+- **Images, audio and video (`backend/app/detection/veritas_mm.py`):** a shared set of checks:
+  - label;
+  - content shift;
+  - pixel statistics;
+  - near-duplicates;
+  - shared patch;
+  - shared faint pattern;
+  - colour noise;
+  - a within-class pattern check, used for images and audio, not video.
+
+  Each type is first turned into a 32×32 view and an embedding:
+  - images: a ResNet-18 embedding;
+  - audio: a log-mel spectrogram view and a HuBERT embedding;
+  - video: the mean of 8 frames.
+
+### Model-file scanner
+
+The scanner answers one question: can loading this file run code? It never loads or runs the file:
+
+- Pickles (including the ones inside PyTorch and joblib files) are read opcode by opcode.
+- Every import they would make is checked against a deny list and a known-safe list.
+- safetensors, GGUF, ONNX and plain `.npy` are only checked for valid structure.
+
+It accepts `.pkl`, `.pickle`, `.joblib`, `.pt`, `.pth`, `.bin`, `.ckpt`, `.safetensors`, `.onnx`, `.npy`, `.npz`,
+`.gguf`, `.h5`, `.keras` and `.zip`, up to 200 MB. The scan runs in a separate process with resource limits.
+
+| Verdict | Meaning |
+|---|---|
+| `DANGEROUS` | The file imports something that can run code or touch the system. |
+| `REVIEW` | Unknown imports, or content the scanner can't parse. A person should look. |
+| `NO_CODE_EXECUTION_FOUND` | A pickle whose imports are all known data containers. This is not a guarantee of safety. |
+| `SAFE_FORMAT` | A format that can't contain code, and its structure checks passed. |
+
+What it does not do:
+
+- It does not judge what a model has learned, so a backdoor in the weights is out of scope.
+- It does not prove a file is safe.
+- Its malicious test files were written by the same person who wrote the scanner. See
+  [docs/scanner-benchmark.md](docs/scanner-benchmark.md) and the scanner section of the model card.
 
 ---
 
-## 🏗️ Architecture
+## Accuracy
+
+Accuracy figures for every check are in these documents, which say how they were measured:
+
+- [docs/model-card.md](docs/model-card.md): every check, with its known limits
+- [docs/benchmark-v2-findings.md](docs/benchmark-v2-findings.md): tables
+- [docs/image-benchmark-findings.md](docs/image-benchmark-findings.md): images
+- [docs/audio-benchmark-findings.md](docs/audio-benchmark-findings.md): audio
+- [docs/video-benchmark-findings.md](docs/video-benchmark-findings.md): video
+- [docs/scanner-benchmark.md](docs/scanner-benchmark.md): model-file scanner
+
+The in-app **Benchmarks** page summarises the held-out results. The numbers are not repeated here, so that they
+can't drift from those documents.
+
+---
+
+## Frontend routes
+
+Routes are defined in `frontend/src/App.jsx`.
+
+| Route | Page | For |
+|---|---|---|
+| `/login`, `/admin/login` | `LoginPage` | Sign in; the admin variant asks for the admin role. |
+| `/signup`, `/verify-email`, `/forgot-password`, `/reset-password` | `AccountFlowPage` | Create an account, confirm the email, reset a password. |
+| `/` | `Dashboard` | Overview: the latest result for each data type, and what a result means. |
+| `/upload` | `UploadPage` | Check data: choose the data type, the file and the reference, then read the result. |
+| `/history`, `/history/:id` | `HistoryPage` | Every dataset you have checked, filtered by type; open one for its full result. |
+| `/model-scan` | `ModelScanPage` | Scan a model file and see past scans. |
+| `/reports` | `ReportsPage` | A printable record of one analysis, with response steps when something was found. |
+| `/benchmarks` | `BenchmarksPage` | Held-out results per data type and what no check catches yet. |
+| `/admin` | `AdminDashboard` | Admin only: users, defence actions and review queue, audit log, analysis records. |
+| `/forensics`, `/blue-team`, `/real-datasets` | redirects | Older links: they go to `/history`, `/reports` and `/upload`. |
+
+Signed-in users see Check data, History, Scanner, Reports and Benchmarks in the navigation. Admins see the Admin
+console and History.
+
+---
+
+## Repository layout
 
 ```
 ├── backend/
-│   └── app/
-│       ├── detection/          # Veritas v2: label check + gated shift check (veritas2.py), pipeline.py adapter
-│       ├── forensics/          # Attack reconstruction + narratives
-│       ├── defense/            # Auto-defense + HITL + Red Team
-│       ├── ingestion/          # CSV parsing, restricted sklearn loader (metadata only)
-│       ├── scanner/            # Static model-file scanner (model_scan.py)
-│       ├── demo/               # Synthetic + real public datasets
-│       ├── api/routes/         # REST + WebSocket routes (auth, upload, models, datasets, reports, users, jobs)
-│       ├── models/database.py  # SQLite persistence layer
-│       └── jobs/               # In-process job queue for background uploads
-│
-└── frontend/
-    └── src/
-        └── pages/
-            ├── Dashboard.jsx         # Live trust scores + radar chart
-            ├── UploadPage.jsx        # Upload and analyse CSV files
-            ├── ModelScanPage.jsx     # Scan model files
-            ├── RealDatasetsPage.jsx  # Real dataset library
-            ├── ForensicsPage.jsx     # Attack reconstruction details
-            ├── AdminDashboard.jsx    # Admin console: users, red-team simulator
-            ├── BlueTeamPage.jsx      # SOC — defense operations
-            ├── FederatedPage.jsx     # Federated client trust
-            ├── ReportsPage.jsx       # Regulatory evidence reports
-            └── HistoryPage.jsx       # Past analysis results
+│   ├── app/
+│   │   ├── api/             # FastAPI routes (api/routes/*.py) and shared dependencies
+│   │   ├── core/            # settings, security (session cookie, CSRF), quotas, storage, mail, observability
+│   │   ├── defense/         # defence actions and the human review queue
+│   │   ├── demo/            # synthetic sample batch and the small public reference datasets
+│   │   ├── detection/       # veritas2 (tables), veritas_mm (images/audio/video), embeddings, attack profile
+│   │   ├── forensics/       # attack classification, injection pattern, blast radius
+│   │   ├── ingestion/       # CSV and zip readers (images, audio, video) with size and zip-bomb guards
+│   │   ├── jobs/            # background jobs: in-process, or Redis/RQ workers (separate queue for untrusted files)
+│   │   ├── models/          # database layer and SQL migrations (SQLite or Postgres)
+│   │   ├── scanner/         # static model-file scanner
+│   │   ├── utils/
+│   │   └── main.py
+│   ├── research/            # benchmark harnesses and studies behind docs/*-findings.md
+│   ├── tests/               # backend tests (pytest)
+│   ├── requirements.txt
+│   ├── requirements-images.txt   # torch, torchvision, torchaudio, pillow for image/audio/video checks
+│   └── Dockerfile
+├── cli/veritas_cli.py       # command-line client: scan-model, check-data (standard library only)
+├── docs/                    # product context, model card, benchmark findings, decisions, runbook, legal
+├── e2e/                     # Playwright end-to-end tests against a running stack
+├── frontend/                # React app (see frontend/README.md)
+├── loadtest/k6.js           # k6 load test
+├── scripts/                 # database backup and restore drill
+├── tests/fixtures/          # shared test files
+├── docker-compose.yml       # Postgres, Redis, API, analysis worker, isolated media worker, nginx frontend
+└── pytest.ini
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 20+
+
+- Python 3.12. The backend image is `python:3.12-slim`, and the pinned numpy needs it.
+- Node.js 20+.
+- For image, audio and video checks: `backend/requirements-images.txt`, plus ffmpeg for video.
+
+### Configuration
+
+The backend reads `.env` from `backend/` or the repository root; real environment variables win. It refuses to
+start without these settings:
+
+| Variable | Requirement |
+|---|---|
+| `VERITAS_JWT_SECRET` | Random, at least 32 characters. |
+| `VERITAS_ADMIN_USERNAME` | Any username; this admin account is created at startup. |
+| `VERITAS_ADMIN_PASSWORD` | Not a known default, at least 8 characters. |
+
+`docker-compose.yml` lists the other settings it passes through, and Docker needs `POSTGRES_PASSWORD` too. These
+include mail, Turnstile, S3 storage, CORS and the public URL. There is no `.env.example` in the repository at
+present.
 
 ### Backend
 
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 # source .venv/bin/activate   # macOS/Linux
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure secrets (the server refuses to start without them)
-cp ../.env.example .env      # then fill in the three VERITAS_* values
-
-# Start the server
+# optional, for image/audio/video checks (CPU-only torch):
+# pip install -r requirements-images.txt --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple
 uvicorn app.main:app --port 8001 --reload
 ```
 
-The backend runs at `http://localhost:8001` — API docs at `http://localhost:8001/docs`
+The API runs at `http://localhost:8001`. Interactive docs are at `http://localhost:8001/docs`. Without
+`VERITAS_DATABASE_URL` it uses SQLite. Without `VERITAS_REDIS_URL`, background jobs run inside the API process.
 
 ### Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the dev server
 npm run dev
 ```
 
-The frontend runs at `http://localhost:5173`
+The app runs at `http://localhost:5173`. Vite proxies `/api` and `/ws` to `localhost:8001`. Set `VITE_API_PROXY`
+to use another address.
 
-### Authentication and Docker
+### Docker
 
-Copy [`.env.example`](.env.example) to `.env`, set a unique JWT secret and administrator
-credentials, then run `docker compose up --build`. It documents every backend
-and Vite environment variable. Obtain a JWT through
-`POST /api/v1/auth/token` and sign in through the frontend. Apart from health
-and token issuance, API and WebSocket endpoints require that JWT.
-
-The server refuses to start when `VERITAS_JWT_SECRET` (min. 32 characters) or the admin
-password (min. 8 characters) is missing or a well-known default, and no accounts are created
-besides the administrator from `.env`. Create other users from the admin console.
-
-Login attempts are limited to five per IP address per rolling minute (behind nginx the real
-client IP is taken from `X-Forwarded-For`). The
-current internal-deployment JWT storage decision and its security trade-off are
-documented in [docs/decisions.md](docs/decisions.md).
-
----
-
-## 🔬 The 5-Layer Detection Pipeline
-
-Thresholds and scores are experimental analyst signals; their calibration and
-evaluation requirements are documented in [docs/detection-calibration.md](docs/detection-calibration.md).
-Current benchmark results and limitations are published in
-[docs/model-card.md](docs/model-card.md); they show that the current detector
-does not yet detect benchmark v1's seeded attacks at its selected threshold.
-
-### Layer 1 — Statistical Shift Detection
-Compares incoming data distribution to a clean baseline using:
-- **KL Divergence** — information-theoretic distribution distance
-- **Wasserstein Distance** — earth mover's distance between distributions
-- **Mahalanobis Distance** — multivariate outlier detection accounting for feature correlations
-
-### Layer 2 — Spectral Activation Analysis
-Detects backdoor attacks via SVD (Singular Value Decomposition):
-- A large **spectral gap** (S₀/S₁ ratio) indicates a backdoor subspace
-- **KMeans** on PCA-reduced activations finds the trigger cluster
-
-### Layer 3 — Ensemble Anomaly Detection
-Four algorithms vote on each sample (≥2 votes = flagged):
-- Isolation Forest · SGD One-Class SVM · Local Outlier Factor · DBSCAN
-
-### Layer 4 — Causal Proof Engine
-Inspired by Judea Pearl's Do-Calculus:
+```bash
+docker compose up --build
 ```
-Causal Effect = Accuracy(without suspects) − Accuracy(with suspects)
-```
-Validated with: bootstrap 95% CI, placebo test, t-test (p < 0.05)
 
-### Layer 5 — Federated Behavioral Trust
-- Cosine similarity between client gradients and global gradient
-- EMA trust score per client (α = 0.1)
-- Auto-quarantine below 0.3 trust threshold
+This starts:
 
----
+- Postgres and Redis;
+- the API;
+- a worker for CSV jobs;
+- an isolated media worker for image, audio, video and model-file jobs (no internet, read-only filesystem, capped
+  resources);
+- nginx serving the frontend.
 
-## 📡 API Endpoints (Selected)
+### Sign-in and sessions
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/demo/run` | Run full analysis on demo data |
-| `POST` | `/api/v1/analyze/upload` | Upload and analyse a CSV (`?background=true` returns a job id to poll at `GET /api/v1/jobs/{id}`) |
-| `POST` | `/api/v1/analyze/model` | Statically scan a model file |
-| `GET` | `/api/v1/datasets/real` | Real dataset catalog |
-| `POST` | `/api/v1/redteam/simulate` | Inject attack + measure detection |
-| `GET` | `/api/v1/blueteam/status` | SOC threat level + summary |
-| `GET` | `/api/v1/blueteam/resilience` | Per-attack catch rate metrics |
-| `GET` | `/api/v1/blueteam/playbook/{type}` | Incident response playbook |
-| `GET` | `/api/v1/history` | SQLite-backed analysis history |
-| `WS` | `/ws/v1/detection-stream` | Real-time event stream |
+Sign in through the app, or with `POST /api/v1/auth/token`. The session is an httpOnly cookie (`veritas_session`).
+Every request that changes something must also echo the `veritas_csrf` cookie in an `X-CSRF-Token` header. The CLI
+uses API keys instead (`Authorization: Bearer vk_…`).
 
-Full API docs: `http://localhost:8001/docs`
+- Login is limited to 5 attempts per IP address per minute, and 10 per username per 15 minutes.
+- Self-service sign-up with email confirmation is on unless `VERITAS_SIGNUP_ENABLED=false`.
+- A user sees only their own analyses; an admin sees everyone's.
 
 ---
 
-## 🌍 SDG Alignment
+## API
+
+All paths below are under `/api/v1` unless noted; the full schema is at `/docs`. Except for health and the
+sign-in routes, every route needs a session or an API key.
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/health`, `/` (no prefix) | Health check and service info |
+| `POST` | `/auth/token`, `/auth/logout` | Sign in (sets the session cookie), sign out |
+| `GET` | `/auth/me` | The signed-in user |
+| `POST` | `/auth/signup`, `/auth/verify-email`, `/auth/resend-verification` | Create an account and confirm its email |
+| `POST` | `/auth/password-reset/request`, `/auth/password-reset/confirm` | Reset a password by email |
+| `GET` | `/account/usage` | Today's usage and limits |
+| `GET`, `POST`, `DELETE` | `/account/api-keys`, `/account/api-keys/{key_id}` | List, create and revoke API keys |
+| `DELETE` | `/account/data` | Erase your stored results, scans, defence actions, review cases and usage counters; the account stays |
+| `POST` | `/account/delete` | Delete your account |
+| `POST` | `/analyze/upload` | Check a CSV (`?background=true` returns a job id) |
+| `POST` | `/analyze/images`, `/analyze/audio`, `/analyze/video` | Check a zip; always a background job |
+| `GET` | `/analyze/upload/latest`, `/analyze/upload/{dataset_id}` | Your latest upload result, or one of yours by id |
+| `POST` | `/uploads/presign`, `/uploads/complete` | Upload a CSV or model file straight to S3-compatible storage, then queue the job |
+| `GET` | `/jobs/{job_id}` | Status and result of a background job |
+| `POST` | `/analyze/model` | Scan a model file |
+| `GET` | `/analyze/model/history`, `/analyze/model/{scan_id}` | Past scans |
+| `GET` | `/trust/score` | Headline numbers of your latest analysis |
+| `GET` | `/history`, `/history/{result_id}` | Your analyses and model scans (all of them, for an admin) |
+| `DELETE` | `/history/{result_id}` | Delete a stored analysis |
+| `GET` | `/audit/events` | Audit log (your own events, or everyone's for an admin) |
+| `POST` | `/reports/generate` | Build a report from the latest result (`?source=auto\|demo\|upload\|real_dataset`) |
+| `GET` | `/forensics/latest`, `/forensics/narrative`, `/forensics/timeline`, `/blast-radius/latest` | Forensic views of the latest result |
+| `GET` | `/defense/status`, `/defense/hitl/pending` | Defence actions and the human review queue |
+| `POST` | `/defense/quarantine`, `/defense/hitl/decide` | Quarantine the latest flagged rows; decide a review case |
+| `GET` | `/blueteam/status`, `/blueteam/incidents`, `/blueteam/playbooks`, `/blueteam/playbook/{attack_type}` | Response summary, incident log and playbooks |
+| `GET` | `/users` | List users (admin) |
+| `POST` | `/users` | Create a user (admin) |
+| `DELETE` | `/users/{user_id}` | Delete a user (admin) |
+| `POST` | `/demo/run` | Run the synthetic sample batch |
+| `GET` | `/datasets/demo`, `/datasets/demo/samples` | The synthetic sample data |
+| `POST` | `/detect/analyze` | Run the detector on sample rows |
+| `GET` | `/detect/results/latest` | The latest detector result |
+| `GET` | `/datasets/real` | List the reference datasets |
+| `GET` | `/datasets/real/{name}/download` | Download one as CSV |
+| `POST` | `/datasets/real/{name}/analyze` | Analyse one |
+| `WS` | `/ws/v1/detection-stream` (no prefix) | Live analysis events, authenticated by the session cookie |
+
+### Command line
+
+`cli/veritas_cli.py` scans a model file or checks a dataset from a terminal or CI job, using an API key. It exits 1
+when the verdict reaches `--fail-on`. See the docstring at the top of the file for usage.
+
+---
+
+## Sustainable Development Goals
+
+Veritas was started for a Sustainable Development Goals hackathon. The connection is what it checks, not a promise
+about outcomes:
 
 | SDG | Connection |
-|-----|-----------|
-| **SDG 3** — Good Health & Well-being | Prevents poisoned medical diagnostic AI from harming patients |
-| **SDG 9** — Industry & Infrastructure | Provides security infrastructure for trustworthy AI deployment |
-| **SDG 16** — Peace, Justice & Strong Institutions | Ensures AI used in governance/justice is tamper-proof |
-| **SDG 17** — Partnerships | Secures federated learning between institutions without sharing raw data |
+|---|---|
+| **SDG 3**, Good health and well-being | Medical and health datasets can be checked for poisoned rows and labels before a diagnostic model is trained on them. |
+| **SDG 9**, Industry, innovation and infrastructure | Gives ML teams a measured data and model-file check to put in their training pipeline and CI. |
+| **SDG 16**, Peace, justice and strong institutions | Gives institutions that train models on submitted data a documented, auditable check, with the false-alarm level and limits stated. |
 
 ---
 
-## 🛡️ Security
+## Licence
 
-Legacy pickle uploads are deserialized only through a **restricted unpickler**. It rejects every unreviewed global before construction and permits only approved scikit-learn model classes and their required numeric containers. Pickle remains a legacy interoperability format; production deployments should prefer a non-executable model format or execute legacy parsing in an isolated worker. All API and WebSocket endpoints require a valid JWT except `/health`, `/`, and `/api/v1/auth/token`; the WebSocket sends its token in the first message, never in the URL. Analysis results are shared by all authenticated users (there is no per-user data isolation), so deploy for a single trusted team; see [docs/decisions.md](docs/decisions.md).
-
----
-
-## 📋 Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.11, FastAPI, Uvicorn |
-| ML/Science | NumPy, SciPy, scikit-learn |
-| Database | SQLite (WAL mode, thread-local connections) |
-| Frontend | React 19, Vite, Tailwind CSS |
-| Charts | Recharts |
-| Icons | Lucide React |
-| Real-time | WebSocket (native) |
-
----
-
-## 📄 License
-
-MIT — see [LICENSE](LICENSE)
-
----
-
-Built with ❤️ for the Hackathon | AI Trust Forensics Platform v2.2
+MIT. See [LICENSE](LICENSE).
