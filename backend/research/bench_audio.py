@@ -13,8 +13,6 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse  # noqa: E402
 import json  # noqa: E402
 import time  # noqa: E402
-from collections import deque  # noqa: E402
-from concurrent.futures import ProcessPoolExecutor  # noqa: E402
 from datetime import date  # noqa: E402
 
 import numpy as np  # noqa: E402
@@ -97,9 +95,9 @@ def batch_specs(m: dict) -> list[dict]:
     return [{**s, "batch_rows": rows[(s["split"], s["data_id"])]} for s in bench_mm.batch_specs(m)]
 
 
-def jobs(m: dict):
-    """Prepared batches, one dataset split at a time."""
-    specs = batch_specs(m)
+def jobs(m: dict, done=frozenset()):
+    """Prepared batches, one dataset split at a time. Skips specs in done (a resumed run)."""
+    specs = [s for s in batch_specs(m) if bench_mm.spec_key(s) not in done]
     for key in dict.fromkeys((s["split"], s["data_id"]) for s in specs):
         ds = datasets.load(key[1], key[0])
         _, img_emb, _ = clean_views(ds, m["image_size"])
@@ -117,23 +115,15 @@ def run(m: dict, jobs_fn, splits: list[str], label: str, kind: str, workers: int
     if override:
         assert "test" not in m["datasets"], "overrides are for dev studies; the test run uses the manifest as written"
         m.update(override)
-    total, started, records = len(batch_specs(m)), time.perf_counter(), []
-    # Executor.map would prepare every batch before scoring the first; a small window keeps memory flat.
-    with ProcessPoolExecutor(workers) as pool:
-        pending = deque()
-        for job in jobs_fn(m):
-            pending.append(pool.submit(bench_mm.score_batch, job))
-            while len(pending) > 2 * workers or (pending and pending[0].done()):
-                records.append(pending.popleft().result())
-                if len(records) % 25 == 0:
-                    print(f"{len(records)}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
-        records += [f.result() for f in pending]
+    started, ckpt = time.perf_counter(), bench_mm.checkpoint_path(kind, label)
+    records = bench_mm.score_all(m, jobs_fn, len(batch_specs(m)), workers, ckpt)
     report = {"manifest": m, "label": label, "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = bench_mm.ROOT / "results" / f"{date.today().isoformat()}-benchmark-{kind}-{label}"
     out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")
     out.with_suffix(".md").write_text(to_markdown(report) + "\n")
     print(out.with_suffix(".md"))
+    ckpt.unlink()
 
 
 def main() -> None:

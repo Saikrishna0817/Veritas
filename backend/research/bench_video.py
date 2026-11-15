@@ -75,8 +75,8 @@ def prepare_batch(spec: dict, ds: datasets.VideoSet, img, emb, pix) -> dict:
     return {"d": d, "mask": mask}
 
 
-def jobs(m: dict):
-    specs = bench_audio.batch_specs(m)
+def jobs(m: dict, done=frozenset()):
+    specs = [s for s in bench_audio.batch_specs(m) if bench_mm.spec_key(s) not in done]
     for split in dict.fromkeys(s["split"] for s in specs):
         ds = datasets.load(split)
         img, emb, pix = clean_views(ds, m.get("view", "mosaic"))

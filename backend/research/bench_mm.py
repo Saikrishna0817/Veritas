@@ -14,7 +14,9 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse  # noqa: E402
 import json  # noqa: E402
+import pickle  # noqa: E402
 import time  # noqa: E402
+from collections import deque  # noqa: E402
 from concurrent.futures import ProcessPoolExecutor  # noqa: E402
 from datetime import date  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -109,9 +111,45 @@ def batch_specs(m: dict) -> list[dict]:
     return specs
 
 
-def jobs(m: dict):
-    """Yield prepared batches one dataset at a time, so only one dataset's pixels are in memory."""
-    specs = batch_specs(m)
+def spec_key(s: dict) -> tuple:
+    return tuple(s[k] for k in ("split", "data_id", "seed", "attack", "rate", "rep"))
+
+
+def score_all(m: dict, jobs_fn, total: int, workers: int, ckpt: Path) -> list[dict]:
+    """Score prepared batches in a small window (Executor.map would prepare every batch before scoring the first) and
+    append each record to ckpt, so a killed run resumes: batches already in ckpt are skipped before being prepared."""
+    records = []
+    if ckpt.exists():
+        with ckpt.open("rb") as f:   # this run's own local checkpoint
+            while True:
+                try: records.append(pickle.load(f))
+                except (EOFError, pickle.UnpicklingError): break   # a record cut short by the kill is redone
+        print(f"resuming: {len(records)}/{total} batches in {ckpt}", flush=True)
+    started, done = time.perf_counter(), {spec_key(r) for r in records}
+    with ProcessPoolExecutor(workers) as pool, ckpt.open("ab") as f:
+        pending = deque()
+        def take():
+            records.append(pending.popleft().result()); pickle.dump(records[-1], f); f.flush()
+            if len(records) % 25 == 0:
+                print(f"{len(records)}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
+        for job in jobs_fn(m, done):
+            pending.append(pool.submit(score_batch, job))
+            while len(pending) > 2 * workers or (pending and pending[0].done()):
+                take()
+        while pending:
+            take()
+    return records
+
+
+def checkpoint_path(kind: str, label: str) -> Path:
+    path = Path(os.path.expanduser(f"~/.cache/veritas-logs/ckpt-{kind}-{label}.pkl"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def jobs(m: dict, done=frozenset()):
+    """Yield prepared batches one dataset at a time, so only one dataset's pixels are in memory. Skips specs in done."""
+    specs = [s for s in batch_specs(m) if spec_key(s) not in done]
     for data_id in dict.fromkeys(s["data_id"] for s in specs):
         ds = datasets.load(data_id)
         emb, pix = clean_embeddings(ds), pixel_features(ds.raw)
@@ -130,16 +168,9 @@ def main() -> None:
     m = load_manifest(args.profile)
     if args.splits:
         m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
-    total = len(batch_specs(m))
-    started = time.perf_counter()
-    records = []
-    with ProcessPoolExecutor(args.workers) as pool:
-        for i, rec in enumerate(pool.map(score_batch, jobs(m), chunksize=1), 1):
-            records.append(rec)
-            if i % 25 == 0 or i == total:
-                print(f"{i}/{total} batches, {time.perf_counter() - started:.0f}s", flush=True)
-
     label = args.label or args.profile
+    started, ckpt = time.perf_counter(), checkpoint_path("mm-images", label)
+    records = score_all(m, jobs, len(batch_specs(m)), args.workers, ckpt)
     report = {"manifest": m, "label": label, "n_batches": len(records),
               "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
@@ -147,6 +178,7 @@ def main() -> None:
     out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")
     out.with_suffix(".md").write_text(to_markdown(report) + "\n")
     print(out.with_suffix(".md"))
+    ckpt.unlink()
 
 
 if __name__ == "__main__":
