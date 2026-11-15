@@ -31,6 +31,8 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
 
   await page.goto('/upload');
   await page.setInputFiles('.in-drop input[type="file"]', csv());
+  await expect(page.getByRole('radio', { name: /no trusted reference/i })).toBeChecked();   // the default
+  await page.getByRole('radio', { name: /first 70%/i }).check();   // the flips sit in the last 30%: a verdict
   await page.getByRole('button', { name: 'Analyse' }).click();
   await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Rows to review')).toBeVisible();

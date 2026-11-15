@@ -141,7 +141,7 @@ export const api = {
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
 
     // CSV Upload Analysis
-    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; default is the first 70% in file order
+    // opts: { referenceFile?: File, splitColumn?: string, splitCutoff?: string }; with neither, the API screens every row (no reference)
     uploadCSV: (file, opts = {}) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -159,7 +159,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
         if (opts.referenceFile) formData.append('reference_file', opts.referenceFile);
-        if (opts.noReference) formData.append('no_reference', 'true');
+        formData.append('no_reference', opts.noReference ? 'true' : 'false');
         if (kind === 'table' && opts.splitColumn && opts.splitCutoff) {
             formData.append('split_column', opts.splitColumn);
             formData.append('split_cutoff', opts.splitCutoff);

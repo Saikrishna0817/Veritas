@@ -39,7 +39,7 @@ function ReferenceOptions({ kind, mode, setMode, refFile, setRefFile, split, set
   return (
     <fieldset className="in-fieldset">
       <legend className="in-legend">Trusted reference</legend>
-      {[...opts, none].map(([value, title, help]) => (
+      {[none, ...opts].map(([value, title, help]) => (
         <div key={value}>
           <label className="in-radio">
             <input type="radio" name="ref" value={value} checked={mode === value} onChange={() => setMode(value)} />
@@ -104,7 +104,7 @@ export default function UploadPage() {
   const [saved] = useState(recall);              // a job still running when the page was left
   const [kind, setKind] = useState(saved?.kind || 'table');
   const [file, setFile] = useState(null);
-  const [refMode, setRefMode] = useState('order');
+  const [refMode, setRefMode] = useState('none');   // trusting part of the file is opt-in
   const [refFile, setRefFile] = useState(null);
   const [split, setSplit] = useState({ column: '', cutoff: '' });
   const [job, setJob] = useState(saved?.id ? { ...saved, stage: 'queued' } : null);   // { id, kind, startedAt, stage }

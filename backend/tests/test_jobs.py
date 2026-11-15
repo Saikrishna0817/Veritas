@@ -38,7 +38,8 @@ def _wait(job_id, headers, timeout=60):
 
 def test_background_upload_runs_from_storage_and_result_is_saved_for_the_owner():
     h = _h("job-alice")
-    r = client.post("/api/v1/analyze/upload?background=true", headers=h, files={"file": ("bg.csv", _csv(), "text/csv")})
+    r = client.post("/api/v1/analyze/upload?background=true", headers=h, files={"file": ("bg.csv", _csv(), "text/csv")},
+                    data={"no_reference": "false"})
     assert r.status_code == 202
     job = _wait(r.json()["job_id"], h)
     assert job["status"] == "completed", job

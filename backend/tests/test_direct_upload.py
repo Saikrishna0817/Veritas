@@ -68,7 +68,7 @@ def test_presigned_csv_upload_runs_and_the_blob_is_deleted(s3):
     qs = parse_qs(urlparse(p["url"]).query)
     assert "content-length" in qs["X-Amz-SignedHeaders"][0] and p["method"] == "PUT"      # the size is part of the signature
     key = _put(s3, p, data)
-    done = client.post("/api/v1/uploads/complete", headers=h, json={"upload_id": p["upload_id"]})
+    done = client.post("/api/v1/uploads/complete", headers=h, json={"upload_id": p["upload_id"], "self_check": False})
     assert done.status_code == 202, done.text
     job = _wait(done.json()["job_id"], h)
     assert job["status"] == "completed", job

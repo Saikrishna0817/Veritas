@@ -87,6 +87,8 @@ def _direct(base: str, key: str, path: str, files: dict[str, str], fields: dict[
     if "reference_file" in ids:
         done["reference_upload_id"] = ids["reference_file"]
     done.update({k: v for k, v in fields.items() if k in ("split_column", "split_cutoff")})
+    if "no_reference" in fields:
+        done["self_check"] = fields["no_reference"] == "true"
     return _post_json(f"{base}/uploads/complete", key, done)
 
 
@@ -124,6 +126,9 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--reference", help="trusted CSV with the same columns; the main file is then all incoming")
     d.add_argument("--split-column")
     d.add_argument("--split-cutoff")
+    d.add_argument("--trust-first-70", action="store_true",
+                   help="use the first 70%% of the file as the reference (rows in time order, early rows trusted); "
+                        "without a reference every row is screened and there is no verdict to fail on")
     d.add_argument("--fail-on", default="SUSPICIOUS", choices=DATA_ORDER[1:])
     args = ap.parse_args(argv)
     if not args.api_key:
@@ -142,17 +147,28 @@ def main(argv: list[str] | None = None) -> int:
                 files["reference_file"] = args.reference
             if args.split_column:
                 fields.update(split_column=args.split_column, split_cutoff=args.split_cutoff or "")
+            if args.trust_first_70:
+                fields["no_reference"] = "false"
             result = _run_job(base, args.api_key, "/analyze/upload", files, fields, args.wait)
+            if result["verdict"] == "SCREENED":   # no reference: ranked lists, no verdict to gate on
+                for check, rows in result["lists"].items():
+                    print(f"  {check}: lines {', '.join(str(r['csv_line']) for r in rows[:10])}")
+                print("  no reference: a screening, not a verdict (--fail-on needs --reference, --split-column or --trust-first-70)")
+                return _finish(args, result, "SCREENED", 0)
             verdict, order, limit = result["verdict"], DATA_ORDER, args.fail_on
             flagged = result["layer_results"]["row_flags"]["flagged_indices_incoming"]
             print(f"  {len(flagged)} of {result['n_samples']} incoming rows flagged; suspicion {result['overall_suspicion_score']:.2f}")
     except (CliError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    return _finish(args, result, verdict, 1 if order.index(verdict) >= order.index(limit) else 0)
+
+
+def _finish(args, result: dict, verdict: str, code: int) -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     print(f"{args.cmd}: {args.file}: {verdict}")
-    return 1 if order.index(verdict) >= order.index(limit) else 0
+    return code
 
 
 if __name__ == "__main__":

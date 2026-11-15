@@ -100,9 +100,12 @@ post-fix 339/339 is no longer a held-out number.
   6,000 per check) audio clips (PCM WAV, up to 6,000, at most 10 s used) and video clips (8 frames each, up to 6,000). Not free text yet.
 - **Images are checked at 32x32.** A trigger smaller than about 1/32 of the image side can vanish in the resize. Image
   results name the leading check, not an attack type; label flips at 1% are the weakest case (20% of batches flagged).
-  Without a reference zip the reference is a random 70% of each class, so poison anywhere in the zip also lands in it.
-- **You must supply a trusted reference.** With no reference file or split column, Veritas treats the first 70% of rows
-  in file order as trusted and warns you. If the reference is itself poisoned, the check is meaningless.
+- **A verdict needs a trusted reference.** With no reference file or split column (the default), every row or item is
+  checked against the others in 5 folds and the result is a screening: ranked lists, no verdict. It finds label flips
+  and shared triggers, not changes that look like ordinary data (targeted flips, feature collisions, covariate shift).
+  Trusting the first 70% of a table (or a random 70% of each class) is opt-in (`no_reference=false`,
+  `--trust-first-70`); poison in that part is then not found. If the reference is itself poisoned, the check is
+  meaningless.
 - **Real-noise evidence is one dataset family** (CIFAR-10 embeddings).
 - **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are
   in it. Third-party-class pickles (for example `dabl`, `autogluon`) come back REVIEW (22% of held-out Hub files),

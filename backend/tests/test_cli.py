@@ -58,7 +58,8 @@ def test_check_data_and_error_paths(server, key, tmp_path):
     rng = np.random.RandomState(0)
     X = rng.randn(500, 5); y = (X[:, 0] + X[:, 1] > 0).astype(int); y[350:410] = 1 - y[350:410]
     f = tmp_path / "d.csv"; pd.DataFrame(X, columns=list("abcde")).assign(label=y).to_csv(f, index=False)
-    assert veritas_cli.main(["--api-url", server, "--api-key", key, "check-data", str(f)]) == 1
+    assert veritas_cli.main(["--api-url", server, "--api-key", key, "check-data", str(f), "--trust-first-70"]) == 1
+    assert veritas_cli.main(["--api-url", server, "--api-key", key, "check-data", str(f)]) == 0   # screened, no gate
     assert veritas_cli.main(["--api-url", server, "--api-key", "vk_wrong", "scan-model", str(f)]) == 2
     assert veritas_cli.main(["--api-url", "http://127.0.0.1:9", "--api-key", key, "scan-model", str(f)]) == 2
 
