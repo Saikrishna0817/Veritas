@@ -30,7 +30,7 @@ python-multipart==0.0.33
 redis==8.1.0
 rq==3.0.0
 scikit-learn==1.9.1
-scipy==1.17.0
+scipy==1.18.1
 sentry-sdk==2.74.0
 six==1.17.0
 starlette==1.10.0
