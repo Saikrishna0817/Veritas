@@ -37,6 +37,15 @@ export const VERDICTS = {
   SUSPICIOUS: { title: 'Evidence of poisoning', note: 'The evidence passes the 1-in-100 false-alarm level. Review the listed items before training.' },
   LOW_RISK: { title: 'Weak evidence of poisoning', note: 'The evidence passes the 1-in-20 false-alarm level only. One clean dataset in twenty looks like this.' },
   CLEAN: { title: 'No evidence of poisoning found', note: 'Below the 1-in-20 false-alarm level. This is not proof the data is clean: see the limits below.' },
+  SCREENED: { title: 'Screened without a reference', note: 'Every item was checked against the others. This ranks what to look at first; it is not a verdict.' },
+};
+
+// Model-file scan verdicts: [title, note]. Shared by the scanner page and the admin console.
+export const MODEL_VERDICTS = {
+  DANGEROUS: ['Loading this file can run code', 'It imports something that can run code or reach the system when loaded. Do not load it.'],
+  REVIEW: ['Needs a person to look', 'Something in the file could not be verified as a plain data container.'],
+  NO_CODE_EXECUTION_FOUND: ['No code execution found', 'Every import is a known data container. This is not a guarantee of safety: load files from strangers in a sandbox anyway.'],
+  SAFE_FORMAT: ['Weights-only format', 'This format holds tensors only and cannot contain code.'],
 };
 
 // A code the interface does not know (a newer backend, a missing value) is shown as it is, never as another verdict.
