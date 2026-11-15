@@ -17,6 +17,7 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 import argparse  # noqa: E402
 import hashlib  # noqa: E402
 import json  # noqa: E402
+import pickle  # noqa: E402
 import time  # noqa: E402
 from concurrent.futures import ProcessPoolExecutor  # noqa: E402
 from datetime import date  # noqa: E402
@@ -331,16 +332,24 @@ def main() -> None:
             _openml(ds["data_id"])
     if args.splits:
         m["datasets"] = {k: v for k, v in m["datasets"].items() if k in args.splits}
+    label = args.label or args.profile
     specs = [{**spec, "only": args.only} for spec in batch_specs(m)]
     started = time.perf_counter()
-    records = []
-    with ProcessPoolExecutor(args.workers) as pool:
-        for i, rec in enumerate(pool.map(run_batch, specs, chunksize=4), 1):
-            records.append(rec)
-            if i % 50 == 0 or i == len(specs):
-                print(f"{i}/{len(specs)} batches, {time.perf_counter() - started:.0f}s", flush=True)
+    # Each record is appended to a checkpoint, so a killed run resumes with the batches it has not scored yet.
+    ckpt = CACHE.parent / "veritas-logs" / f"ckpt-tab-{label}.pkl"
+    ckpt.parent.mkdir(parents=True, exist_ok=True)
+    records = _load_records(ckpt)
+    key = lambda s: tuple(s[k] for k in ("split", "data_id", "seed", "attack", "rate", "rep"))  # noqa: E731
+    done = {key(r) for r in records}
+    todo = [s for s in specs if key(s) not in done]
+    if records:
+        print(f"resuming: {len(records)}/{len(specs)} batches in {ckpt}", flush=True)
+    with ProcessPoolExecutor(args.workers) as pool, ckpt.open("ab") as f:
+        for rec in pool.map(run_batch, todo, chunksize=4):
+            records.append(rec); pickle.dump(rec, f); f.flush()
+            if len(records) % 50 == 0 or len(records) == len(specs):
+                print(f"{len(records)}/{len(specs)} batches, {time.perf_counter() - started:.0f}s", flush=True)
 
-    label = args.label or args.profile
     report = {"manifest": m, "label": label, "n_batches": len(records),
               "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
@@ -348,6 +357,17 @@ def main() -> None:
     out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")
     out.with_suffix(".md").write_text(to_markdown(report) + "\n")
     print(out.with_suffix(".md"))
+    ckpt.unlink()
+
+
+def _load_records(path) -> list[dict]:
+    out = []
+    if path.exists():
+        with path.open("rb") as f:   # this run's own local checkpoint
+            while True:
+                try: out.append(pickle.load(f))
+                except (EOFError, pickle.UnpicklingError): return out   # a record cut short by a kill is redone
+    return out
 
 
 if __name__ == "__main__":
