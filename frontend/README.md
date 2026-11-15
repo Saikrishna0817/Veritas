@@ -6,8 +6,7 @@ tone, principles and anti-references every page follows.
 ## Stack
 
 - React 19 and React Router 7, built with Vite 7.
-- Plain CSS for the app's design system (`src/styles/instrument.css`). Tailwind 3 is still configured (`index.css`,
-  `tailwind.config.js`). Only the admin console, `PageErrorBoundary` and `ProtectedRoute` still use its classes.
+- Plain CSS: the design system is `src/styles/instrument.css`; `src/index.css` is only a reset. No Tailwind.
 - lucide-react for icons.
 - ESLint 9 (flat config in `eslint.config.js`).
 - No chart library and no state library. All server calls go through `src/services/api.js`.
@@ -18,19 +17,20 @@ tone, principles and anti-references every page follows.
 src/
 ├── main.jsx                 # entry; imports index.css
 ├── App.jsx                  # routes, navigation, footer, signed-in shell
-├── index.css, App.css       # older global styles (Tailwind base, dark frame)
-├── styles/instrument.css    # the current design system: tokens and .in-* classes, scoped to .instrument
+├── index.css                # global reset
+├── styles/instrument.css    # the design system: tokens on :root, .in-* classes
 ├── services/api.js          # the only place that calls the API (cookies + CSRF header)
 ├── context/AuthContext.jsx  # signed-in user; hooks/useAuth.js reads it
 ├── components/
 │   ├── results.jsx          # data types (KINDS), verdict words, the shared result view for every data type
 │   ├── Brand.jsx, ProtectedRoute.jsx, PageErrorBoundary.jsx
 └── pages/                   # one file per route; see the route table in the root README
+    └── admin/               # the admin console's tabs and shared pieces (tabs, inline confirm, load states)
 ```
 
 ## Design tokens
 
-Colours, type and easing are CSS variables at the top of `src/styles/instrument.css`, on `.instrument`. They are:
+Colours, type and easing are CSS variables at the top of `src/styles/instrument.css`, on `:root`. They are:
 
 - paper, sheet and rule for surfaces;
 - ink 1–3 for text;

@@ -1,8 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 /* The "instrument" look (docs/PRODUCT.md): light, paper-like, quiet bone and indigo, a single-hue magenta scale for
-   evidence strength. Scoped to .instrument so pages that have not been redesigned keep their old tokens. */
-.instrument {
+   evidence strength. The tokens are global so the page behind every view uses them too. */
+:root {
   /* Two quiet colours and one bold one. Bone (warm paper) for surfaces and graphite indigo for ink and controls are
      the quiet pair; indicator magenta, the colour a lab indicator turns when something is present, is the bold one and
      appears only where Veritas is signalling: evidence, the verdict gauge, focus, the active step, the brand mark. */
@@ -27,7 +27,11 @@
 
   --font-ui: 'Instrument Sans', system-ui, sans-serif;
   --font-num: 'IBM Plex Mono', ui-monospace, monospace;
+}
 
+body { background: var(--paper); color: var(--ink); font-family: var(--font-ui); }
+
+.instrument {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
@@ -35,10 +39,6 @@
   line-height: 1.55;
   min-height: 100vh;
 }
-
-/* The light app drops the old dark frame around #root (App sets body.light outside the admin console). */
-body.light { background: oklch(0.972 0.007 85); padding: 0; }
-body.light #root { background: transparent; border-radius: 0; min-height: 100vh; }
 
 .in-main { padding: 44px 24px 96px; }
 .in-shell { display: flex; flex-direction: column; min-height: 100vh; }
@@ -293,7 +293,7 @@ body.light #root { background: transparent; border-radius: 0; min-height: 100vh;
 }
 
 @media print {
-  body.light { background: white; }
+  body { background: white; }
   .in-nav, .in-footer, .in-actions, .in-back, select { display: none !important; }
   .in-main { padding: 0; }
   .in-table-wrap { overflow: visible; }
