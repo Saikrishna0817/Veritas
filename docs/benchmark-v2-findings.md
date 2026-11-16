@@ -461,7 +461,23 @@ with 13% clean batches above 2.0, so it is off for video. Penalty 1.3 (row gate 
 joined with the dev benchmark: clean alarms 1.4% before and after; clean-label batches flagged at 1% 0% -> 50%, tone
 17% -> 83%.
 
-Held-out (images manifest v9, audio manifest v3): not yet run. Two attempts were killed by the system memory reaper
-while another training job held most of the RAM. The app's limit texts still say clean-label triggers are not
-detected and will change only if the held-out numbers support it. The check is off in the no-reference screening
-(its lists were chosen on dev without it).
+Held-out (quoted once; `results/2026-11-16-benchmark-mm-images-v9-sig.*`, `results/2026-11-16-benchmark-audio-test-v3-sig.*`),
+share of batches flagged at 1.3, before (images v8, audio v2) -> after:
+
+| | 1% | 3% | 5% | 10% | clean at 1.3 / 2.0 |
+|---|---|---|---|---|---|
+| Speech Commands clean-label tone | 0 -> 80% | 20 -> 100% | 0 -> 100% | 20 -> 100% | 3.3 -> 5.0% / 0 -> 0% (n = 60) |
+| Speech Commands tone trigger | 60 -> 100% | 100% | 100% | 100% | |
+| ESC-50 clean-label tone | 0% | 0% | 20% | 0% | 3.3% / 0% unchanged |
+| GTSRB clean-label patch | 80 -> 100% | 80% | 80 -> 100% | 60% | 1.7 -> 2.5% / 0% |
+| CIFAR-10 clean-label patch | 100% | 100% | 100% | 100% | 4.2% / 1.7% unchanged |
+
+- Audio: the check works on Speech Commands (pooled clean-label row AUPRC at 5% 0.03 -> 0.52, interval 0.04-1.00:
+  near 1 on Speech Commands, near chance on ESC-50). ESC-50 has ~14 reference clips per class; the check gains nothing
+  there, as on dev. Every other audio cell is unchanged or within one batch.
+- Images: the pooled patch checks already caught clean-label triggers (v8 0.97 row AUPRC); v9 0.87 / 0.92 mean row
+  AUPRC at 1% / 5% (v8 0.86 / 0.91), batches flagged 83 / 94 / 97 / 93% (v8 81 / 94 / 96 / 93%), clean 8 of 240 at
+  1.3 (v8 7), 2 at 2.0 (same). Duplicate-flood row AUPRC 0.91 -> 0.88. 13.6 s per batch (v8 10.2).
+- GTSRB clean-label stays capped by class size (~70 items of the target class per batch).
+- App limit texts now say clean-label audio triggers are found in speech-like clips and not in small sound-event
+  sets; video is unchanged (the check is off there). The check stays off in the no-reference screening.

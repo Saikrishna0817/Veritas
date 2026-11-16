@@ -56,17 +56,20 @@ label (cross-fitted logistic regression on the embedding), shift and pixel two-s
 a shared patch, a shared faint pattern and colour noise. Evidence and verdict cut-offs are the same as for tables.
 The result lists the flagged images (file, class, score, the check that flagged it) and the leading check.
 
-Held-out benchmark (CIFAR-10, GTSRB; docs/image-benchmark-findings.md, v8): row AUPRC 0.86 at 1% poison and 0.91 at
-5%; 81% of attacked batches flagged at 1%; clean batches flagged 2.9% at LOW_RISK. About 4 s for 420 images, 10 s
-for 3,000 on one CPU thread.
+Held-out benchmark (CIFAR-10, GTSRB; docs/image-benchmark-findings.md, v9): row AUPRC 0.87 at 1% poison and 0.92 at
+5%; 83% of attacked batches flagged at 1%; clean batches flagged 3.3% at LOW_RISK. About 4 s for 420 images, 14 s
+for 3,000 on one CPU thread. Five attacks from BackdoorBench's code (not written by Veritas's author): 80-100% of
+batches flagged at 5%, 40-80% at 1%. Real, human-confirmed label errors in CIFAR-10/100 and MNIST test sets are ranked
+above chance (AUROC 0.72-0.92), but only 2-16% of the listed images are confirmed errors.
 
 ## Audio-data check
 
 `POST /analyze/audio` takes a zip of PCM WAV files in class folders (optionally a reference zip). The image detector
 runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for the label and shift checks. Held-out
 (Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md): mean row AUPRC 0.59 at 1% and
-0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. Clean-label audio
-triggers are not detected.
+0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. With the
+within-class signature check (v3): clean-label triggers flagged in 19 of 20 Speech Commands test batches (v2: 2) and
+1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0% at LOW_RISK.
 
 ## Video-data check
 
@@ -106,7 +109,11 @@ post-fix 339/339 is no longer a held-out number.
   Trusting the first 70% of a table (or a random 70% of each class) is opt-in (`no_reference=false`,
   `--trust-first-70`); poison in that part is then not found. If the reference is itself poisoned, the check is
   meaningless.
-- **Real-noise evidence is one dataset family** (CIFAR-10 embeddings).
+- **Real-noise evidence is limited:** CIFAR-10N for tables-style embeddings, and confirmed test-set label errors for
+  images (CIFAR-10/100, MNIST). On those real errors the image list is mostly correct images: precision 4% on CIFAR-10,
+  15% on CIFAR-100 (a lower bound; only cleanlab's candidates were reviewed). Use the list to decide where to look.
+- **Frequency-domain image triggers are found only through their labels.** BackdoorBench's Low Frequency and FTrojan
+  triggers are caught because the attacker relabels the images; no pattern check sees the trigger itself.
 - **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are
   in it. Third-party-class pickles (for example `dabl`, `autogluon`) come back REVIEW (22% of held-out Hub files),
   because loading them runs that library. A gadget inside a safe-listed library is caught only if the deny list or a

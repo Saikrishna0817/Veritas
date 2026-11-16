@@ -15,10 +15,13 @@ edited in place (a change gets a new benchmark_id).
 | Misses | Clean-label triggers in audio/video, covariate shift in tables at 1%, moving video triggers | Anything that looks like ordinary data |
 | Evidence | 12 table, 2 image, 2 audio, 1 video datasets; one real-noise family (CIFAR-10N) | Images held-out; tables in progress |
 
-## Phase 0: finish what is running (in progress)
+## Phase 0: finish what is running (done 2026-11-16)
 
 Held-out runs for the within-class check (images v9, audio v3) and the rest of the no-reference table test, in
 `~/.cache/veritas-logs/heldout_chain.sh`. Write up, adjust the app's limit texts only if the numbers support it.
+
+**Result:** clean-label audio triggers now flagged on Speech Commands (19 of 20 batches), not on ESC-50; images
+unchanged (already caught). App texts updated. Details in `benchmark-v2-findings.md`.
 
 ## Phase 1: attacks written by someone else
 
@@ -36,6 +39,11 @@ attack where batch detection at 5% poison is below 50% goes into the model card'
 
 **Needs:** permission to download BackdoorBench code and datasets (~1-2 GB). CPU only.
 
+**Result (images, 2026-11-16):** five BackdoorBench attacks (BadNets, Blended, SIG, Low Frequency, FTrojan), all
+80-100% of batches flagged at 5%, so none joins the "not detected" list. Low Frequency and FTrojan are found only
+through their relabelling. WaNet, Input-aware, SSBA and label-consistent need trained generators and were not run;
+tables not started. Details in `image-benchmark-findings.md`.
+
 ## Phase 2: real errors, not planted ones
 
 **Why:** planted attacks may look nothing like real bad data.
@@ -50,6 +58,10 @@ attack where batch detection at 5% poison is below 50% goes into the model card'
 
 **Needs:** permission for downloads (~0.5 GB for the image sets; AudioSet clips are on YouTube and only partly
 available, so audio may be limited to the subset still online).
+
+**Result (CIFAR-10, CIFAR-100, MNIST, 2026-11-16):** confirmed errors ranked above chance (AUROC 0.72-0.92), but the
+app's list is 2-16% confirmed errors, with or without a reference. Model card updated. AudioSet, QuickDraw and
+CIFAR-100N not run.
 
 ## Phase 3: an attacker who knows the checks (the biggest gap)
 

@@ -184,3 +184,59 @@ Held-out test (CIFAR-10, GTSRB):
 - Random flips at 1% flagged less often (2 of 10 batches vs 4); 10 batches per cell, so this is within noise, and their row AUPRC rose.
 - Clean alarms now within nominal at every cut-off; the label check causes 2 of the 7 at 1.3.
 - Batch time is now spread over checks: pixel and shift are the largest.
+
+## v9: within-class signature check (2026-11-16)
+
+Held-out numbers are in `benchmark-v2-findings.md` ("Clean-label triggers"). Mean row AUPRC 0.87 / 0.92 at 1% / 5%,
+batches flagged 83 / 94 / 97 / 93% at 1 / 3 / 5 / 10%, clean 3.3% at 1.3 and 0.8% at 2.0 (n = 240), 13.6 s per batch.
+
+## Attacks written by someone else (Phase 1, 2026-11-16)
+
+`manifest-mm-images-ext-v1`, `results/2026-11-16-benchmark-mm-images-ext-v1.*`. Five attacks from BackdoorBench's
+published code (commit f02e353, CC BY-NC 4.0, loaded at run time and not copied): BadNets, Blended (alpha 0.2), SIG
+(clean-label), Low Frequency (their CIFAR-10 PreAct-ResNet18 trigger) and FTrojan (YUV frequency trigger). CIFAR-10 and
+GTSRB test splits, 5 seeds, 4 rates, detector frozen at v9 and not tuned on these sets.
+
+Share of batches flagged at 1.3 (n = 10 per cell, both datasets) and row AUPRC at 5%:
+
+| Attack | 1% | 3% | 5% | 10% | row AUPRC at 5% | check that finds it |
+|---|---|---|---|---|---|---|
+| BadNets | 60% | 100% | 100% | 100% | 0.97 | label, pixel, signature |
+| Blended | 40% | 100% | 100% | 100% | 0.94 | label, residual, signature |
+| SIG (clean-label) | 80% | 90% | 80% | 90% | 0.85 | signature, pixel |
+| Low Frequency | 50% | 100% | 100% | 100% | 0.77 | label only |
+| FTrojan | 50% | 100% | 100% | 100% | 0.84 | label, pixel |
+
+- Criterion set before the run: any attack below 50% of batches at 5% goes into the "not detected" list. None is.
+  SIG on GTSRB is the weakest cell (60% at 5%, 3 of 5 batches; class size again).
+- Clean batches: 8 of 240 at 1.3, 2 at 2.0 (same as v9).
+- Low Frequency and FTrojan are found only because the attacker also relabels the poisoned images. The pattern
+  checks see neither trigger (signature row AUPRC 0.08 and 0.07). A clean-label version of either would likely go
+  unnoticed; that is tested in Phase 3.
+
+## Real label errors (Phase 2, 2026-11-16)
+
+`manifest-labelerrors-v1`, `results/2026-11-16-labelerrors-v1.*`. Test-set label errors confirmed by Mechanical Turk
+reviewers (Northcutt et al. 2021, cleanlab/label-errors commit 6d5d6b3; an error = fewer than 3 of 5 reviewers kept
+the given label: 54 on CIFAR-10, 585 on CIFAR-100, 15 on MNIST, as in the paper). With reference: 6,000 training images
+as the reference, the 10,000 test images checked in batches. Without: the test set checked on its own. Nothing tuned.
+
+Ranking of the confirmed errors (95% intervals in the result file):
+
+| | errors | AUPRC (base rate) | in the top 5% | precision of the app's list |
+|---|---|---|---|---|
+| CIFAR-10, with reference | 54 | 0.03 (0.005) | 33% | 4% |
+| CIFAR-10, no reference | | 0.03 | 33% | 4% |
+| CIFAR-100, with reference | 585 | 0.12 (0.059) | 13% | 15% |
+| CIFAR-100, no reference | | 0.12 | 14% | 16% |
+| MNIST, with reference | 15 | 0.02 (0.002) | 53% | 2% |
+| MNIST, no reference | | 0.02 | 53% | 2% |
+
+- Real errors are ranked well above chance (AUROC 0.72-0.92) but the top of the list is mostly not confirmed errors:
+  on CIFAR-10 about 1 in 25 listed images. Planted flips score far higher (row AUPRC 0.82) because they are random,
+  while real errors are mostly ambiguous images the label model also finds hard.
+- Precision is a lower bound: only cleanlab's 275 / 2,235 / 100 candidates were reviewed, so a listed image outside
+  them may still be wrong. Against all candidates, CIFAR-100's list is 50% candidates.
+- The label check alone ranks slightly better than the merged score (CIFAR-10 0.04 vs 0.03, MNIST 0.04 vs 0.02):
+  the other checks add images that are unusual but correctly labelled.
+- MNIST was checked at 28x28 here; the app resizes to 32x32.

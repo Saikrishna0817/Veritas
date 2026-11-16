@@ -5,10 +5,10 @@ import { Fragment } from 'react';
 const ROWS = [
   { kind: 'Tables', data: '12 OpenML datasets (credit-g, adult, spambase, …)', auprc: [0.49, 0.80], caught: [0.42, 0.85], clean: '3.7%',
     misses: 'Covariate shift at 1% (0.18); feature collisions are found as rows, rarely as cells.', doc: 'benchmark-v2-findings.md' },
-  { kind: 'Images', data: 'CIFAR-10, GTSRB', auprc: [0.86, 0.91], caught: [0.81, 0.96], clean: '2.9%',
+  { kind: 'Images', data: 'CIFAR-10, GTSRB', auprc: [0.87, 0.92], caught: [0.83, 0.97], clean: '3.3%',
     misses: 'Random label flips at 1% (20% of batches); images are checked at 32×32.', doc: 'image-benchmark-findings.md' },
   { kind: 'Audio', data: 'Speech Commands (test speakers), ESC-50 (folds 4–5)', auprc: [0.59, 0.76], caught: [0.51, 0.86], clean: '3.3%',
-    misses: 'Clean-label triggers; small sets such as ESC-50 at 1% (0.29).', doc: 'audio-benchmark-findings.md', note: 'Speech Commands; ESC-50 is 0.29 / 0.53.' },
+    misses: 'Clean-label triggers in small sound-event sets (ESC-50); ESC-50 at 1% (0.29).', doc: 'audio-benchmark-findings.md', note: 'Speech Commands, before the within-class check; ESC-50 is 0.29 / 0.53. With it, clean-label triggers are flagged in 19 of 20 Speech Commands batches.' },
   { kind: 'Video', data: 'UCF-101 (official split 1, test groups)', auprc: [0.53, 0.75], caught: [0.46, 0.86], clean: '4.2%',
     misses: 'Clean-label triggers; only every-frame triggers were tested.', doc: 'video-benchmark-findings.md' },
 ];
@@ -51,7 +51,8 @@ export default function BenchmarksPage() {
       <section className="in-section">
         <h2 className="in-h2">What no check catches yet</h2>
         <div className="in-prose">
-          <p>Clean-label triggers: a trigger added to items whose labels stay correct. Neither the label check nor the pooled pattern checks single them out, for images, audio or video.</p>
+          <p>Clean-label triggers in video and in small audio sets: a trigger added to items whose labels stay correct. Images and speech-like audio are covered by the within-class check; video (where it is off) and sets with only a dozen items per class are not.</p>
+          <p>Real label errors: on human-confirmed errors in CIFAR-10 test images, about 1 in 25 listed images is a confirmed error. The list says where to look, not what is wrong.</p>
           <p>Very small poison rates in small datasets: at 1% of a few hundred items there are only a handful of poisoned ones, and the batch verdict rarely fires. The ranked list still helps.</p>
           <p>Attacks unlike the benchmarked ones. The table attack profile always names the closest of six known attacks.</p>
         </div>

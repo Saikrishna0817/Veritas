@@ -47,6 +47,22 @@ Row AUPRC (random = the poison rate) / share of attacked batches flagged at 1.3:
 - ESC-50 is small (320 incoming clips per test batch); at 1% the batch verdict almost never fires there.
 - About 15 s per 3,000-clip batch on one CPU thread (HuBERT embedding excluded; it is computed once per clip).
 
+## Held-out test v3: within-class signature check (2026-11-16)
+
+`results/2026-11-16-benchmark-audio-test-v3-sig.*` (detector otherwise as v2). Share of batches flagged at 1.3:
+
+| Attack | Speech Commands 1% | 3% | 5% | 10% | ESC-50 1% | 3% | 5% | 10% |
+|---|---|---|---|---|---|---|---|---|
+| Clean-label tone (v2) | 0% | 20% | 0% | 20% | 0% | 0% | 20% | 0% |
+| Clean-label tone (v3) | 80% | 100% | 100% | 100% | 0% | 0% | 20% | 0% |
+| Tone trigger (v2 -> v3) | 60 -> 100% | 100% | 100% | 100% | 0% | 0% | 20% | 80% |
+
+- Speech Commands mean over the 7 attacks, flagged at 1% / 5%: 51 / 86% -> 69 / 100%. ESC-50 unchanged (3 / 37%).
+- Clean batches at 1.3: Speech Commands 3.3 -> 5.0% (3 of 60, nominal 5%), ESC-50 3.3%; none at 2.0.
+- Pooled clean-label row AUPRC at 5%: 0.03 -> 0.52 (interval 0.04-1.00: near 1 on Speech Commands, chance on ESC-50).
+- Clean-label triggers are found in speech-like sets with enough clips per class; not in small sound-event sets
+  (~14 reference clips per class in ESC-50).
+
 ## In the app
 
 `POST /analyze/audio` (zip of PCM WAV files in class folders, optional reference zip, background job) runs this

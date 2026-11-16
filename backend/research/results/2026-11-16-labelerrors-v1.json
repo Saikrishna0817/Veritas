@@ -1,0 +1,998 @@
+{
+ "manifest": {
+  "schema_version": 1,
+  "benchmark_id": "veritas-labelerrors-v1",
+  "created_at": "2026-11-15",
+  "immutable": true,
+  "source": {
+   "repo": "https://github.com/cleanlab/label-errors",
+   "commit": "6d5d6b31a13216290afc40e5c6319399c4d15c06",
+   "license": "Apache-2.0",
+   "paper": "Northcutt, Athalye, Mueller (2021), Pervasive Label Errors in Test Sets Destabilize Machine Learning Benchmarks, NeurIPS Datasets and Benchmarks; labelerrors.com",
+   "files": "mturk/<ds>_mturk.json (candidates, 5 Mechanical Turk votes each), original_test_labels/<ds>_test_set_original_labels.npy"
+  },
+  "datasets": [
+   "cifar10",
+   "cifar100",
+   "mnist"
+  ],
+  "ground_truth": {
+   "confirmed": "candidate with mturk.given < 3 (fewer than 3 of 5 workers chose the given label alone). Reproduces the paper's counts exactly: 54 (CIFAR-10), 585 (CIFAR-100), 15 (MNIST). Tried first and rejected for not matching: given+both < 3 (37, 465, 15), which is what 'a majority did not accept the given label' would suggest; guessed+neither >= 3 gives 38/486/18 as given<guessed+neither and 18/318/23 as guessed>=3. The definition was chosen by matching published counts, not by any detector result.",
+   "all_candidates": "every candidate cleanlab flagged, unverified (secondary ground truth)",
+   "caveat": "Positives are only found among cleanlab's candidates (confident learning on a different model), so precision is a lower bound (unflagged errors count as clean) and the candidate set favours confident-learning-style detectors."
+  },
+  "order_check": "the test labels torchvision loads must equal original_test_labels exactly (asserted); ids index test-set rows",
+  "embedding": "ResNet-18 ImageNet penultimate layer (app.detection.image_embed), pixel features and PCA(32) fitted on reference rows, as bench_mm.prepare_batch; MNIST grey replicated to 3 channels",
+  "mode_a_reference": {
+   "n_reference": 6000,
+   "reference": "stratified random sample of the TRAINING set (clean labels)",
+   "batch_rows": 3000,
+   "calibration_fraction_of_reference": 0.3,
+   "pca_dims": 32,
+   "incoming": "the whole test set in seeded random order, scored in chunks of batch_rows; every image gets one row score",
+   "detector": "app.detection.veritas_mm.detect (class_signature on, as for images); reported: veritas_mm row scores and the label check alone"
+  },
+  "mode_b_no_reference": {
+   "chunk_rows": 5000,
+   "detector": "app.detection.veritas_mm.self_check on the test set in seeded random order; score = 'label' list rows"
+  },
+  "metrics": {
+   "base_rate": true,
+   "auprc": true,
+   "auroc": true,
+   "top_fractions": [
+    0.01,
+    0.05
+   ],
+   "app_list": "per chunk the top min(200, max(20, 5% of chunk)) rows; recall and precision of the union",
+   "ci": {
+    "method": "bootstrap over test images",
+    "resamples": 1000,
+    "level": 0.95
+   }
+  },
+  "seed": 20261115,
+  "detector_commit": "722925d",
+  "policy": "No tuning on these results. Nothing is planted. Run once and quote the numbers as they come; any change to the detector or definitions means a new benchmark_id."
+ },
+ "label": "v1",
+ "detector_commit": "5b72c0c",
+ "limit": null,
+ "n_reference_used": 6000,
+ "runtime_seconds": 1511.0,
+ "datasets": {
+  "cifar10": {
+   "n_test": 10000,
+   "n_classes": 10,
+   "n_reference": 6000,
+   "order_check": "passed",
+   "ground_truth_counts": {
+    "confirmed": 54,
+    "candidates": 275,
+    "confirmed_if_given_plus_both_lt_3": 37
+   },
+   "modes": {
+    "A_with_reference": {
+     "seconds": 214.4,
+     "scorers": {
+      "veritas_mm": {
+       "confirmed": {
+        "base_rate": [
+         0.0054,
+         0.0040975000000000004,
+         0.0069
+        ],
+        "auprc": [
+         0.02896464815002128,
+         0.018931814946997742,
+         0.05062432185030348
+        ],
+        "auroc": [
+         0.8364780928122975,
+         0.7933857370370365,
+         0.8799354075011785
+        ],
+        "precision_top1%": [
+         0.03,
+         0.0,
+         0.07
+        ],
+        "recall_top1%": [
+         0.05555555555555555,
+         0.0,
+         0.12903225806451613
+        ],
+        "precision_top5%": [
+         0.036,
+         0.024,
+         0.056
+        ],
+        "recall_top5%": [
+         0.3333333333333333,
+         0.23400544285007424,
+         0.48783197831978314
+        ],
+        "recall_app_list": [
+         0.3888888888888889,
+         0.26311740890688257,
+         0.5200208333333334
+        ],
+        "precision_app_list": [
+         0.042,
+         0.026364109426107642,
+         0.05988323353293413
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.0275,
+         0.024497500000000002,
+         0.030602499999999998
+        ],
+        "auprc": [
+         0.09320121842939925,
+         0.07502035050550077,
+         0.12192189679279353
+        ],
+        "auroc": [
+         0.7721727506426735,
+         0.7470533119729885,
+         0.7978641459015129
+        ],
+        "precision_top1%": [
+         0.16,
+         0.09,
+         0.24
+        ],
+        "recall_top1%": [
+         0.05818181818181818,
+         0.03383141843372476,
+         0.08791735084838534
+        ],
+        "precision_top5%": [
+         0.112,
+         0.086,
+         0.144
+        ],
+        "recall_top5%": [
+         0.20363636363636364,
+         0.16253960596143063,
+         0.2554978476511323
+        ],
+        "recall_app_list": [
+         0.2290909090909091,
+         0.1828772854692272,
+         0.27814769814142276
+        ],
+        "precision_app_list": [
+         0.126,
+         0.09844703868288773,
+         0.15513636630811733
+        ]
+       }
+      },
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0054,
+         0.0040975000000000004,
+         0.0069
+        ],
+        "auprc": [
+         0.03662811159845284,
+         0.023316513279484096,
+         0.06443423420435526
+        ],
+        "auroc": [
+         0.8492051522666846,
+         0.8041377722462993,
+         0.89444542438988
+        ],
+        "precision_top1%": [
+         0.06,
+         0.02,
+         0.1
+        ],
+        "recall_top1%": [
+         0.1111111111111111,
+         0.034468147282291056,
+         0.19233870967741934
+        ],
+        "precision_top5%": [
+         0.048,
+         0.03,
+         0.068
+        ],
+        "recall_top5%": [
+         0.4444444444444444,
+         0.3157378740970072,
+         0.5745131626397404
+        ],
+        "recall_app_list": [
+         0.4444444444444444,
+         0.3136948529411765,
+         0.5789473684210527
+        ],
+        "precision_app_list": [
+         0.048,
+         0.03076530612244898,
+         0.06795772449107029
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.0275,
+         0.024497500000000002,
+         0.030602499999999998
+        ],
+        "auprc": [
+         0.1179959035375395,
+         0.09291799485577837,
+         0.15188428158202427
+        ],
+        "auroc": [
+         0.7946709044169198,
+         0.7698120505072523,
+         0.8186758404178307
+        ],
+        "precision_top1%": [
+         0.25,
+         0.17,
+         0.34
+        ],
+        "recall_top1%": [
+         0.09090909090909091,
+         0.062038155275381555,
+         0.123197498740977
+        ],
+        "precision_top5%": [
+         0.142,
+         0.11,
+         0.176
+        ],
+        "recall_top5%": [
+         0.2581818181818182,
+         0.2101129235498567,
+         0.3120360147580848
+        ],
+        "recall_app_list": [
+         0.2545454545454545,
+         0.20647593182243867,
+         0.3102221243392902
+        ],
+        "precision_app_list": [
+         0.14,
+         0.11110579987253026,
+         0.17284341303328643
+        ]
+       }
+      }
+     }
+    },
+    "B_no_reference": {
+     "seconds": 235.3,
+     "scorers": {
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0054,
+         0.0040975000000000004,
+         0.0069
+        ],
+        "auprc": [
+         0.0333798033198278,
+         0.021451097290628843,
+         0.05943857533263163
+        ],
+        "auroc": [
+         0.8523983213054197,
+         0.8070478159639846,
+         0.8956602118748738
+        ],
+        "precision_top1%": [
+         0.04,
+         0.01,
+         0.09
+        ],
+        "recall_top1%": [
+         0.07407407407407407,
+         0.018518518518518517,
+         0.1607286866359447
+        ],
+        "precision_top5%": [
+         0.036,
+         0.022,
+         0.054
+        ],
+        "recall_top5%": [
+         0.3333333333333333,
+         0.2222222222222222,
+         0.47368421052631576
+        ],
+        "recall_app_list": [
+         0.3148148148148148,
+         0.20304687500000002,
+         0.43859649122807015
+        ],
+        "precision_app_list": [
+         0.0425,
+         0.02518891687657431,
+         0.06300043629111005
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.0275,
+         0.024497500000000002,
+         0.030602499999999998
+        ],
+        "auprc": [
+         0.1112279612230384,
+         0.08756015652353608,
+         0.14538169434495046
+        ],
+        "auroc": [
+         0.7875630754849264,
+         0.7608287335480183,
+         0.811158644422235
+        ],
+        "precision_top1%": [
+         0.22,
+         0.14,
+         0.31
+        ],
+        "recall_top1%": [
+         0.08,
+         0.05243407937658572,
+         0.11258639373871163
+        ],
+        "precision_top5%": [
+         0.128,
+         0.1,
+         0.162
+        ],
+        "recall_top5%": [
+         0.23272727272727273,
+         0.18867380261248187,
+         0.28311219672693977
+        ],
+        "recall_app_list": [
+         0.2109090909090909,
+         0.16553664241164243,
+         0.2593859862968
+        ],
+        "precision_app_list": [
+         0.145,
+         0.11025537634408601,
+         0.18205072761135138
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "cifar100": {
+   "n_test": 10000,
+   "n_classes": 100,
+   "n_reference": 6000,
+   "order_check": "passed",
+   "ground_truth_counts": {
+    "confirmed": 585,
+    "candidates": 2235,
+    "confirmed_if_given_plus_both_lt_3": 465
+   },
+   "modes": {
+    "A_with_reference": {
+     "seconds": 228.8,
+     "scorers": {
+      "veritas_mm": {
+       "confirmed": {
+        "base_rate": [
+         0.0585,
+         0.054197499999999996,
+         0.0634
+        ],
+        "auprc": [
+         0.12352010428437293,
+         0.10896506093214238,
+         0.1439987517942777
+        ],
+        "auroc": [
+         0.7308298723168611,
+         0.7135745132896435,
+         0.7474590830255495
+        ],
+        "precision_top1%": [
+         0.18,
+         0.11,
+         0.27
+        ],
+        "recall_top1%": [
+         0.03076923076923077,
+         0.01896388790141012,
+         0.04515193804544382
+        ],
+        "precision_top5%": [
+         0.148,
+         0.12,
+         0.184
+        ],
+        "recall_top5%": [
+         0.1264957264957265,
+         0.10323259502848396,
+         0.1548727653954552
+        ],
+        "recall_app_list": [
+         0.1264957264957265,
+         0.09999554367201427,
+         0.15304347826086956
+        ],
+        "precision_app_list": [
+         0.148,
+         0.11775474664649922,
+         0.18055779569892472
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.2235,
+         0.2149,
+         0.2318
+        ],
+        "auprc": [
+         0.38918964968207115,
+         0.3697139988637923,
+         0.4097508354127457
+        ],
+        "auroc": [
+         0.7148519931834322,
+         0.7032858421585043,
+         0.7254018227291689
+        ],
+        "precision_top1%": [
+         0.5,
+         0.4,
+         0.6
+        ],
+        "recall_top1%": [
+         0.02237136465324385,
+         0.018090340878476018,
+         0.026906085316356257
+        ],
+        "precision_top5%": [
+         0.502,
+         0.462,
+         0.554
+        ],
+        "recall_top5%": [
+         0.11230425055928411,
+         0.10390618664241157,
+         0.12328873857939228
+        ],
+        "recall_app_list": [
+         0.11230425055928411,
+         0.09931470826215949,
+         0.12620820085964157
+        ],
+        "precision_app_list": [
+         0.502,
+         0.45851485233961026,
+         0.5489032491638604
+        ]
+       }
+      },
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0585,
+         0.054197499999999996,
+         0.0634
+        ],
+        "auprc": [
+         0.12352010428437293,
+         0.10896506093214238,
+         0.1439987517942777
+        ],
+        "auroc": [
+         0.7308298723168611,
+         0.7135745132896435,
+         0.7474590830255495
+        ],
+        "precision_top1%": [
+         0.18,
+         0.11,
+         0.27
+        ],
+        "recall_top1%": [
+         0.03076923076923077,
+         0.01896388790141012,
+         0.04515193804544382
+        ],
+        "precision_top5%": [
+         0.148,
+         0.12,
+         0.184
+        ],
+        "recall_top5%": [
+         0.1264957264957265,
+         0.10323259502848396,
+         0.1548727653954552
+        ],
+        "recall_app_list": [
+         0.1264957264957265,
+         0.09999554367201427,
+         0.15304347826086956
+        ],
+        "precision_app_list": [
+         0.148,
+         0.11775474664649922,
+         0.18055779569892472
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.2235,
+         0.2149,
+         0.2318
+        ],
+        "auprc": [
+         0.38918964968207115,
+         0.3697139988637923,
+         0.4097508354127457
+        ],
+        "auroc": [
+         0.7148519931834322,
+         0.7032858421585043,
+         0.7254018227291689
+        ],
+        "precision_top1%": [
+         0.5,
+         0.4,
+         0.6
+        ],
+        "recall_top1%": [
+         0.02237136465324385,
+         0.018090340878476018,
+         0.026906085316356257
+        ],
+        "precision_top5%": [
+         0.502,
+         0.462,
+         0.554
+        ],
+        "recall_top5%": [
+         0.11230425055928411,
+         0.10390618664241157,
+         0.12328873857939228
+        ],
+        "recall_app_list": [
+         0.11230425055928411,
+         0.09931470826215949,
+         0.12620820085964157
+        ],
+        "precision_app_list": [
+         0.502,
+         0.45851485233961026,
+         0.5489032491638604
+        ]
+       }
+      }
+     }
+    },
+    "B_no_reference": {
+     "seconds": 244.6,
+     "scorers": {
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0585,
+         0.054197499999999996,
+         0.0634
+        ],
+        "auprc": [
+         0.12002190730478432,
+         0.1061488252526553,
+         0.13860895385859592
+        ],
+        "auroc": [
+         0.7185715647425684,
+         0.6986956150448446,
+         0.7359504134355578
+        ],
+        "precision_top1%": [
+         0.17,
+         0.1,
+         0.25
+        ],
+        "recall_top1%": [
+         0.02905982905982906,
+         0.017568127929111332,
+         0.04180602006688963
+        ],
+        "precision_top5%": [
+         0.16,
+         0.128,
+         0.192
+        ],
+        "recall_top5%": [
+         0.13675213675213677,
+         0.11164772727272727,
+         0.1616198752228164
+        ],
+        "recall_app_list": [
+         0.1111111111111111,
+         0.08588754580979571,
+         0.1362189903249814
+        ],
+        "precision_app_list": [
+         0.1625,
+         0.1284421443891834,
+         0.20099351513136016
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.2235,
+         0.2149,
+         0.2318
+        ],
+        "auprc": [
+         0.3941051833386126,
+         0.37540456132439454,
+         0.41469592027430197
+        ],
+        "auroc": [
+         0.7095456437781533,
+         0.6982874452494587,
+         0.7202270671457732
+        ],
+        "precision_top1%": [
+         0.64,
+         0.54,
+         0.73
+        ],
+        "recall_top1%": [
+         0.028635346756152126,
+         0.02376659822371161,
+         0.032987268434346115
+        ],
+        "precision_top5%": [
+         0.5,
+         0.452,
+         0.54
+        ],
+        "recall_top5%": [
+         0.11185682326621924,
+         0.10137253475483128,
+         0.12081875169954853
+        ],
+        "recall_app_list": [
+         0.09082774049217002,
+         0.0794129651511693,
+         0.10219418117332943
+        ],
+        "precision_app_list": [
+         0.5075,
+         0.46133689705208014,
+         0.5535259697873928
+        ]
+       }
+      }
+     }
+    }
+   }
+  },
+  "mnist": {
+   "n_test": 10000,
+   "n_classes": 10,
+   "n_reference": 6000,
+   "order_check": "passed",
+   "ground_truth_counts": {
+    "confirmed": 15,
+    "candidates": 100,
+    "confirmed_if_given_plus_both_lt_3": 15
+   },
+   "modes": {
+    "A_with_reference": {
+     "seconds": 201.2,
+     "scorers": {
+      "veritas_mm": {
+       "confirmed": {
+        "base_rate": [
+         0.0015,
+         0.0008,
+         0.0023
+        ],
+        "auprc": [
+         0.023842670716176625,
+         0.008666538517402386,
+         0.06662629236017278
+        ],
+        "auroc": [
+         0.9149991654147889,
+         0.8369801633518557,
+         0.9692592306073696
+        ],
+        "precision_top1%": [
+         0.04,
+         0.01,
+         0.08
+        ],
+        "recall_top1%": [
+         0.26666666666666666,
+         0.0625,
+         0.5
+        ],
+        "precision_top5%": [
+         0.016,
+         0.006,
+         0.028
+        ],
+        "recall_top5%": [
+         0.5333333333333333,
+         0.2857142857142857,
+         0.8126420454545453
+        ],
+        "recall_app_list": [
+         0.6,
+         0.35696428571428573,
+         0.8666666666666667
+        ],
+        "precision_app_list": [
+         0.018,
+         0.007372986243968339,
+         0.030380456956344334
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.01,
+         0.0082,
+         0.0121
+        ],
+        "auprc": [
+         0.05160368560191271,
+         0.0354535700605686,
+         0.0813127666460086
+        ],
+        "auroc": [
+         0.7903005050505052,
+         0.739636934735167,
+         0.8382858299094637
+        ],
+        "precision_top1%": [
+         0.1,
+         0.05,
+         0.17
+        ],
+        "recall_top1%": [
+         0.1,
+         0.05102040816326531,
+         0.1667035398230088
+        ],
+        "precision_top5%": [
+         0.066,
+         0.046,
+         0.09
+        ],
+        "recall_top5%": [
+         0.33,
+         0.24271109149749928,
+         0.4286071428571428
+        ],
+        "recall_app_list": [
+         0.34,
+         0.2529367469879518,
+         0.4375
+        ],
+        "precision_app_list": [
+         0.068,
+         0.04742785498746228,
+         0.09108168586264213
+        ]
+       }
+      },
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0015,
+         0.0008,
+         0.0023
+        ],
+        "auprc": [
+         0.04201280332976784,
+         0.016120089288720697,
+         0.11155530087642974
+        ],
+        "auroc": [
+         0.9480287097312634,
+         0.8958728315610447,
+         0.9830982877133793
+        ],
+        "precision_top1%": [
+         0.05,
+         0.01,
+         0.1
+        ],
+        "recall_top1%": [
+         0.3333333333333333,
+         0.1,
+         0.5833333333333334
+        ],
+        "precision_top5%": [
+         0.022,
+         0.01,
+         0.036
+        ],
+        "recall_top5%": [
+         0.7333333333333333,
+         0.46153846153846156,
+         0.9375919117647058
+        ],
+        "recall_app_list": [
+         0.6666666666666666,
+         0.39972222222222226,
+         0.9002272727272725
+        ],
+        "precision_app_list": [
+         0.02,
+         0.008144586426647395,
+         0.03301262336931396
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.01,
+         0.0082,
+         0.0121
+        ],
+        "auprc": [
+         0.08918215795187802,
+         0.061761753728693684,
+         0.13579678091606515
+        ],
+        "auroc": [
+         0.8551661616161617,
+         0.8153286345722734,
+         0.892563386137778
+        ],
+        "precision_top1%": [
+         0.16,
+         0.09,
+         0.23
+        ],
+        "recall_top1%": [
+         0.16,
+         0.09430071970433769,
+         0.2285863095238095
+        ],
+        "precision_top5%": [
+         0.086,
+         0.064,
+         0.112
+        ],
+        "recall_top5%": [
+         0.43,
+         0.33695652173913043,
+         0.5327420379275927
+        ],
+        "recall_app_list": [
+         0.44,
+         0.3418333333333333,
+         0.5402445460942998
+        ],
+        "precision_app_list": [
+         0.088,
+         0.06513176338659937,
+         0.11522653838734569
+        ]
+       }
+      }
+     }
+    },
+    "B_no_reference": {
+     "seconds": 181.0,
+     "scorers": {
+      "label": {
+       "confirmed": {
+        "base_rate": [
+         0.0015,
+         0.0008,
+         0.0023
+        ],
+        "auprc": [
+         0.023151712747632305,
+         0.008079105091112426,
+         0.07513179693087978
+        ],
+        "auroc": [
+         0.9220263728926723,
+         0.8716094148241572,
+         0.9618015677589518
+        ],
+        "precision_top1%": [
+         0.03,
+         0.0,
+         0.06
+        ],
+        "recall_top1%": [
+         0.2,
+         0.0,
+         0.4
+        ],
+        "precision_top5%": [
+         0.016,
+         0.006,
+         0.028
+        ],
+        "recall_top5%": [
+         0.5333333333333333,
+         0.26282894736842105,
+         0.7858082706766917
+        ],
+        "recall_app_list": [
+         0.5333333333333333,
+         0.26282894736842105,
+         0.7858082706766917
+        ],
+        "precision_app_list": [
+         0.02,
+         0.007177033492822967,
+         0.03535353535353535
+        ]
+       },
+       "candidates": {
+        "base_rate": [
+         0.01,
+         0.0082,
+         0.0121
+        ],
+        "auprc": [
+         0.08007505956656083,
+         0.056370302555161705,
+         0.1228911391124221
+        ],
+        "auroc": [
+         0.860720707070707,
+         0.8231830486155106,
+         0.8980974340851182
+        ],
+        "precision_top1%": [
+         0.14,
+         0.08,
+         0.22
+        ],
+        "recall_top1%": [
+         0.14,
+         0.08044827586206897,
+         0.20952380952380953
+        ],
+        "precision_top5%": [
+         0.078,
+         0.056,
+         0.104
+        ],
+        "recall_top5%": [
+         0.39,
+         0.29879689276241,
+         0.4883910515672396
+        ],
+        "recall_app_list": [
+         0.37,
+         0.2758532723434201,
+         0.46298682703321875
+        ],
+        "precision_app_list": [
+         0.0925,
+         0.06532532112258421,
+         0.12329687730151714
+        ]
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

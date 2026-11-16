@@ -20,7 +20,7 @@ export const KINDS = {
   audio: {
     label: 'Audio', accept: '.zip', maxMb: 500, noun: 'clips',
     format: 'A zip of PCM WAV files with one folder per class (dog/001.wav). Clips are mixed to mono and padded or trimmed to one length.',
-    limits: ['Triggers added to correctly labelled clips (clean-label) are not detected.',
+    limits: ['Triggers added to correctly labelled clips (clean-label) are found in speech-like sets with many clips per class, not in small sound-event sets (1 of 20 ESC-50 test batches).',
              'Small sets (a few hundred clips) rarely give a batch verdict at 1% poison.'],
   },
   video: {
