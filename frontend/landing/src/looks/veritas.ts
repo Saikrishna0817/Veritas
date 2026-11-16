@@ -62,7 +62,7 @@ export const veritas: Look = {
       text: 'TRUE OR LIES',
       anagram: 'OUTLIERS',
       // from scripts/solve-respell.ts (build step 3): no two keys touch while the word is re-spelled
-      respell: [],
+      respell: [[-6.3, 0.32, -1], [0, 0, 0], [0, 0.06, -1], [-0.9, 0.42, -1], [4.5, 0.26, -1], [0, 0.2, 1], [-3.6, 0.22, -1], [3.6, 0.36, 1], [0, 0, 0], [5.4, 0.22, -1]],
     },
     keycap: {
       color: '#efe6d6',
