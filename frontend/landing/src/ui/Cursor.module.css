@@ -1,0 +1,8 @@
+.cursor { position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; width: 0; height: 0; opacity: 0; transition: opacity 0.25s ease; will-change: transform; }
+.visible { opacity: 1; }
+.ring, .dot { position: absolute; left: 0; top: 0; border-radius: 50%; transform: translate(-50%, -50%);
+  transition: width 0.45s var(--ease-cursor), height 0.45s var(--ease-cursor); }
+.ring { width: var(--cursor-ring); height: var(--cursor-ring); box-sizing: border-box; border: 1px solid var(--white); }
+.dot { width: var(--cursor-dot); height: var(--cursor-dot); background: var(--white); }
+.hover .ring { width: var(--cursor-ring-hover); height: var(--cursor-ring-hover); }
+.hover .dot { width: var(--cursor-dot-hover); height: var(--cursor-dot-hover); }
