@@ -52,7 +52,7 @@ export const veritas: Look = {
     '--display-vw': '7.2vw',
     '--display-max': '104px',
     '--display-phone-max': '52px',
-    '--title-em': '10.5',
+    '--title-em': '10.1',
     '--final-line-bottom-d': '126px',
     '--final-text-bottom-d': '272px',
     '--logo-weight': '400',
