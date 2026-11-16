@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom';
 import Brand from './components/Brand';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -87,18 +87,9 @@ function AppShell() {
   );
 }
 
-function LightBody() {
-  useEffect(() => {                   // the old dark frame stays only behind pages that have not been redesigned
-    document.body.classList.add('light');
-    return () => document.body.classList.remove('light');
-  }, []);
-  return null;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
-      <LightBody />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

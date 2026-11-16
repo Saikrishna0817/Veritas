@@ -1,19 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { MODEL_VERDICTS as VERDICTS } from '../components/results';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
 
-const VERDICTS = {
-  DANGEROUS: ['Loading this file can run code', 'It imports something that can run code or reach the system when loaded. Do not load it.'],
-  REVIEW: ['Needs a person to look', 'Something in the file could not be verified as a plain data container.'],
-  NO_CODE_EXECUTION_FOUND: ['No code execution found', 'Every import is a known data container. This is not a guarantee of safety: load files from strangers in a sandbox anyway.'],
-  SAFE_FORMAT: ['Weights-only format', 'This format holds tensors only and cannot contain code.'],
-};
-
 function ScanResult({ result, onReset }) {
   const scan = result.scan || {};
-  const [title, note] = VERDICTS[result.verdict] || VERDICTS.REVIEW;
+  // An unknown code is shown as it is, never as another verdict.
+  const [title, note] = VERDICTS[result.verdict] || [result.verdict ? `Verdict: ${String(result.verdict).replace(/_/g, ' ').toLowerCase()}` : 'No verdict in this result', 'This verdict is not one the interface recognises. Download the scan to read it in full.'];
   const findings = scan.findings || [];
   const saveJson = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));

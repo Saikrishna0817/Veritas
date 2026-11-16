@@ -37,7 +37,21 @@ export const VERDICTS = {
   SUSPICIOUS: { title: 'Evidence of poisoning', note: 'The evidence passes the 1-in-100 false-alarm level. Review the listed items before training.' },
   LOW_RISK: { title: 'Weak evidence of poisoning', note: 'The evidence passes the 1-in-20 false-alarm level only. One clean dataset in twenty looks like this.' },
   CLEAN: { title: 'No evidence of poisoning found', note: 'Below the 1-in-20 false-alarm level. This is not proof the data is clean: see the limits below.' },
+  SCREENED: { title: 'Screened without a reference', note: 'Every item was checked against the others. This ranks what to look at first; it is not a verdict.' },
 };
+
+// Model-file scan verdicts: [title, note]. Shared by the scanner page and the admin console.
+export const MODEL_VERDICTS = {
+  DANGEROUS: ['Loading this file can run code', 'It imports something that can run code or reach the system when loaded. Do not load it.'],
+  REVIEW: ['Needs a person to look', 'Something in the file could not be verified as a plain data container.'],
+  NO_CODE_EXECUTION_FOUND: ['No code execution found', 'Every import is a known data container. This is not a guarantee of safety: load files from strangers in a sandbox anyway.'],
+  SAFE_FORMAT: ['Weights-only format', 'This format holds tensors only and cannot contain code.'],
+};
+
+// A code the interface does not know (a newer backend, a missing value) is shown as it is, never as another verdict.
+export function verdictWords(code) {
+  return VERDICTS[code] || { title: code ? `Verdict: ${String(code).replace(/_/g, ' ').toLowerCase()}` : 'No verdict in this result', note: 'This verdict is not one the interface recognises, so no explanation is shown for it.' };
+}
 
 export const CHECK_NAMES = {
   label_check: ['Labels', 'labels that do not fit the rest of the row'], shift_check: ['Distribution shift', 'incoming rows a model can tell apart from the reference'],
@@ -62,19 +76,19 @@ function normalise(kind, r) {
   if (kind === 'table') {
     const lr = r.layer_results || {};
     const checks = ['label_check', 'shift_check', 'resid_check'].filter((k) => lr[k])
-      .map((k) => ({ key: k, evidence: lr[k].evidence || 0, inRanking: k === 'label_check' ? lr[k].ran !== false : !!lr[k].in_row_ranking }));
+      .map((k) => ({ key: k, evidence: typeof lr[k].evidence === 'number' ? lr[k].evidence : null, inRanking: k === 'label_check' ? lr[k].ran !== false : !!lr[k].in_row_ranking }));
     const info = r.dataset_info || {};
     return { verdict: r.verdict, checks, nIncoming: r.n_samples, nReference: info.reference_split, profile: r.attack_profile,
              cells: r.suspicious_cells || [], items: null, notes: [...(info.warnings || []), ...(r.warnings || [])] };
   }
   const info = r.dataset_info || {};
-  const checks = Object.entries(r.checks || {}).map(([key, c]) => ({ key, evidence: c.evidence || 0, inRanking: c.in_row_ranking }));
+  const checks = Object.entries(r.checks || {}).map(([key, c]) => ({ key, evidence: typeof c.evidence === 'number' ? c.evidence : null, inRanking: c.in_row_ranking }));
   return { verdict: r.verdict, checks, nIncoming: info.n_incoming, nReference: info.n_reference, profile: null, cells: null,
            items: r.flagged_images || r.flagged_clips || [], nFlagged: r.n_flagged, leading: r.leading_check, notes: info.warnings || [] };
 }
 
 function Verdict({ kind, res }) {
-  const v = VERDICTS[res.verdict] || VERDICTS.CLEAN;
+  const v = verdictWords(res.verdict);
   return (
     <div className="in-verdict">
       <div className="in-gauge" data-v={res.verdict} aria-hidden="true" />
@@ -108,11 +122,11 @@ function EvidenceMeters({ checks }) {
         return (
           <div key={c.key} className="in-meter" role="listitem">
             <div className="in-meter-name">{name}<small>{what}</small></div>
-            <div className="in-track" role="img" aria-label={`${name}: evidence ${c.evidence.toFixed(2)}`}>
+            <div className="in-track" role="img" aria-label={c.evidence == null ? `${name}: not reported` : `${name}: evidence ${c.evidence.toFixed(2)}`}>
               {c.evidence > 0 && <div className="in-fill" data-v={evLevel(c.evidence)} style={{ width: pct(c.evidence) }} />}
               {TICKS.map(([x]) => <span key={x} className="in-tick" style={{ left: pct(x) }} />)}
             </div>
-            <div className="in-meter-val in-num">{c.evidence >= SCALE_MAX ? `>${SCALE_MAX}` : c.evidence.toFixed(1)}
+            <div className="in-meter-val in-num">{c.evidence == null ? '—' : c.evidence >= SCALE_MAX ? `>${SCALE_MAX}` : c.evidence.toFixed(1)}
               <small>{c.inRanking ? 'ranked' : 'not ranked'}</small></div>
           </div>
         );

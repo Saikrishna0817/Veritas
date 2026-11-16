@@ -1,4 +1,4 @@
-// API client for AI Trust Forensics Platform
+// Veritas API client. Every page goes through this file; none calls fetch itself.
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
