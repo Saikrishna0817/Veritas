@@ -1,0 +1,76 @@
+/* Design tokens: every colour, typeface and fixed size of the interface lives here. */
+:root {
+  --ink: #e8eef0;
+  --white: #fff;
+  /* = config.preloader.color: if the canvas ever drops a frame, the page underneath is not black */
+  --bg: #050a22;
+  --shade: rgba(13, 38, 97, 0.5);
+  --shade-0: rgba(13, 38, 97, 0);
+  --track: rgba(255, 255, 255, 0.35);
+  --focus: rgba(255, 255, 255, 0.4);
+
+  --font-text: 'Inter Variable', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* Archivo at its widest (125 %) stands in for the design's extended display face */
+  --font-display: 'Archivo Variable', 'Archivo', var(--font-text);
+  --display-stretch: 125%;
+
+  /* look inputs: the look (src/looks/veritas.ts → tokens) sets these on :root; the sizes below derive from them */
+  --display-weight: 400;
+  --display-style: normal;
+  --display-case: none;
+  --display-vw: 6.667vw;
+  --display-max: 96px;
+  --display-min: 48px;
+  --display-phone-max: 48px;
+  /* width of the widest title in em of the display face, tracking included: sizes the display type on phones */
+  --title-em: 12.6;
+  --logo-weight: 500;
+  --final-text-bottom-d: 264px;
+  --final-line-bottom-d: 118px;
+
+  --size-display: clamp(var(--display-min), var(--display-vw), var(--display-max));
+  --size-text: 14px;
+  --size-micro: 10px;
+  --size-counter: 96px;
+  --size-counter-pct: 28px;
+  --size-logo: 20px;
+  --track-display: -0.06em;
+  --track-text: -0.05em;
+  --track-logo: -0.03em;
+
+  /* layout (px, from the 1440 × 900 design) */
+  --edge: 28px;
+  --body-width: 176px;
+  --hero-shade: 228px;
+  --title-gap: 20px;
+  --phase-width: 67px;
+  --phase-h: 50px;
+  --phase-gap: 8px;
+  --text-bottom: 111px;
+  --final-text-bottom: var(--final-text-bottom-d);
+  --final-line-bottom: var(--final-line-bottom-d);
+  --preloader-sphere: 50px;
+
+  /* cursor (Default 24 / 8 px, Hover 32 / 12 px) */
+  --cursor-ring: 24px;
+  --cursor-dot: 8px;
+  --cursor-ring-hover: 32px;
+  --cursor-dot-hover: 12px;
+
+  --ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-cursor: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Phones (no phone frame in the design; kept simple): the widest title ("Thoughts become words.", about 12.6 em
+   of the display face with its tracking) fits the width, the edges tighten. */
+@media (max-width: 760px) {
+  :root {
+    --edge: 20px;
+    --size-display: min(var(--display-phone-max), (100vw - 2 * var(--edge)) / var(--title-em));
+    --size-counter: 64px;
+    --size-counter-pct: 20px;
+    --final-text-bottom: calc(var(--final-line-bottom) + var(--size-display) + 32px);
+    --final-line-bottom: calc(var(--edge) + 1.3 * var(--size-display));
+    --restart-bottom: 72px;
+  }
+}
