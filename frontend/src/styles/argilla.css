@@ -355,6 +355,18 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 .in-auth-alt > span { display: block; padding-block: 3px; }
 .in-ok { color: var(--link); font-weight: 500; }
 
+/* ── 3D stages in working pages: empty boxes the world draws into (scene/stage.js); desktop only ── */
+.in-page-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; }
+.in-review-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: end; }
+.in-head-stage, .in-keys-stage { display: none; }
+@media (min-width: 960px) {
+  .in-page-head { grid-template-columns: minmax(0, 1fr) 260px; }
+  .in-head-stage { display: block; height: 240px; }
+  .in-review-head { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
+  .in-keys-stage { display: block; height: 200px; }
+}
+.in-table tbody tr[data-hot] td { background: var(--accent-wash); }
+
 /* ── Loading: skeletons shaped like what is coming, a slow breath (no shimmer sweep) ── */
 .in-skel { display: block; height: 14px; border-radius: 6px; background: var(--rule-soft); animation: in-breathe 1.6s ease-in-out infinite; }
 .in-skel-title { height: 40px; width: min(520px, 80%); margin-bottom: 18px; }

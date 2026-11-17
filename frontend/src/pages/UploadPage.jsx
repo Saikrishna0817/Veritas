@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { KINDS, Result } from '../components/results';
+import { PageIntro, PageTitle } from '../ui/Reveal';
+import { useStage } from '../scene/stage';
 
 const STEPS = [['uploading', 'Uploading'], ['queued', 'Queued'], ['running', 'Analysing'], ['completed', 'Done']];
 const JOB_KEY = 'veritas.lastJob';
@@ -99,6 +101,14 @@ function JobProgress({ stage, startedAt }) {
   );
 }
 
+// The keycap sphere beside the title: it turns while the job is uploading, queued or running (its real state from
+// getJob) and stops when the job ends. Hidden on phones; nothing without WebGL.
+function JobSphere({ running }) {
+  const ref = useRef(null);
+  useStage('sphere', ref, { busy: running });
+  return <div className="in-head-stage" ref={ref} aria-hidden="true" />;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────────────────────────
 export default function UploadPage() {
   const [saved] = useState(recall);              // a job still running when the page was left
@@ -131,7 +141,8 @@ export default function UploadPage() {
     return () => clearTimeout(poll.current);
   }, [follow, saved]);
 
-  const chooseKind = (k) => { setKind(k); setFile(null); setRefFile(null); setRefMode('order'); setError(null); };
+  // switching the data type keeps the no-reference default (trusting part of the data stays opt-in)
+  const chooseKind = (k) => { setKind(k); setFile(null); setRefFile(null); setRefMode('none'); setError(null); };
   const chooseFile = (f) => {
     if (!f) return;
     const spec = KINDS[kind];
@@ -170,8 +181,13 @@ export default function UploadPage() {
   return (
     <main className="in-main">
       <div className="in-page">
-        <h1 className="in-h1">Check a dataset</h1>
-        <p className="in-lede">Upload the data you are about to train on and a reference you trust. Veritas measures how far the new data departs from the reference and lists what to review.</p>
+        <div className="in-page-head">
+          <div>
+            <PageTitle>Check a dataset</PageTitle>
+            <PageIntro>Upload the data you are about to train on and a reference you trust. Veritas measures how far the new data departs from the reference and lists what to review.</PageIntro>
+          </div>
+          {!result && <JobSphere running={!!job} />}
+        </div>
 
         <form className="in-form" onSubmit={submit}>
           <div className="in-kinds" role="radiogroup" aria-label="Data type">

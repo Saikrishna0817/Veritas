@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Environment, Lightformer, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { KEY_MODEL_URL, prepareKeycap } from '../../shared/argilla/keys/keycapGeometry';
-import { createCharacterAtlas } from '../../shared/argilla/keys/characterAtlas';
-import { createKeycapMaterial } from '../../shared/argilla/keys/keycapMaterial';
 import { RANDOM_POOL, glyphIndex } from '../../shared/argilla/keys/glyphs';
 import { stage, useStageState } from './stage';
-import { hex, mulberry32, token } from './tokens';
+import { mulberry32, token } from './tokens';
+import { ease, KEY_H, KEY_SCALE, KeyLight, still, useKeycapGeometry, useKeycapMaterial } from './keycaps';
 
 /**
  * The keycap sphere of the landing page's opening, at rest, drawn inside the page's stage element (sign-in pages).
@@ -22,12 +19,7 @@ import { hex, mulberry32, token } from './tokens';
 const R = 13.2;          // sphere radius at the keycap base (key units: 1 = half a keycap)
 const PITCH = 4.64;      // arc distance between key centres along a ring
 const RINGS = 9;         // including the two single-key poles
-const KEY_SCALE = 2;     // keycap model (2 wide) → 4 key units wide
-const KEY_H = 1.187;     // keycap model height
 const INTRO = 2.4;       // seconds
-
-const still = () =>
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(max-width: 720px), (pointer: coarse)').matches;
 
 function buildKeys() {
   const rnd = mulberry32(7);
@@ -64,41 +56,15 @@ function keyBasis(dir, az) {
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
 }
 
-const ease = (t) => 1 - Math.pow(1 - t, 3);
-
 function Sphere() {
-  const gltf = useGLTF(KEY_MODEL_URL);
-  const { gl, camera, size, invalidate } = useThree();
+  const base = useKeycapGeometry();
+  const { camera, size, invalidate } = useThree();
   const { busy, presses } = useStageState();
 
   const keys = useMemo(buildKeys, []);
-  const atlas = useMemo(() => createCharacterAtlas(1024, 500), []);
-  const { material } = useMemo(
-    () =>
-      createKeycapMaterial(
-        atlas,
-        {
-          color: hex('--glaze-cream'),
-          ink: hex('--key-ink'),
-          inkAlt: hex('--key-ink-alt'),
-          roughness: 0.6,
-          specularIntensity: 0.5,
-          clearcoat: 0.1,
-          clearcoatRoughness: 0.5,
-          envMapIntensity: 0.9,
-          inkRoughness: 0.5,
-          glow: { colors: ['#ffffff', '#ffffff', '#ffffff'], legend: 0, side: 0, speed: 0, scale: 0.005, flicker: 0 },
-          xrayBody: hex('--xray-body'),
-          xrayGlow: hex('--xray-glow'),
-        },
-        'app',
-        { wireColor: hex('--warm-light') },
-      ),
-    [atlas],
-  );
-
+  const material = useKeycapMaterial();
   const geometry = useMemo(() => {
-    const g = prepareKeycap(gltf.scene);
+    const g = base.clone();
     const bands = ['--glaze-umber', '--glaze-umber', '--glaze-sand', '--glaze-cream', '--glaze-cream', '--glaze-cream', '--glaze-sage', '--glaze-green', '--glaze-green'].map((n) => token(n));
     const accent = token('--mustard');
     const tint = new Float32Array(keys.length * 3);
@@ -107,12 +73,8 @@ function Sphere() {
     g.setAttribute('aTint', new THREE.InstancedBufferAttribute(tint, 3));
     g.setAttribute('aXray', new THREE.InstancedBufferAttribute(new Float32Array(keys.length), 1));
     return g;
-  }, [gltf.scene, keys]);
-
-  useEffect(() => {
-    atlas.anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
-  }, [atlas, gl]);
-  useEffect(() => () => { geometry.dispose(); material.dispose(); atlas.dispose(); }, [geometry, material, atlas]);
+  }, [base, keys]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   const group = useRef();
   const mesh = useRef();
@@ -223,27 +185,10 @@ function Sphere() {
   );
 }
 
-/** The landing page's light on the keys (its warm look): a lavender sky, a warm key light from behind, a soft fill. */
-function Light() {
-  return (
-    <>
-      <hemisphereLight args={[token('--light-sky'), token('--light-ground'), 0.95]} />
-      <directionalLight color={token('--light-key')} intensity={3} position={[95, 46, -70]} />
-      <directionalLight color={token('--light-fill')} intensity={1.4} position={[-60, 30, 130]} />
-      <Environment resolution={128} frames={1} environmentIntensity={0.8}>
-        <Lightformer form="rect" intensity={1.6} color={token('--env-sky')} scale={[60, 30, 1]} position={[0, 30, -10]} rotation={[Math.PI / 2, 0, 0]} />
-        <Lightformer form="circle" intensity={3.4} color={token('--env-breach')} scale={14} position={[0, 8, -40]} />
-        <Lightformer form="ring" intensity={0.5} color={token('--env-horizon')} scale={80} position={[0, -6, 0]} rotation={[Math.PI / 2, 0, 0]} />
-        <Lightformer form="rect" intensity={0.55} color={token('--env-front')} scale={[24, 10, 1]} position={[-18, 10, 40]} />
-      </Environment>
-    </>
-  );
-}
-
 export default function KeySphere() {
   return (
     <>
-      <Light />
+      <KeyLight />
       <Sphere />
     </>
   );

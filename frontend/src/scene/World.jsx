@@ -9,8 +9,9 @@ import { gradeFrag } from '../../shared/argilla/glsl/grade.glsl';
 import { mulberry32, token } from './tokens';
 import { useStageState } from './stage';
 
-/** The page's own subject (step by step: the keycap sphere on sign-in pages); its own chunk, loaded when needed. */
+/** The page's own subject (the keycap sphere, a result's keys); its own chunk, loaded when needed. */
 const KeySphere = lazy(() => import('./KeySphere'));
+const ResultKeys = lazy(() => import('./ResultKeys'));
 
 /**
  * The world behind the app: the landing page's final state — the void, the rose and amber curtains, the stars and
@@ -142,6 +143,7 @@ class GradeEffect extends Effect {
 function Subject() {
   const { kind } = useStageState();
   if (kind === 'sphere') return <Suspense fallback={null}><KeySphere /></Suspense>;
+  if (kind === 'keys') return <Suspense fallback={null}><ResultKeys /></Suspense>;
   return null;
 }
 
