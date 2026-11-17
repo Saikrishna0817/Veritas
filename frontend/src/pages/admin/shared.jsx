@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Skeleton } from '../../components/Skeleton';
 
 // Shared pieces of the admin console: data loading, tabs, an inline confirm step, load states and notices.
 /* eslint-disable react-refresh/only-export-components */
@@ -95,7 +96,7 @@ export function ConfirmAction({ label, confirmLabel, message, onConfirm, disable
 /** Loading, failed and empty states for one resource. Renders children only when there is data to show. */
 export function LoadState({ resource, what, empty, isEmpty, children }) {
   const { data, error, loading, reload } = resource;
-  if (data === undefined && loading) return <p className="in-hint" role="status">Loading {what}…</p>;
+  if (data === undefined && loading) return <Skeleton label={`Loading ${what}…`} lines={0} rows={4} />;
   if (data === undefined && error) {
     return (
       <div className="in-state" role="alert">

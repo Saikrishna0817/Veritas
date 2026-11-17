@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import Brand from '../components/Brand';
+import AuthFrame from '../components/AuthFrame';
 
 /** Sign-in for users and, with ``admin``, for the admin console (same form, different role check). */
 export default function LoginPage({ admin = false }) {
@@ -31,11 +31,11 @@ export default function LoginPage({ admin = false }) {
   };
 
   return (
-    <main className="instrument in-auth">
-      <div className="in-auth-box">
-        <Brand />
-        <h1 className="in-h2">{admin ? 'Administrator sign-in' : 'Sign in'}</h1>
-        <p className="in-hint">{admin ? 'For managing accounts and the service.' : 'Check training data for poisoning before you train on it.'}</p>
+    <AuthFrame
+      title={admin ? 'Administrator sign-in' : 'Sign in'}
+      intro={admin ? 'For managing accounts and the service.' : 'Check training data for poisoning before you train on it.'}
+      busy={busy}
+    >
         <form className="in-auth-form" onSubmit={submit}>
           <label>Username<input className="in-input" placeholder="Your username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required /></label>
           <label>Password<input className="in-input" type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></label>
@@ -50,7 +50,6 @@ export default function LoginPage({ admin = false }) {
             </>
           )}
         </div>
-      </div>
-    </main>
+    </AuthFrame>
   );
 }

@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { PageIntro, PageTitle } from '../ui/Reveal';
 
 // Held-out numbers from the benchmark write-ups (docs/*-benchmark-findings.md, docs/model-card.md). Update them
 // together with the docs whenever a detector changes.
@@ -22,8 +23,8 @@ const LICENCES = [
 export default function BenchmarksPage() {
   return (
     <main className="in-main"><div className="in-page">
-      <h1 className="in-h1">How well it works</h1>
-      <p className="in-lede">Every detector was tuned on development datasets and then measured once on held-out ones it never saw. Attacks were injected at known rates, so every flagged row or file can be checked against the truth.</p>
+      <PageTitle>How well it works</PageTitle>
+      <PageIntro>Every detector was tuned on development datasets and then measured once on held-out ones it never saw. Attacks were injected at known rates, so every flagged row or file can be checked against the truth.</PageIntro>
 
       <section className="in-section">
         <h2 className="in-h2">Held-out results</h2>

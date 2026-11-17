@@ -1,4 +1,6 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useRef, useState } from 'react';
+import { GLYPHS } from '../../shared/argilla/keys/glyphs';
+import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
 
 // Results of any analysis (table, images, audio, video), shared by the upload page, History and the dashboard.
 /* eslint-disable react-refresh/only-export-components */
@@ -68,6 +70,9 @@ export const CHECK_NAMES = {
 const SCALE_MAX = 8;
 const TICKS = [[1.3, '1/20'], [2, '1/100'], [4, '1/10⁴']];   // false-alarm levels of the verdict cut-offs
 const evLevel = (e) => (e >= 4 ? 3 : e >= 2 ? 2 : e >= 1.3 ? 1 : 0);
+// what a meter's number means, for screen readers (the ticks say the same thing visually)
+const LEVEL_WORDS = ['below the 1-in-20 false-alarm level', 'past the 1-in-20 false-alarm level',
+  'past the 1-in-100 false-alarm level', 'past the 1-in-10,000 false-alarm level'];
 export const fmt = (n) => (typeof n === 'number' ? n.toLocaleString('en') : n);
 
 // Saved results carry their source; this maps it to the data type.
@@ -93,7 +98,7 @@ function Verdict({ kind, res }) {
   const v = verdictWords(res.verdict);
   return (
     <div className="in-verdict">
-      <div className="in-gauge" data-v={res.verdict} aria-hidden="true" />
+      <div className="in-gauge" data-v={res.verdict} aria-hidden="true"><i /></div>
       <div>
         <h2 className="in-verdict-title">{v.title}</h2>
         <p className="in-verdict-note">{v.note}</p>
@@ -124,7 +129,7 @@ function EvidenceMeters({ checks }) {
         return (
           <div key={c.key} className="in-meter" role="listitem">
             <div className="in-meter-name">{name}<small>{what}</small></div>
-            <div className="in-track" role="img" aria-label={c.evidence == null ? `${name}: not reported` : `${name}: evidence ${c.evidence.toFixed(2)}`}>
+            <div className="in-track" role="img" aria-label={c.evidence == null ? `${name}: not reported` : `${name}: evidence ${c.evidence.toFixed(1)}, ${LEVEL_WORDS[evLevel(c.evidence)]}${c.inRanking ? '' : ', not used in the ranking'}`}>
               {c.evidence > 0 && <div className="in-fill" data-v={evLevel(c.evidence)} style={{ width: pct(c.evidence) }} />}
               {TICKS.map(([x]) => <span key={x} className="in-tick" style={{ left: pct(x) }} />)}
             </div>
@@ -188,8 +193,31 @@ function download(name, text) {
   URL.revokeObjectURL(url);
 }
 
-function FlaggedTable({ kind, res }) {
+// The stage beside "Rows to review": the world sets one key per listed item there (scene/ResultKeys.jsx), most
+// suspicious first, lifted by rank only. The legend is the first letter of the item's top column or its class.
+const legend = (s) => {
+  const i = GLYPHS.indexOf(String(s ?? '').trim().charAt(0).toUpperCase());
+  return i < 0 ? GLYPHS.indexOf('*') : i;
+};
+function ReviewKeys({ kind, rows }) {
+  const ref = useRef(null);
+  const items = useMemo(() => (rows.length ? rows.slice(0, MAX_KEYS).map((r) => ({ glyph: legend(kind === 'table' ? r.cells?.[0]?.column : r.class) })) : null), [kind, rows]);
+  useStage('keys', ref, { items });
+  return <div className="in-keys-stage" ref={ref} aria-hidden="true" />;
+}
+
+function ReviewHead({ kind, rows, children }) {
+  return (
+    <div className="in-review-head">
+      <div>{children}</div>
+      <ReviewKeys kind={kind} rows={rows} />
+    </div>
+  );
+}
+
+function FlaggedTable({ kind, res, keys = false }) {
   const [showAll, setShowAll] = useState(false);
+  const { hot } = useStageState();
   const table = kind === 'table';
   const rows = table ? res.cells : res.items;
   if (!rows.length) {
@@ -202,29 +230,34 @@ function FlaggedTable({ kind, res }) {
   return (
     <>
       <div className="in-table-wrap">
-        <table className="in-table">
+        {/* below 860 px each row becomes a labelled card, so a phone never has to scroll sideways or cut a value */}
+        <table className="in-table in-table-stack">
           <thead>
             {table
               ? <tr><th className="in-right">Line</th><th className="in-right">Row score</th><th>Most suspicious cells (column, value, score)</th></tr>
               : <tr><th>File</th><th>Class</th><th className="in-right">Score</th><th>Flagged by</th></tr>}
           </thead>
           <tbody>
-            {shown.map((r, i) => table ? (
-              <tr key={i}>
-                <td className="in-num">{r.csv_line}</td>
-                <td className="in-num">{r.row_score.toFixed(2)}</td>
-                <td>{r.cells.map((c) => (
+            {shown.map((r, i) => {
+              // the first rows have keys in the world: the row and its key light up together
+              const sync = keys && i < MAX_KEYS ? { onMouseEnter: () => setHot(i), onMouseLeave: () => setHot(-1), 'data-hot': hot === i || undefined } : {};
+              return table ? (
+              <tr key={i} {...sync}>
+                <td className="in-num" data-label="Line in your file">{r.csv_line}</td>
+                <td className="in-num" data-label="Row score">{r.row_score.toFixed(2)}</td>
+                <td data-label="Most suspicious cells">{r.cells.map((c) => (
                   <span key={c.column} className="in-cell"><b>{c.column}</b><em>{String(c.value)}</em><small>{c.score.toFixed(1)}</small></span>
                 ))}</td>
               </tr>
             ) : (
-              <tr key={i}>
-                <td className="in-path">{r.file}</td>
-                <td className="in-tag">{r.class ?? 'none'}</td>
-                <td className="in-num">{r.score.toFixed(2)}</td>
-                <td className="in-tag">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
+              <tr key={i} {...sync}>
+                <td className="in-path" data-label="File">{r.file}</td>
+                <td className="in-tag" data-label="Class">{r.class ?? 'none'}</td>
+                <td className="in-num" data-label="Score">{r.score.toFixed(2)}</td>
+                <td className="in-tag" data-label="Flagged by">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
@@ -247,7 +280,7 @@ function Screening({ kind, raw }) {
     <div className="in-result">
       <section className="in-section">
         <div className="in-verdict">
-          <div className="in-gauge" aria-hidden="true" />
+          <div className="in-gauge" aria-hidden="true"><i /></div>
           <div>
             <h2 className="in-verdict-title">Screened without a reference</h2>
             <p className="in-verdict-note">Every one of the {fmt(raw.n_samples)} {noun} was checked against the others. This ranks what to look at first; without data you trust it cannot say whether the set is poisoned.</p>
@@ -258,13 +291,20 @@ function Screening({ kind, raw }) {
           </div>
         </div>
       </section>
-      {Object.entries(raw.lists || {}).map(([key, items]) => (
-        <section key={key} className="in-section">
-          <h2 className="in-h2">{raw.checks?.[key]?.description || key}</h2>
-          <p className="in-sub">The {fmt(items.length)} highest-ranked {noun} for this check, most unusual first.</p>
-          <FlaggedTable kind={kind} res={kind === 'table' ? { cells: items } : { items, nFlagged: items.length }} />
-        </section>
-      ))}
+      {Object.entries(raw.lists || {}).map(([key, items], li) => {
+        const head = (
+          <>
+            <h2 className="in-h2">{raw.checks?.[key]?.description || key}</h2>
+            <p className="in-sub">The {fmt(items.length)} highest-ranked {noun} for this check, most unusual first.</p>
+          </>
+        );
+        return (
+          <section key={key} className="in-section">
+            {li === 0 ? <ReviewHead kind={kind} rows={items}>{head}</ReviewHead> : head}
+            <FlaggedTable kind={kind} res={kind === 'table' ? { cells: items } : { items, nFlagged: items.length }} keys={li === 0} />
+          </section>
+        );
+      })}
       {notes.length > 0 && (
         <section className="in-section">
           <h3 className="in-h3">Notes from reading your data</h3>
@@ -279,13 +319,14 @@ export function Result({ kind, raw }) {
   if (raw.mode === 'self_check') return <Screening kind={kind} raw={raw} />;
   const res = normalise(kind, raw);
   return (
+    // evidence before verdict (docs/PRODUCT.md, principle 1): what each check measured, then the conclusion
     <div className="in-result">
-      <section className="in-section"><Verdict kind={kind} res={res} /></section>
       <section className="in-section">
         <h2 className="in-h2">Evidence from each check</h2>
-        <p className="in-sub">Each bar is −log₁₀ of a p-value measured against your reference: further right means harder to explain by chance. Ticks mark the false-alarm levels of the verdicts. The verdict uses the strongest check.</p>
+        <p className="in-sub">Each bar is −log₁₀ of a p-value measured against your reference: further right means harder to explain by chance. Ticks mark the false-alarm levels of the verdicts. The verdict below uses the strongest check.</p>
         <EvidenceMeters checks={res.checks} />
       </section>
+      <section className="in-section"><Verdict kind={kind} res={res} /></section>
       {res.profile && (
         <section className="in-section">
           <h2 className="in-h2">What the suspicious rows look like</h2>
@@ -293,8 +334,10 @@ export function Result({ kind, raw }) {
         </section>
       )}
       <section className="in-section">
-        <h2 className="in-h2">{kind === 'table' ? 'Rows to review' : `${KINDS[kind].label} to review`}</h2>
-        <FlaggedTable kind={kind} res={res} />
+        <ReviewHead kind={kind} rows={kind === 'table' ? res.cells : res.items}>
+          <h2 className="in-h2">{kind === 'table' ? 'Rows to review' : `${KINDS[kind].label} to review`}</h2>
+        </ReviewHead>
+        <FlaggedTable kind={kind} res={res} keys />
       </section>
       {res.notes.length > 0 && (
         <section className="in-section">

@@ -3,16 +3,18 @@ import { clamp } from './motion';
 import { FS, VS } from './shader';
 
 /**
- * The palette, linear RGB, taken from the instrument tokens (styles/instrument.css): top = --sheet, base = --paper,
- * light = --accent-wash, deep = --accent, rule = --rule, ink = --ink. Change the tokens and these together.
+ * The palette, linear RGB, from the ARGILLA tokens (styles/argilla.css): dark warm glass over the void, the bead lit
+ * by the warm light. top = --accent-wash (#36231a), base = --sheet (#24160f), light = the warm light dimmed inside the
+ * bead (#7a4520, so the cream label on it keeps 6.5:1), deep = --warm-core (#ffb060: the ripple and the light pooling
+ * at the bead's edge), rule = --rule (#4a3428), ink = a near-black shadow (#050302). Change the tokens and these together.
  */
 export const COLOURS = {
-  uTop: [0.9816, 0.9695, 0.945],
-  uBase: [0.9374, 0.917, 0.8759],
-  uLight: [0.7647, 0.805, 0.908],
-  uDeep: [0.0265, 0.0438, 0.1219],
-  uRule: [0.701, 0.6661, 0.6119],
-  uInk: [0.0105, 0.0152, 0.0326],
+  uTop: [0.0369, 0.0168, 0.0103],
+  uBase: [0.0176, 0.008, 0.0048],
+  uLight: [0.1946, 0.0595, 0.0144],
+  uDeep: [1, 0.4342, 0.117],
+  uRule: [0.0685, 0.0343, 0.0212],
+  uInk: [0.0015, 0.0009, 0.0006],
 };
 const UNIFORMS = ['uRes', 'uDpr', 'uT', 'uTrack', 'uBead', 'uMix', 'uTap', ...Object.keys(COLOURS)];
 

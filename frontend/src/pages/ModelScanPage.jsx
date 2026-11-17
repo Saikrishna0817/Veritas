@@ -1,15 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { MODEL_VERDICTS as VERDICTS } from '../components/results';
+import { Skeleton } from '../components/Skeleton';
+import { PageIntro, PageTitle } from '../ui/Reveal';
+import { GLYPHS } from '../../shared/argilla/keys/glyphs';
+import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
 
-function ScanResult({ result, onReset }) {
+// What the scan says about each import, from its findings: a critical dangerous_import or a medium unknown_import
+// names the module and attribute; every other import matched the known data containers.
+const STATUS = {
+  dangerous: { words: 'can run code or reach the system', v: 'DANGEROUS', tint: '--ev-3', lift: 2.6 },
+  unknown: { words: 'not on the known-safe list', v: 'REVIEW', tint: '--ev-2', lift: 1.5 },
+  safe: { words: 'a known data container', v: '', tint: '--glaze-cream', lift: 0.4 },
+};
+const ORDER = { dangerous: 0, unknown: 1, safe: 2 };
+
+function importsWithStatus(scan) {
+  const flagged = new Map();
+  for (const f of scan.findings || []) {
+    if (f.module == null || f.name == null) continue;
+    const key = `${f.module}.${f.name}`;
+    if (f.kind === 'dangerous_import') flagged.set(key, 'dangerous');
+    else if (f.kind === 'unknown_import' && flagged.get(key) !== 'dangerous') flagged.set(key, 'unknown');
+  }
+  return (scan.imports || [])
+    .map(([m, n]) => ({ name: `${m}.${n}`, status: flagged.get(`${m}.${n}`) || 'safe' }))
+    .sort((a, b) => ORDER[a.status] - ORDER[b.status]);
+}
+
+const legend = (s) => {
+  const i = GLYPHS.indexOf(String(s).charAt(0).toUpperCase());
+  return i < 0 ? GLYPHS.indexOf('*') : i;
+};
+
+// The stage beside the imports: one key per import (at most 24), glazed and lifted by what the scan says about it.
+function ImportKeys({ imports }) {
+  const ref = useRef(null);
+  const items = useMemo(() => (imports.length
+    ? imports.slice(0, MAX_KEYS).map((im) => ({ glyph: legend(im.name), tint: STATUS[im.status].tint, lift: STATUS[im.status].lift }))
+    : null), [imports]);
+  useStage('keys', ref, { items });
+  return <div className="in-keys-stage" ref={ref} aria-hidden="true" />;
+}
+
+function ScanResult({ result, actions }) {
   const scan = result.scan || {};
+  const { hot } = useStageState();
   // An unknown code is shown as it is, never as another verdict.
   const [title, note] = VERDICTS[result.verdict] || [result.verdict ? `Verdict: ${String(result.verdict).replace(/_/g, ' ').toLowerCase()}` : 'No verdict in this result', 'This verdict is not one the interface recognises. Download the scan to read it in full.'];
   const findings = scan.findings || [];
+  const imports = useMemo(() => importsWithStatus(result.scan || {}), [result.scan]);
   const saveJson = () => {
     const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
@@ -17,59 +61,99 @@ function ScanResult({ result, onReset }) {
     URL.revokeObjectURL(url);
   };
   return (
+    // evidence before verdict (docs/PRODUCT.md, principle 1): what the file would import and what was found, then the conclusion
     <div className="in-result">
+      {imports.length > 0 && (
+        <section className="in-section">
+          <div className="in-review-head">
+            <div>
+              <h2 className="in-h2">Imports the file would perform</h2>
+              <p className="in-sub">What loading the file would import, each checked against known data containers.</p>
+            </div>
+            <ImportKeys imports={imports} />
+          </div>
+          <ul className="in-imports">
+            {imports.map((im, i) => (
+              <li key={im.name} data-hot={hot === i || undefined}
+                {...(i < MAX_KEYS ? { onMouseEnter: () => setHot(i), onMouseLeave: () => setHot(-1) } : {})}>
+                <span className="in-path">{im.name}</span>
+                <span className="in-chip" data-v={STATUS[im.status].v}>{STATUS[im.status].words}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section className="in-section">
+        <h2 className="in-h2">Findings</h2>
+        {findings.length === 0 ? <p className="in-empty">Nothing flagged.</p> : (
+          <div className="in-table-wrap">
+            <table className="in-table in-table-stack">
+              <thead><tr><th>Severity</th><th>Detail</th></tr></thead>
+              <tbody>{findings.map((f, i) => <tr key={i}><td className="in-tag" data-label="Severity">{f.severity}</td><td data-label="Detail">{f.detail}</td></tr>)}</tbody>
+            </table>
+          </div>
+        )}
+      </section>
       <section className="in-section">
         <div className="in-verdict">
-          <div className="in-gauge" data-v={result.verdict} aria-hidden="true" />
+          <div className="in-gauge" data-v={result.verdict} aria-hidden="true"><i /></div>
           <div>
             <h2 className="in-verdict-title">{title}</h2>
             <p className="in-verdict-note">{note}</p>
             <ul className="in-facts">
-              <li><b className="in-num">{result.model_filename}</b></li>
-              <li>format <b>{scan.format}</b></li>
-              <li className="in-num">{scan.size_bytes != null ? `${(scan.size_bytes / 1024).toFixed(1)} KB` : ''}</li>
+              <li><b className="in-path">{result.model_filename}</b></li>
+              {scan.format && <li>format <b>{scan.format}</b></li>}
+              {scan.size_bytes != null && <li className="in-num">{(scan.size_bytes / 1024).toFixed(1)} KB</li>}
               {scan.sha256 && <li className="in-num">sha256 {scan.sha256.slice(0, 16)}…</li>}
             </ul>
           </div>
         </div>
       </section>
       <section className="in-section">
-        <h2 className="in-h2">Findings</h2>
-        {findings.length === 0 ? <p className="in-empty">Nothing flagged.</p> : (
-          <div className="in-table-wrap">
-            <table className="in-table">
-              <thead><tr><th>Severity</th><th>Detail</th></tr></thead>
-              <tbody>{findings.map((f, i) => <tr key={i}><td className="in-tag">{f.severity}</td><td>{f.detail}</td></tr>)}</tbody>
-            </table>
-          </div>
-        )}
-      </section>
-      {(scan.imports || []).length > 0 && (
-        <section className="in-section">
-          <h2 className="in-h2">Imports the file would perform</h2>
-          <p className="in-sub">What loading the file would import. Each one is checked against known data containers.</p>
-          <ul className="in-notes in-num">{scan.imports.map(([m, n]) => <li key={`${m}.${n}`}>{m}.{n}</li>)}</ul>
-        </section>
-      )}
-      <section className="in-section">
-        <p className="in-prose">{result.interpretation}</p>
+        {result.interpretation && <p className="in-prose">{result.interpretation}</p>}
         <div className="in-actions">
           <button className="in-btn in-btn-quiet" onClick={saveJson}>Download scan (JSON)</button>
-          <button className="in-btn" onClick={onReset}>Scan another file</button>
+          {actions}
         </div>
       </section>
     </div>
   );
 }
 
+const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+/** One saved scan, opened from the recent scans. */
+function ScanDetail({ id }) {
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  useEffect(() => { api.getModelScan(id).then(setResult).catch((e) => setError(e.message)); }, [id]);
+  return (
+    <main className="in-main"><div className="in-page">
+      <Link to="/model-scan" className="in-link-text in-back">← Scanner</Link>
+      {error && <p className="in-error" role="alert">{error}</p>}
+      {!result && !error && <Skeleton label="Loading this scan…" title lines={2} rows={3} />}
+      {result && (
+        <>
+          <PageTitle className="in-h1-file">{result.model_filename || 'Model scan'}</PageTitle>
+          <PageIntro>{`Model file scan${result.scan?.format ? ` · ${result.scan.format}` : ''}`}</PageIntro>
+          <ScanResult result={result} actions={<Link to="/model-scan" className="in-btn" style={{ textDecoration: 'none' }}>Scan another file</Link>} />
+        </>
+      )}
+    </div></main>
+  );
+}
+
 export default function ModelScanPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [over, setOver] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [recent, setRecent] = useState([]);
-  useEffect(() => { api.getModelScanHistory(10).then((d) => setRecent(d.scans || [])).catch(() => setRecent([])); }, [result]);
+  const [recent, setRecent] = useState(null);
+  useEffect(() => { if (!id) api.getModelScanHistory(10).then((d) => setRecent(d.scans || [])).catch(() => setRecent([])); }, [result, id]);
+  if (id) return <ScanDetail id={id} />;
 
   const choose = (f) => {
     if (!f) return;
@@ -91,8 +175,8 @@ export default function ModelScanPage() {
 
   return (
     <main className="in-main"><div className="in-page">
-      <h1 className="in-h1">Model file scanner</h1>
-      <p className="in-lede">Check whether a model file can run code when it is loaded. The file is read statically in an isolated process; it is never loaded or run. This does not tell you whether the model was trained on poisoned data.</p>
+      <PageTitle>Model file scanner</PageTitle>
+      <PageIntro>Check whether a model file can run code when it is loaded. The file is read statically in an isolated process; it is never loaded or run. This does not tell you whether the model was trained on poisoned data.</PageIntro>
       {!result && (
         <form className="in-form" onSubmit={scan}>
           <label className="in-drop" data-over={over}
@@ -109,24 +193,28 @@ export default function ModelScanPage() {
           </div>
         </form>
       )}
-      {result && <ScanResult result={result} onReset={() => { setResult(null); setFile(null); }} />}
-      {recent.length > 0 && (
-        <section className="in-section" style={{ marginTop: 32 }}>
-          <h2 className="in-h2">Recent scans</h2>
+      {result && <ScanResult result={result} actions={<button className="in-btn" onClick={() => { setResult(null); setFile(null); }}>Scan another file</button>} />}
+      <section className="in-section" style={{ marginTop: 32 }}>
+        <h2 className="in-h2">Recent scans</h2>
+        {!recent && <Skeleton label="Loading your recent scans…" lines={0} rows={3} />}
+        {recent && !recent.length && <p className="in-empty">No scans yet. Scanned files are listed here.</p>}
+        {recent?.length > 0 && (
           <div className="in-table-wrap">
-            <table className="in-table">
+            <table className="in-table in-table-stack">
               <thead><tr><th>File</th><th>Format</th><th>Verdict</th><th>When</th></tr></thead>
+              {/* the whole row opens the scan for a mouse; the file name is the real link for keyboards and screen readers */}
               <tbody>{recent.map((r) => (
-                <tr key={r.id}>
-                  <td className="in-path">{r.model_filename}</td><td className="in-tag">{r.model_type}</td>
-                  <td><span className="in-chip" data-v={r.verdict}>{(VERDICTS[r.verdict] || [r.verdict])[0]}</span></td>
-                  <td className="in-tag">{new Date(r.created_at).toLocaleString()}</td>
+                <tr key={r.id} className="in-row-link" onClick={() => navigate(`/model-scan/${r.id}`)}>
+                  <td className="in-path" data-label="File"><Link to={`/model-scan/${r.id}`} className="in-link-text" onClick={(e) => e.stopPropagation()}>{r.model_filename}</Link></td>
+                  <td className="in-tag" data-label="Format">{r.model_type}</td>
+                  <td data-label="Verdict"><span className="in-chip" data-v={r.verdict}>{(VERDICTS[r.verdict] || [r.verdict])[0]}</span></td>
+                  <td className="in-tag" data-label="When">{when(r.created_at)}</td>
                 </tr>
               ))}</tbody>
             </table>
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div></main>
   );
 }

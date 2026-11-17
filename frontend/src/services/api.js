@@ -90,6 +90,7 @@ export const api = {
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
+    deleteAccount: (password) => apiFetch('/account/delete', { method: 'POST', body: JSON.stringify({ password }) }),
     listApiKeys: () => apiFetch('/account/api-keys'),
     createApiKey: (name) => apiFetch('/account/api-keys', { method: 'POST', body: JSON.stringify({ name }) }),
     revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),

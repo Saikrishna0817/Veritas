@@ -4,8 +4,10 @@ import Brand from './components/Brand';
 import GlassNav from './components/glass-nav/GlassNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
+import SceneLayer from './scene/SceneLayer';
+import AppCursor from './ui/AppCursor';
 import { useAuth } from './hooks/useAuth';
-import './styles/instrument.css';
+import './styles/argilla.css';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
@@ -16,6 +18,9 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const BenchmarksPage = lazy(() => import('./pages/BenchmarksPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 
 const PageFallback = () => <div className="in-main in-hint">Loading…</div>;
 
@@ -25,8 +30,9 @@ const NAV = [
   { to: '/model-scan', label: 'Scanner', icon: 'scanner' },
   { to: '/reports', label: 'Reports', icon: 'reports' },
   { to: '/benchmarks', label: 'Benchmarks', icon: 'benchmarks' },
+  { to: '/account', label: 'Account', icon: 'account' },
 ];
-const ADMIN_NAV = [{ to: '/admin', label: 'Admin console', icon: 'admin' }, NAV[1]];
+const ADMIN_NAV = [{ to: '/admin', label: 'Admin console', icon: 'admin' }, NAV[1], NAV[5]];
 
 function AppNav() {
   const { user, logout } = useAuth();
@@ -55,7 +61,7 @@ function AppFooter() {
     <footer className="in-footer">
       <div className="in-footer-inner">
         <span>Veritas checks training data for poisoning. A verdict is evidence at a stated false-alarm level, not proof.</span>
-        <span><Link to="/benchmarks">How it was measured</Link></span>
+        <span className="in-footer-links"><Link to="/benchmarks">How it was measured</Link><Link to="/terms">Terms (draft)</Link><Link to="/privacy">Privacy (draft)</Link></span>
       </div>
     </footer>
   );
@@ -75,14 +81,16 @@ function AppShell() {
             <Route path="/history" element={page('History', <HistoryPage />)} />
             <Route path="/history/:id" element={page('History', <HistoryPage />)} />
             <Route path="/model-scan" element={page('Model scanner', <ModelScanPage />)} />
+            <Route path="/model-scan/:id" element={page('Model scanner', <ModelScanPage />)} />
             <Route path="/reports" element={page('Reports', <ReportsPage />)} />
             <Route path="/benchmarks" element={page('Benchmarks', <BenchmarksPage />)} />
+            <Route path="/account" element={page('Account', <AccountPage />)} />
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}>{page('Admin console', <AdminDashboard />)}</ProtectedRoute>} />
             {/* Pages folded into others; old links still land somewhere sensible. */}
             <Route path="/forensics" element={<Navigate to="/history" replace />} />
             <Route path="/blue-team" element={<Navigate to="/reports" replace />} />
             <Route path="/real-datasets" element={<Navigate to="/upload" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={page('Not found', <NotFoundPage />)} />
           </Routes>
         </Suspense>
       </div>
@@ -94,6 +102,9 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
+      {/* one 3D world behind every page, sign-in included; it persists across route changes */}
+      <SceneLayer />
+      <AppCursor />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -102,6 +113,8 @@ export default function App() {
           <Route path="/verify-email" element={<AccountFlowPage mode="verify" />} />
           <Route path="/forgot-password" element={<AccountFlowPage mode="forgot" />} />
           <Route path="/reset-password" element={<AccountFlowPage mode="reset" />} />
+          <Route path="/terms" element={<LegalPage doc="terms" />} />
+          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
           <Route path="/*" element={<ProtectedRoute fallback={<Navigate to="/login" replace />}><AppShell /></ProtectedRoute>} />
         </Routes>
       </Suspense>
