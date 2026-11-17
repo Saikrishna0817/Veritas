@@ -1,0 +1,7 @@
+/* the site header stays above it */
+.preloader { position: absolute; inset: 0; background: var(--bg); z-index: 5; pointer-events: auto; }
+.center { position: absolute; left: 50%; top: 50%; width: var(--preloader-sphere); margin: -31px 0 0 -25px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.sphere { display: block; width: var(--preloader-sphere); height: var(--preloader-sphere); }
+.counter { position: absolute; left: var(--edge); bottom: var(--edge); display: flex; align-items: flex-end; gap: 2px; color: var(--white); font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: var(--display-weight); font-style: var(--display-style); white-space: nowrap; will-change: transform; }
+.num { font-size: var(--size-counter); letter-spacing: var(--track-display); line-height: normal; text-box: trim-both cap alphabetic; font-variant-numeric: tabular-nums; }
+.pct { font-size: var(--size-counter-pct); letter-spacing: var(--track-display); line-height: normal; text-box: trim-both cap alphabetic; }

@@ -1,0 +1,49 @@
+.ui { position: absolute; inset: 0; pointer-events: none; }
+.layer { position: absolute; inset: 0; }
+
+/* sticky header */
+.header { position: absolute; top: var(--edge); left: var(--edge); right: var(--edge); display: flex; justify-content: space-between; align-items: flex-start; z-index: 6; }
+.logo { font-family: var(--font-display); font-stretch: var(--display-stretch); font-size: var(--size-logo); font-weight: var(--logo-weight); letter-spacing: var(--track-logo); line-height: normal; text-box: trim-both cap alphabetic; color: var(--white); white-space: nowrap; }
+.headerEnd { display: flex; gap: 24px; align-items: flex-start; }
+/* the one link into the app: the interface layer ignores the pointer, this link takes it back */
+.signIn { pointer-events: auto; color: var(--white); text-decoration: none; opacity: 0.75; transition: opacity 0.4s ease; }
+.signIn:hover { opacity: 1; }
+.signIn:focus-visible { outline: 1px solid var(--focus); outline-offset: 6px; }
+
+/* sticky phase indicator: a hairline track + "01 — Activation" */
+.phase { position: absolute; left: var(--edge); top: calc(50% + 0.5px); transform: translateY(-50%); display: flex; flex-direction: column; gap: var(--phase-gap); width: var(--phase-width); z-index: 3; }
+/* while the preloader is up its layer is transparent (the cover is drawn in WebGL), so the hero UI and the
+   phase indicator stay hidden and fade in as the circle opens */
+.ui [data-ui='hero'], .phase { transition: opacity 0.9s var(--ease-out) 0.25s; }
+.ui[data-loading] [data-ui='hero'], .ui[data-loading] .phase { opacity: 0; transition: none; }
+.track { position: relative; display: block; width: 1px; height: var(--phase-h); background: var(--track); overflow: hidden; }
+.fill { position: absolute; inset: 0; background: var(--white); transform: scaleY(0); transform-origin: top; will-change: transform; }
+.phaseLabel { display: flex; gap: 2px; align-items: center; }
+.phaseName { opacity: 0.5; }
+
+/* hero */
+.heroShade { position: absolute; left: 0; right: 0; bottom: 0; height: var(--hero-shade); background: linear-gradient(to bottom, var(--shade-0), var(--shade)); }
+.heroTitle { position: absolute; left: var(--edge); bottom: var(--edge); }
+.heroText { position: absolute; right: var(--edge); bottom: var(--text-bottom); }
+.hint { position: absolute; right: var(--edge); bottom: var(--edge); font-weight: 300; opacity: 0.75; }
+
+/* second section */
+.finalText { position: absolute; left: calc(75% + 7px); bottom: var(--final-text-bottom); }
+.finalLine1 { position: absolute; left: var(--edge); bottom: var(--final-line-bottom); }
+.finalLine2 { position: absolute; right: var(--edge); bottom: var(--edge); text-align: right; }
+
+/* third section */
+.materialText { position: absolute; right: var(--edge); bottom: var(--text-bottom); }
+.materialTitle { position: absolute; left: var(--edge); bottom: var(--edge); }
+.restart { position: absolute; right: var(--edge); bottom: var(--edge); pointer-events: auto; background: none; border: 0; padding: 0; cursor: pointer; font-weight: 300; opacity: 0.75; transition: opacity 0.4s ease; }
+.restart:hover { opacity: 1; }
+.restart:focus-visible { outline: 1px solid var(--focus); outline-offset: 6px; }
+
+/* later layers stay hidden until the timeline brings them in */
+[data-ui='final'] [data-fade], [data-ui='material'] [data-fade] { visibility: hidden; opacity: 0; }
+
+@media (max-width: 760px) {
+  .header { flex-direction: column; gap: 12px; }
+  .finalText { left: auto; right: var(--edge); }
+  .restart { bottom: var(--restart-bottom); }
+}

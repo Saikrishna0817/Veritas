@@ -1,0 +1,30 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { background: var(--bg); color: var(--ink); font-family: var(--font-text); -webkit-font-smoothing: antialiased; }
+body { overscroll-behavior: none; }
+
+/* ---------------- Typography: Inter 14 / 10, the extended display face at 96 ---------------- */
+.t-display, .t-label, .t-body, .t-micro { text-box: trim-both cap alphabetic; color: var(--white); font-style: normal; line-height: normal; margin: 0; }
+.t-display { font-family: var(--font-display); font-stretch: var(--display-stretch); font-weight: var(--display-weight); font-style: var(--display-style); text-transform: var(--display-case); font-size: var(--size-display); letter-spacing: var(--track-display); white-space: nowrap; }
+.t-label { font-family: var(--font-text); font-size: var(--size-text); font-weight: 400; letter-spacing: var(--track-text); white-space: nowrap; }
+.t-body { font-family: var(--font-text); font-size: var(--size-text); font-weight: 400; letter-spacing: var(--track-text); text-align: justify; width: var(--body-width); }
+.t-micro { font-family: var(--font-text); font-size: var(--size-micro); font-weight: 300; letter-spacing: var(--track-text); white-space: nowrap; }
+
+/* Focus Reveal titles (per-character split; positions are measured from the real font) */
+.fr { position: relative; display: block; width: fit-content; }
+.fr--stack { display: flex; flex-direction: column; gap: var(--title-gap); }
+.fr-line { display: block; text-box: trim-both cap alphabetic; white-space: nowrap; }
+.fr-word { display: inline-block; white-space: nowrap; }
+.fr-char { display: inline-block; transform-origin: 50% 50%; opacity: 0; }
+.fr-sr, .ul-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* line-by-line body copy (Fade Up); .ul takes its position from its layout class */
+.ul:not([data-ul-ready]) { visibility: hidden; }
+.ul-visual { display: block; }
+.ul-word { display: inline-block; white-space: nowrap; }
+.ul-line { display: flow-root; position: relative; }
+.ul-line-inner { display: block; text-align: justify; text-align-last: justify; opacity: 0; }
+.ul-line:last-child .ul-line-inner { text-align-last: left; }
+
+/* the native cursor is hidden only while the custom one runs (fine pointers) */
+html.has-cursor, html.has-cursor * { cursor: none !important; }
