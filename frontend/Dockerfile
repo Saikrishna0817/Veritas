@@ -16,7 +16,7 @@ COPY landing/ ./
 COPY shared/ /src/shared/
 RUN ln -s /src/landing/node_modules /src/node_modules && npm run build
 
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY --from=landing /src/landing/dist /usr/share/nginx/html/welcome
