@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, Link, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import Brand from './components/Brand';
+import GlassNav from './components/glass-nav/GlassNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import { useAuth } from './hooks/useAuth';
@@ -19,22 +20,25 @@ const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
 const PageFallback = () => <div className="in-main in-hint">Loading…</div>;
 
 const NAV = [
-  ['/upload', 'Check data'], ['/history', 'History'], ['/model-scan', 'Scanner'], ['/reports', 'Reports'], ['/benchmarks', 'Benchmarks'],
+  { to: '/upload', label: 'Check data', icon: 'upload' },
+  { to: '/history', label: 'History', icon: 'history' },
+  { to: '/model-scan', label: 'Scanner', icon: 'scanner' },
+  { to: '/reports', label: 'Reports', icon: 'reports' },
+  { to: '/benchmarks', label: 'Benchmarks', icon: 'benchmarks' },
 ];
+const ADMIN_NAV = [{ to: '/admin', label: 'Admin console', icon: 'admin' }, NAV[1]];
 
 function AppNav() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const admin = user?.role === 'admin';
-  const links = admin ? [['/admin', 'Admin console'], ...NAV.slice(1, 2)] : NAV;
+  const links = admin ? ADMIN_NAV : NAV;
   const signOut = async () => { await logout(); navigate(admin ? '/admin/login' : '/login', { replace: true }); };
   return (
-    <nav className="in-nav" aria-label="Main">
+    <header className="in-nav">
       <div className="in-nav-inner">
         <Brand />
-        <div className="in-links">
-          {links.map(([to, label]) => <NavLink key={to} to={to} className={({ isActive }) => `in-link${isActive ? ' active' : ''}`}>{label}</NavLink>)}
-        </div>
+        <GlassNav links={links} />
         {user && (
           <div className="in-user">
             <span>{user.name}{admin ? ' · admin' : ''}</span>
@@ -42,7 +46,7 @@ function AppNav() {
           </div>
         )}
       </div>
-    </nav>
+    </header>
   );
 }
 

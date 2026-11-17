@@ -46,14 +46,10 @@ body { background: var(--paper); color: var(--ink); font-family: var(--font-ui);
 
 /* ── App navigation ───────────────────────────────────────── */
 .in-nav { position: sticky; top: 0; z-index: 40; background: var(--sheet); border-bottom: 1px solid var(--rule); }
-.in-nav-inner { max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 60px; display: flex; align-items: center; gap: 28px; }
+.in-nav-inner { max-width: 1080px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 28px; }
 .in-brand { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 9px; }
 .in-brand-mark { width: 12px; height: 22px; border-radius: 3px; background: var(--ink); box-shadow: 5px 0 0 var(--signal); margin-right: 6px; }
-.in-links { display: flex; gap: 4px; flex: 1; overflow-x: auto; scrollbar-width: none; }
-.in-link { padding: 7px 12px; border-radius: 7px; color: var(--ink-2); text-decoration: none; font-weight: 500; white-space: nowrap; }
-.in-link:hover { color: var(--ink); background: var(--rule-soft); }
-.in-link.active { color: var(--ink); background: var(--accent-wash); }
-.in-link:focus-visible, .in-brand:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.in-brand:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
 .in-user { display: flex; align-items: center; gap: 12px; color: var(--ink-2); font-size: 14px; white-space: nowrap; }
 .in-footer { border-top: 1px solid var(--rule); color: var(--ink-3); font-size: 13.5px; }
 .in-footer-inner { max-width: 1080px; margin: 0 auto; padding: 22px 24px 28px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; }
@@ -185,8 +181,7 @@ body { background: var(--paper); color: var(--ink); font-family: var(--font-ui);
 
 @media (max-width: 720px) {
   .in-main { padding: 28px 16px 72px; }
-  .in-nav-inner { padding: 10px 16px 6px; gap: 6px 14px; height: auto; flex-wrap: wrap; justify-content: space-between; }
-  .in-links { order: 3; flex-basis: 100%; margin: 0 -12px; }
+  .in-nav-inner { padding: 0 16px; height: 56px; justify-content: space-between; }
   .in-table { min-width: 560px; }
   .in-user span { display: none; }
   .in-h1 { font-size: 27px; }
@@ -291,6 +286,10 @@ body { background: var(--paper); color: var(--ink); font-family: var(--font-ui);
   .in-kv-wide { grid-template-columns: 1fr; gap: 0 0; }
   .in-kv-wide dd { margin-bottom: 8px; }
 }
+
+/* The main nav (components/glass-nav) is a floating bar at the bottom up to 820 px: keep the page's end clear of it. */
+@media (max-width: 1040px) { .in-user span { display: none; } }
+@media (max-width: 820px) { .in-shell { padding-bottom: calc(88px + env(safe-area-inset-bottom)); } }
 
 @media print {
   body { background: white; }
