@@ -4,6 +4,7 @@ import Brand from './components/Brand';
 import GlassNav from './components/glass-nav/GlassNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
+import SceneLayer from './scene/SceneLayer';
 import { useAuth } from './hooks/useAuth';
 import './styles/argilla.css';
 
@@ -94,6 +95,8 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
+      {/* one 3D world behind every page, sign-in included; it persists across route changes */}
+      <SceneLayer />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />

@@ -27,4 +27,7 @@ export default defineConfig([
     },
   },
   { files: ['vite.config.js', 'playwright.config.js'], languageOptions: { globals: globals.node } },
+  // React Three Fiber: three.js objects are made once (useMemo) and their uniforms changed later, outside React's
+  // render. The React Compiler rules read that as mutating hook values; the landing page turns them off too.
+  { files: ['src/scene/**/*.{js,jsx}'], rules: { 'react-hooks/immutability': 'off', 'react-hooks/refs': 'off' } },
 ])

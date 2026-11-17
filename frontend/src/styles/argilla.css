@@ -56,6 +56,17 @@
   --track-text: -0.011em;
   --edge: 28px;
 
+  /* the 3D scene behind the app (scene/World.jsx reads these at runtime): the landing page's void, curtains and dust */
+  --sky-horizon: #c0704a;
+  --sky-zenith: #3d3a63;
+  --sky-glow: #ffc890;
+  --void-top: #1a1019;
+  --aurora-low: #ff7a4a;
+  --aurora-high: #7a3a8a;
+  --aurora-edge: #ffe0b0;
+  --star: #fff0de;
+  --dust: #e6a878;
+
   /* the landing page's cursor */
   --cursor-ring: 24px;
   --cursor-dot: 8px;
@@ -72,6 +83,16 @@ body {
   color: var(--ink);
   font-family: var(--font-ui);
 }
+
+/* ── The 3D world (scene/SceneLayer.jsx): fixed behind every page; content always sits above it ── */
+.ar-scene { position: fixed; inset: 0; z-index: 0; pointer-events: none; animation: ar-in 600ms var(--ease) both; }
+.ar-scene canvas { display: block; }
+/* a scrim over the scene: the curtains glow in the top band, everything below fades to the page colour, so body text
+   never sits on bright or moving pixels */
+.ar-scene::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgb(27 15 10 / 0.15) 0%, rgb(27 15 10 / 0.5) 32%, rgb(27 15 10 / 0.88) 62%, rgb(27 15 10 / 0.94) 100%); }
+@keyframes ar-in { from { opacity: 0; } }
+.in-shell, .in-auth { position: relative; z-index: 1; }
 
 .instrument {
   letter-spacing: var(--track-text);
@@ -389,6 +410,7 @@ body {
     --ev-0: #e6e0d8; --ev-1: #d7b49a; --ev-2: #c07a3a; --ev-3: #b8461f; --ev-wash: #f4e4d8; --accent-wash: #f4ece2;
   }
   body { background: white; background-image: none; }
+  .ar-scene { display: none !important; }   /* no canvas on paper */
   .in-nav, .in-footer, .in-actions, .in-back, select { display: none !important; }
   .in-main { padding: 0; }
   .in-table-wrap { overflow: visible; }

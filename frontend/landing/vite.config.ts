@@ -6,4 +6,6 @@ export default defineConfig({
   base: './',
   plugins: [react()],
   build: { target: 'es2022', chunkSizeWarningLimit: 2000 },
+  // the shaders shared with the app live in ../shared (frontend/shared/argilla)
+  server: { fs: { allow: ['..'] } },
 });
