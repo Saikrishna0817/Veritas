@@ -1,4 +1,4 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
@@ -8,7 +8,7 @@ RUN npm run build
 # Public landing page (frontend/landing, its own project), served at /welcome/. It imports the code it shares
 # with the app from ../shared, so the repository layout is kept (/src/landing next to /src/shared) and the shared
 # files resolve their packages (three, gsap, react) from the landing page's own install.
-FROM node:24-alpine AS landing
+FROM node:26-alpine AS landing
 WORKDIR /src/landing
 COPY landing/package*.json ./
 RUN npm ci
