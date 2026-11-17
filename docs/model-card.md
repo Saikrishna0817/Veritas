@@ -69,7 +69,8 @@ runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for th
 (Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md): mean row AUPRC 0.59 at 1% and
 0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. With the
 within-class signature check (v3): clean-label triggers flagged in 19 of 20 Speech Commands test batches (v2: 2) and
-1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0% at LOW_RISK.
+1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0% at LOW_RISK. UrbanSound8K (never used for tuning):
+row AUPRC 0.31-0.98 by attack at 5%, clean-label triggers in 6 of 20 batches, clean batches 5.0% at LOW_RISK.
 
 ## Video-data check
 
@@ -112,6 +113,16 @@ post-fix 339/339 is no longer a held-out number.
 - **Real-noise evidence is limited:** CIFAR-10N for tables-style embeddings, and confirmed test-set label errors for
   images (CIFAR-10/100, MNIST). On those real errors the image list is mostly correct images: precision 4% on CIFAR-10,
   15% on CIFAR-100 (a lower bound; only cleanlab's candidates were reviewed). Use the list to decide where to look.
+- **Image label flips depend on the dataset.** On SVHN and Tiny-ImageNet (never used for tuning) random flips are
+  flagged in 0-80% of batches and targeted flips in 0-40% (CIFAR-10 and GTSRB: random flips 100% from 3% poison,
+  targeted 20-100%); row AUPRC at 5%
+  0.25-0.30 against 0.72-0.82. The label check relies on ImageNet features separating the classes.
+- **Many classes with few images each give false alarms.** Tiny-ImageNet (200 classes, ~15 images each): 10% of clean
+  batches at LOW_RISK and 5.8% at SUSPICIOUS (nominal 5% and 1%).
+- **No claim about informed attackers yet.** Attacks tuned to evade the image checks were run against a small CNN;
+  only one family worked (ASR >= 0.9: faint patch, all 4 runs flagged). The evasive settings found (clean-label
+  low-frequency trigger, boundary-aware flips at 1%) evade Veritas but did not work on that model. A stronger victim
+  is needed before any claim either way.
 - **Frequency-domain image triggers are found only through their labels.** BackdoorBench's Low Frequency and FTrojan
   triggers are caught because the attacker relabels the images; no pattern check sees the trigger itself.
 - **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are

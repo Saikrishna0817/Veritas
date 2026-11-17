@@ -3,4 +3,5 @@ dist
 .vite
 coverage
 npm-debug.log*
-landing
+landing/node_modules
+landing/dist

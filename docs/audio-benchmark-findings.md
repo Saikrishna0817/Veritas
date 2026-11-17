@@ -63,6 +63,30 @@ Row AUPRC (random = the poison rate) / share of attacked batches flagged at 1.3:
 - Clean-label triggers are found in speech-like sets with enough clips per class; not in small sound-event sets
   (~14 reference clips per class in ESC-50).
 
+## New dataset, never used for tuning: UrbanSound8K (Phase 4, 2026-11-16)
+
+`manifest-audio-breadth-v1`, `results/2026-11-16-benchmark-audio-breadth-v1.*`. All 10 official folds (Zenodo 1203745,
+checksum pinned), 60% of each batch's pool as reference as for the other sets; detector frozen at v3. 177 clips the app's WAV reader rejects (32-bit
+float, ADPCM) are skipped, as an upload would reject them: listed in the dataset's `skipped.txt`.
+
+Share of batches flagged at 1.3 at 1 / 3 / 5 / 10% (n = 5 each), row AUPRC at 5%:
+
+| Attack | Flagged | Row AUPRC |
+|---|---|---|
+| Random label flip | 20 / 80 / 100 / 100% | 0.64 |
+| Targeted label flip | 60 / 80 / 80 / 100% | 0.67 |
+| Tone trigger | 20 / 100 / 100 / 100% | 0.74 |
+| Blended noise | 60 / 100 / 100 / 100% | 0.98 |
+| Clean-label tone | 0 / 20 / 40 / 60% | 0.31 |
+| Duplicate flood | 100% at every rate | 0.89 |
+| Class noise | 20 / 20 / 100 / 100% | 0.54 |
+
+- Clean batches at 1.3: 3 of 60 (5.0%, nominal 5%).
+- Between Speech Commands and ESC-50 on every attack, closer to Speech Commands. Clean-label: partly found (ESC-50 1 of
+  20 batches, UrbanSound8K 6 of 20, Speech Commands 19 of 20), in line with the clips per class.
+- An app gap: 2% of UrbanSound8K's clips are 32-bit float or ADPCM WAV, which uploads reject.
+- 20 s per batch.
+
 ## In the app
 
 `POST /analyze/audio` (zip of PCM WAV files in class folders, optional reference zip, background job) runs this
