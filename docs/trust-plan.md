@@ -85,6 +85,11 @@ attacks reach ASR >= 90% with detection near chance, the model card says so plai
 **Needs:** no downloads; most compute of all phases. Run as the capped background service (see the memory note), one
 victim at a time.
 
+**Result (images v1, 2026-11-16):** inconclusive. Only the faint patch reached ASR >= 0.9 (4 runs, all flagged). The
+evasive settings found (clean-label low-frequency trigger, boundary flips at 1%) evade Veritas but do not work on the
+small victim (poison is 1.7% of its training set). Next: a victim that learns backdoors from fewer images, as a new
+benchmark_id. Tables not started.
+
 ## Phase 4: breadth
 
 **Why:** 1-2 datasets per media type cannot show the numbers carry over.
@@ -96,6 +101,11 @@ victim at a time.
 - Tables: 6-8 more OpenML datasets with different shapes (many categories, high dimension, heavy class imbalance).
 
 **Success criterion:** headline numbers are re-quoted as ranges across datasets, not single values.
+
+**Result so far (2026-11-16):** images (SVHN, Tiny-ImageNet): triggers, duplicates and class noise carry over; label
+flips do not (row AUPRC 0.25-0.30 vs 0.72-0.82), and Tiny-ImageNet gives 5.8% clean alarms at SUSPICIOUS. Audio
+(UrbanSound8K): between Speech Commands and ESC-50, clean alarms at nominal. Tables: run paused until the machine is
+free. Video: HMDB-51 waits for the archive (official link down).
 
 **Needs:** permission for downloads (several GB; HMDB-51 ~2 GB, UrbanSound8K ~6 GB).
 

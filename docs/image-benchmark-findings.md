@@ -240,3 +240,53 @@ Ranking of the confirmed errors (95% intervals in the result file):
 - The label check alone ranks slightly better than the merged score (CIFAR-10 0.04 vs 0.03, MNIST 0.04 vs 0.02):
   the other checks add images that are unusual but correctly labelled.
 - MNIST was checked at 28x28 here; the app resizes to 32x32.
+
+## Attacks tuned to evade the checks (Phase 3, 2026-11-16)
+
+`manifest-adaptive-images-v1`, `results/2026-11-16-benchmark-adaptive-images-v1.*`. CIFAR-10. Six attack families,
+each over a strength grid at 1% and 5% of a 3,000-image incoming batch. The attacker picks the strongest setting
+Veritas does not flag on their own seeds (0-2); every reported number comes from fresh seeds (10-12). A victim CNN
+(~0.3M parameters, 15 epochs) is trained on the 6,000 reference + 3,000 incoming images to measure attack success
+(ASR: share of non-target test images with the trigger classified as the target). Clean victim accuracy 0.68.
+
+| Family | Flagged (all strengths, 1% / 5%) | Highest ASR | Evasive setting found |
+|---|---|---|---|
+| Smooth low-frequency trigger, relabelled | 100% / 100% | 0.21 | none |
+| Warp (WaNet-style), relabelled | 100% / 100% | 0.16 | none |
+| Faint 3x3 checkerboard, relabelled | 100% / 100% | 0.97 (opacity 0.4, 5%) | none |
+| Low-frequency trigger, labels unchanged | 33% / 33% | 0.09 | yes, every strength |
+| Boundary-aware label flips | 33% / 100% | 0.15 | yes at 1% |
+| Random flips (reference) | 100% / 100% | 0.15 | none |
+
+- Pre-set criterion: the claim is the flagged share among runs with ASR >= 0.9. Only the faint patch reached it
+  (4 runs), and all 4 were flagged. **That is too little to support a claim either way.**
+- The evasive attacks found (clean-label low-frequency, boundary flips at 1%) do evade Veritas, but they also do not
+  work on this victim (ASR at most 0.09 and 0.08, against 0.04-0.08 with no poison).
+- Why ASR is low: 5% of the incoming batch is 1.7% of the victim's training set, and the victim is small and briefly
+  trained. A fair test needs a victim that learns backdoors from fewer images (longer training, a larger model, or
+  poison spread over the whole training set): a new benchmark_id. Until then, Veritas makes no claim about informed
+  attackers.
+- The relabelled attacks are all caught through the label check, so the weakness to watch is a trigger that keeps
+  labels correct; the low-frequency one shows the pattern checks miss it.
+
+## New datasets, never used for tuning (Phase 4, 2026-11-16)
+
+`manifest-mm-images-breadth-v1`, `results/2026-11-16-benchmark-mm-images-breadth-v1.*`. SVHN (test split) and
+Tiny-ImageNet (200 classes, decoded to 32x32 with the app's decoder, ~15 images per class per batch). Detector frozen
+at v9. Share of batches flagged at 1.3 at 1 / 3 / 5 / 10% (n = 5 each):
+
+| Attack | SVHN | Tiny-ImageNet | CIFAR-10 / GTSRB (v9, for comparison) |
+|---|---|---|---|
+| Patch, blended, duplicates, class noise | 100% at every rate | 100% at every rate | 100% |
+| Clean-label patch | 100% | 40% | 100% / 60-100% |
+| Random label flip | 20 / 0 / 40 / 60% | 0 / 0 / 60 / 80% | 0-100% / 40-100% |
+| Targeted label flip | 40 / 0 / 40 / 40% | 0% at every rate | 100% / 20-60% |
+| Clean batches at 1.3 / 2.0 (n = 120) | 4.2% / 0% | **10.0% / 5.8%** | 4.2 / 1.7%, 2.5 / 0% |
+
+- Row AUPRC at 5% across all four datasets (range): label flips 0.25-0.82 (here 0.30 random, 0.25 targeted), patch
+  and blended 1.00, clean-label 0.74-1.00, duplicates 0.88-0.91, class noise 0.98-0.99.
+- **Label flips do not carry over.** The label check works on the ImageNet embedding, which separates CIFAR-10 and
+  GTSRB classes well, digits (SVHN) and 200 small classes (Tiny-ImageNet) poorly.
+- **Clean alarms are not calibrated on Tiny-ImageNet**: 5.8% of clean batches reach SUSPICIOUS (nominal 1%). With
+  ~15 items per class the per-class checks' p-values are too small. Many-class, few-per-class data gets false alarms.
+- 14.3 s per batch.

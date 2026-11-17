@@ -53,6 +53,8 @@ export default function BenchmarksPage() {
         <div className="in-prose">
           <p>Clean-label triggers in video and in small audio sets: a trigger added to items whose labels stay correct. Images and speech-like audio are covered by the within-class check; video (where it is off) and sets with only a dozen items per class are not.</p>
           <p>Real label errors: on human-confirmed errors in CIFAR-10 test images, about 1 in 25 listed images is a confirmed error. The list says where to look, not what is wrong.</p>
+          <p>Label flips on data unlike everyday photos: on SVHN digits and Tiny-ImageNet (200 classes) at 10% poison random flips are flagged in 60-80% of batches and targeted flips in 0-40%, against 100% on CIFAR-10. Tiny-ImageNet also gives false alarms on 6% of clean sets.</p>
+          <p>An informed attacker: attacks tuned to evade the checks were tested, but the small test model rarely learned the backdoors, so there is no claim either way yet.</p>
           <p>Very small poison rates in small datasets: at 1% of a few hundred items there are only a handful of poisoned ones, and the batch verdict rarely fires. The ranked list still helps.</p>
           <p>Attacks unlike the benchmarked ones. The table attack profile always names the closest of six known attacks.</p>
         </div>
