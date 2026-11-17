@@ -160,6 +160,8 @@ body {
 html.has-cursor, html.has-cursor * { cursor: none !important; }
 /* a file name as a title: smaller, and it breaks anywhere so a long name never runs off a phone */
 .in-h1-file { font-size: clamp(28px, 3.4vw, 46px); letter-spacing: -0.03em; overflow-wrap: anywhere; }
+/* a file name is one long word: let it break between characters instead of running off a phone */
+.in-h1-file .fr-word { display: inline; white-space: normal; }
 .in-lede { color: var(--ink-2); max-width: 62ch; margin: 0 0 44px; font-size: 16px; }
 .in-h2 { font-family: var(--font-display); font-size: 26px; line-height: 1.15; font-weight: 400; letter-spacing: -0.025em; color: var(--white); margin: 0 0 6px; }
 .in-h3 { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 10px; }
@@ -362,10 +364,11 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 @media (min-width: 960px) {
   .in-page-head { grid-template-columns: minmax(0, 1fr) 260px; }
   .in-head-stage { display: block; height: 240px; }
+  .in-page-head-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 440px); }
   .in-review-head { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
   .in-keys-stage { display: block; height: 200px; }
 }
-.in-table tbody tr[data-hot] td { background: var(--accent-wash); }
+.in-table tbody tr[data-hot] td, .in-latest-row[data-hot] { background: var(--accent-wash); }
 
 /* ── Loading: skeletons shaped like what is coming, a slow breath (no shimmer sweep) ── */
 .in-skel { display: block; height: 14px; border-radius: 6px; background: var(--rule-soft); animation: in-breathe 1.6s ease-in-out infinite; }

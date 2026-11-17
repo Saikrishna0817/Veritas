@@ -11,6 +11,8 @@ import { useEffect, useSyncExternalStore } from 'react';
  *            turns slowly until it ends; the turning follows the job's real state and never stands for progress.
  *  'keys'    one terracotta key per listed item of a result, most suspicious first, lifted by rank only (never by the
  *            score's size). items: [{ glyph }], at most 24. The key and its table row light up together (hot).
+ *            With items: [{ glyph, tint, group, groups }] the keys form clusters (Overview), one per group, glazed
+ *            by tint (a token name); hot is then the group.
  * pressKey(): one key of the sphere dips and springs back (the person typed; which key is random, never the character).
  */
 export const MAX_KEYS = 24;
