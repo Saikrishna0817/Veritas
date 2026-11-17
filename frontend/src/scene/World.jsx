@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { EffectComposer, ToneMapping } from '@react-three/postprocessing';
 import { BlendFunction, Effect, ToneMappingMode } from 'postprocessing';
@@ -6,30 +6,21 @@ import * as THREE from 'three';
 import { skyFrag, skyVert } from '../../shared/argilla/glsl/sky.glsl';
 import { dustFrag, dustVert } from '../../shared/argilla/glsl/dust.glsl';
 import { gradeFrag } from '../../shared/argilla/glsl/grade.glsl';
+import { mulberry32, token } from './tokens';
+import { useStageState } from './stage';
+
+/** The page's own subject (step by step: the keycap sphere on sign-in pages); its own chunk, loaded when needed. */
+const KeySphere = lazy(() => import('./KeySphere'));
 
 /**
  * The world behind the app: the landing page's final state — the void, the rose and amber curtains, the stars and
  * the dust — through its colour grade. Same shaders as the landing page (frontend/shared/argilla), colours from the
  * tokens in argilla.css. It renders on demand only: one frame on mount and on resize, nothing while the page is idle
- * or hidden. Resolution is capped at 1.5×. Pages add their own moments in later steps.
+ * or hidden. Resolution is capped at 1.5×. A page adds its own subject through its stage (scene/stage.js).
  */
-
-/** A token from argilla.css as a three.js colour (sRGB hex → linear). */
-const token = (name, fallback) => new THREE.Color((getComputedStyle(document.documentElement).getPropertyValue(name) || fallback).trim());
 
 /** The curtains are frozen at a calm moment of their own animation (the landing page's clock at ~40 s). */
 const STILL_TIME = 40;
-
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 function Sky() {
   const { camera, gl, size } = useThree();
@@ -148,6 +139,12 @@ class GradeEffect extends Effect {
   }
 }
 
+function Subject() {
+  const { kind } = useStageState();
+  if (kind === 'sphere') return <Suspense fallback={null}><KeySphere /></Suspense>;
+  return null;
+}
+
 function Post() {
   const grade = useMemo(() => new GradeEffect(), []);
   useEffect(() => () => grade.dispose(), [grade]);
@@ -170,11 +167,13 @@ export default function World({ onLost }) {
       camera={{ fov: 32, near: 0.5, far: 5000, position: [0, 0, 160] }}
       onCreated={({ gl }) => {
         gl.setClearColor(token('--void', '#0d0806'), 1);
-        gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); onLost?.(); }, { once: true });
+        document.documentElement.classList.add('has-3d');
+        gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); document.documentElement.classList.remove('has-3d'); onLost?.(); }, { once: true });
       }}
     >
       <Sky />
       <Dust />
+      <Subject />
       <Post />
     </Canvas>
   );

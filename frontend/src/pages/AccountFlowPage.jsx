@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
-import Brand from '../components/Brand';
+import AuthFrame from '../components/AuthFrame';
 
 const COPY = {
-  signup: { title: 'Create your account', cta: 'Create account' },
-  verify: { title: 'Confirm your email', cta: '' },
-  forgot: { title: 'Reset your password', cta: 'Send reset link' },
-  reset: { title: 'Choose a new password', cta: 'Change password' },
+  signup: { title: 'Create your account', intro: 'A username, your email, and a password of 10 characters or more.', cta: 'Create account' },
+  verify: { title: 'Confirm your email', intro: 'Confirming the address from your link.', cta: '' },
+  forgot: { title: 'Reset your password', intro: 'Enter the email on your account and we will send a link to choose a new password.', cta: 'Send reset link' },
+  reset: { title: 'Choose a new password', intro: 'Use 10 characters or more.', cta: 'Change password' },
 };
 
 /** Public account pages: sign-up, email confirmation, forgot password, reset password. */
@@ -18,12 +18,14 @@ export default function AccountFlowPage({ mode }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(mode === 'verify' && !!token);
+  const [resend, setResend] = useState({ email: '', message: '', error: '', busy: false });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => {
     if (mode !== 'verify') return;
     if (!token) { setError('This link is missing its token.'); return; }
-    api.verifyEmail(token).then((r) => setMessage(r.message)).catch((e) => setError(e.message));
+    api.verifyEmail(token).then((r) => setMessage(r.message)).catch((e) => setError(e.message)).finally(() => setChecking(false));
   }, [mode, token]);
 
   async function submit(event) {
@@ -42,12 +44,21 @@ export default function AccountFlowPage({ mode }) {
     }
   }
 
+  // the link was bad or expired: ask for a new one (the answer is the same whether or not the address has an account)
+  async function resendLink(event) {
+    event.preventDefault();
+    setResend((r) => ({ ...r, message: '', error: '', busy: true }));
+    try {
+      const r = await api.resendVerification(resend.email);
+      setResend((s) => ({ ...s, message: r.message, busy: false }));
+    } catch (err) {
+      setResend((s) => ({ ...s, error: err.message || 'Something went wrong.', busy: false }));
+    }
+  }
+
   const copy = COPY[mode];
   return (
-    <main className="instrument in-auth">
-      <div className="in-auth-box">
-        <Brand />
-        <h1 className="in-h2">{copy.title}</h1>
+    <AuthFrame title={copy.title} intro={mode === 'verify' && error ? 'That link did not work. Enter your email and we will send a new one.' : mode === 'verify' && message ? '' : copy.intro} busy={busy || checking || resend.busy}>
         <form className="in-auth-form" onSubmit={submit}>
           {mode === 'signup' && <label>Username<input className="in-input" placeholder="Username" value={form.username} onChange={set('username')} required minLength={3} maxLength={64} pattern="[A-Za-z0-9._\-]+" title="Letters, digits, '.', '_' and '-' only" autoComplete="username" /></label>}
           {(mode === 'signup' || mode === 'forgot') && <label>Email<input className="in-input" type="email" placeholder="Email" value={form.email} onChange={set('email')} required autoComplete="email" /></label>}
@@ -58,11 +69,18 @@ export default function AccountFlowPage({ mode }) {
           {message && <p className="in-ok" role="status" style={{ margin: 0 }}>{message}</p>}
           {mode !== 'verify' && !message && <button className="in-btn" type="submit" disabled={busy}>{busy ? 'Please wait…' : copy.cta}</button>}
         </form>
+        {mode === 'verify' && error && (
+          <form className="in-auth-form" onSubmit={resendLink} aria-label="Send a new link">
+            <label>Email<input className="in-input" type="email" placeholder="Email" value={resend.email} onChange={(e) => setResend({ ...resend, email: e.target.value })} required autoComplete="email" /></label>
+            {resend.error && <p className="in-error" role="alert" style={{ margin: 0 }}>{resend.error}</p>}
+            {resend.message ? <p className="in-ok" role="status" style={{ margin: 0 }}>{resend.message}</p>
+              : <button className="in-btn" type="submit" disabled={resend.busy}>{resend.busy ? 'Please wait…' : 'Send a new link'}</button>}
+          </form>
+        )}
         <div className="in-auth-alt">
           <Link to="/login" className="in-link-text">Sign in</Link>
           {mode !== 'signup' ? <Link to="/signup" className="in-link-text">Create an account</Link> : <Link to="/forgot-password" className="in-link-text">Forgot your password?</Link>}
         </div>
-      </div>
-    </main>
+    </AuthFrame>
   );
 }
