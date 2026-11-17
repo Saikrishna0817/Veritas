@@ -58,4 +58,11 @@ export const ICONS = {
       <circle cx="8" cy="16.5" r="2.5" {...draw} />
     </svg>
   ),
+  // Account: a head and shoulders
+  account: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="8.5" r="3.5" {...draw} />
+      <path d="M5 19.5a7 7 0 0 1 14 0" {...draw} />
+    </svg>
+  ),
 };

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 import Brand from './Brand';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { pressKey, useStage } from '../scene/stage';
@@ -19,6 +20,7 @@ export default function AuthFrame({ title, intro, busy = false, children }) {
         <PageTitle className="in-auth-title">{title}</PageTitle>
         {intro && <PageIntro className="in-hint">{intro}</PageIntro>}
         {children}
+        <p className="in-auth-legal"><Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> (drafts)</p>
       </div>
       <div className="in-auth-stage" ref={stageRef} aria-hidden="true" />
     </main>

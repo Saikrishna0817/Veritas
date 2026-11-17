@@ -373,6 +373,40 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 .in-imports li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; align-items: baseline; padding: 12px 8px; border-bottom: 1px solid var(--rule-soft); }
 .in-imports .in-path { overflow-wrap: anywhere; min-width: 0; }
 
+.in-lede.in-lede-tight { margin-bottom: 0; }
+
+/* ── Account ── */
+.in-usage { display: grid; gap: 12px; margin: 6px 0 14px; max-width: 760px; }
+.in-usage-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 150px; gap: 16px; align-items: center; }
+.in-usage-name { font-weight: 500; font-size: 14px; }
+.in-usage-val { text-align: right; font-size: 14px; }
+.in-usage-row .in-hint.in-usage-val { grid-column: 2 / -1; text-align: left; }
+.in-usage-fill { height: 100%; border-radius: inherit; background: var(--link); }
+.in-key-once { margin: 16px 0; padding: 16px 18px; border: 1px solid var(--signal); border-radius: 10px; background: var(--sheet); display: grid; gap: 10px; }
+.in-key-once p { margin: 0; }
+.in-key-once code { display: block; padding: 10px 12px; border-radius: 8px; background: var(--paper); overflow-wrap: anywhere; user-select: all; }
+.in-danger { padding: 18px 0; border-top: 1px solid var(--rule-soft); max-width: 760px; }
+.in-danger p { color: var(--ink-2); }
+.in-btn-danger { background: transparent; color: var(--error); border-color: var(--error); box-shadow: none; }
+.in-btn-danger:hover:not(:disabled) { background: var(--accent-wash); }
+.in-footer-links { display: inline-flex; flex-wrap: wrap; gap: 6px 18px; }
+.in-auth-legal { margin-top: 28px; font-size: 13px; color: var(--ink-3); }
+.in-auth-legal a { color: var(--ink-2); }
+@media (max-width: 720px) {
+  .in-usage-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .in-usage-row .in-track { grid-column: 1 / -1; grid-row: 2; }
+}
+
+/* ── Terms and Privacy (drafts) ── */
+.in-legal { position: relative; z-index: 1; min-height: 100vh; padding: 40px var(--edge) 80px; }
+.in-legal .in-brand { display: table; margin-bottom: 28px; }
+.in-legal-note { display: table; margin: 0 0 14px; padding: 6px 12px; border: 1px solid var(--mustard); border-radius: 8px; color: var(--mustard); font-size: 13.5px; font-weight: 500; }
+.in-legal-body { max-width: 760px; }
+.in-legal-body h2 { margin-top: 36px; }
+.in-legal-body code.in-code { display: inline; padding: 0 3px; border: 0; border-radius: 4px; font-size: 0.88em; background: var(--rule-soft); overflow-wrap: anywhere; }
+.in-legal-quote { margin: 18px 0; padding: 12px 16px; border-left: 3px solid var(--mustard); background: var(--sheet); color: var(--ink-2); }
+@media (max-width: 720px) { .in-legal { padding: 28px 16px 64px; } }
+
 /* ── Loading: skeletons shaped like what is coming, a slow breath (no shimmer sweep) ── */
 .in-skel { display: block; height: 14px; border-radius: 6px; background: var(--rule-soft); animation: in-breathe 1.6s ease-in-out infinite; }
 .in-skel-title { height: 40px; width: min(520px, 80%); margin-bottom: 18px; }

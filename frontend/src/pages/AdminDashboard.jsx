@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { Notice, TabPanel, Tabs, useResource } from './admin/shared';
+import { PageIntro, PageTitle } from '../ui/Reveal';
 import UsersTab from './admin/UsersTab';
 import DefenseTab from './admin/DefenseTab';
 import AuditTab from './admin/AuditTab';
@@ -49,8 +50,8 @@ export default function AdminDashboard() {
     <main className="in-main"><div className="in-page">
       <div className="in-tab-head">
         <div>
-          <h1 className="in-h1">Admin console</h1>
-          <p className="in-lede" style={{ marginBottom: 0 }}>Accounts, the review queue and recorded actions, the audit log, and every stored result. Changes here apply to all accounts.</p>
+          <PageTitle>Admin console</PageTitle>
+          <PageIntro className="in-lede-tight">Accounts, the review queue and recorded actions, the audit log, and every stored result. Changes here apply to all accounts.</PageIntro>
         </div>
         <button type="button" className="in-btn in-btn-quiet" onClick={reloadAll} disabled={anyLoading}>{anyLoading ? 'Loading…' : 'Reload all'}</button>
       </div>
