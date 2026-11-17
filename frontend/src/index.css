@@ -1,3 +1,3 @@
-/* Global reset only. The design system (tokens and .in-* classes) is src/styles/instrument.css. */
+/* Global reset only. The design system (tokens and .in-* classes) is src/styles/argilla.css. */
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; -webkit-font-smoothing: antialiased; }

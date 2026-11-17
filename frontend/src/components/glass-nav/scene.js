@@ -3,7 +3,7 @@ import { clamp } from './motion';
 import { FS, VS } from './shader';
 
 /**
- * The palette, linear RGB, taken from the instrument tokens (styles/instrument.css): top = --sheet, base = --paper,
+ * The palette, linear RGB, taken from the instrument tokens (styles/argilla.css): top = --sheet, base = --paper,
  * light = --accent-wash, deep = --accent, rule = --rule, ink = --ink. Change the tokens and these together.
  */
 export const COLOURS = {

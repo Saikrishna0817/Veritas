@@ -5,7 +5,7 @@ import GlassNav from './components/glass-nav/GlassNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import { useAuth } from './hooks/useAuth';
-import './styles/instrument.css';
+import './styles/argilla.css';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
