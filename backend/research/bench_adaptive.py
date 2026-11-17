@@ -2,6 +2,7 @@
 still work on a model trained on the poisoned data?  One process (the victim CNN trains on CPU).
 
 Run from ``backend/``:  python -m research.bench_adaptive --label v1 [--smoke]
+(another manifest: VERITAS_ADAPTIVE_MANIFEST=manifest-adaptive-images-v2.json; victim threads: VERITAS_VICTIM_THREADS)
 """
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
 
 ROOT = Path(__file__).parent
-MANIFEST_PATH = ROOT / "benchmark" / "manifest-adaptive-images-v1.json"
+MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_ADAPTIVE_MANIFEST", "manifest-adaptive-images-v1.json")
 
 
 def load_manifest(smoke: bool) -> dict:
@@ -41,7 +42,7 @@ def load_manifest(smoke: bool) -> dict:
     m["sizes"] = {**m["sizes"], **m["sizes"]["smoke"]} if smoke else m["sizes"]
     if smoke:
         m.update({"families": {f: {**m["families"][f], "strengths": m["families"][f]["strengths"][:1]}
-                               for f in ("lowfreq", "boundary_flip")},
+                               for f in list(m["families"])[:2]},
                   "rates": [0.05], "attacker_seeds": [0], "eval_seeds": [10], "victim": {**m["victim"], "epochs": 1}})
     return m
 

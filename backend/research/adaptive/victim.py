@@ -2,12 +2,14 @@
 attack works (attack success rate, ASR) as opposed to whether Veritas sees it."""
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-torch.set_num_threads(2)
+torch.set_num_threads(int(os.getenv("VERITAS_VICTIM_THREADS", "2")))
 
 
 def _net() -> nn.Module:

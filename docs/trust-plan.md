@@ -90,6 +90,9 @@ evasive settings found (clean-label low-frequency trigger, boundary flips at 1%)
 small victim (poison is 1.7% of its training set). Next: a victim that learns backdoors from fewer images, as a new
 benchmark_id. Tables not started.
 
+**v2 (running from 2026-11-17, `manifest-adaptive-images-v2`):** reference 3,000 so poison is 2.5% / 5% of the
+victim's training set at 5% / 10%, 40 epochs, stronger strength grids; same criterion.
+
 ## Phase 4: breadth
 
 **Why:** 1-2 datasets per media type cannot show the numbers carry over.
