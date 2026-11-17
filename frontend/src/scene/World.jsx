@@ -26,21 +26,21 @@ const STILL_TIME = 40;
 function Sky() {
   const { camera, gl, size } = useThree();
   const material = useMemo(() => {
-    const star = token('--star', '#fff0de');
+    const star = token('--star');
     return new THREE.ShaderMaterial({
       vertexShader: skyVert,
       fragmentShader: skyFrag,
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        uHorizon: { value: token('--sky-horizon', '#c0704a') },
-        uZenith: { value: token('--sky-zenith', '#3d3a63') },
-        uGlow: { value: token('--sky-glow', '#ffc890') },
+        uHorizon: { value: token('--sky-horizon') },
+        uZenith: { value: token('--sky-zenith') },
+        uGlow: { value: token('--sky-glow') },
         uGlowDir: { value: new THREE.Vector3(0.34, 0.085, -1) },
         uGlowStrength: { value: 0.7 },
         uZenithAt: { value: 0.34 },
-        uVoidTop: { value: token('--void-top', '#1a1019') },
-        uVoidBottom: { value: token('--void', '#0d0806') },
+        uVoidTop: { value: token('--void-top') },
+        uVoidBottom: { value: token('--void') },
         uFade: { value: 1 },                     // fully dissolved into the void, as at the end of the landing page
         uTime: { value: STILL_TIME },
         uStars: { value: 1 },
@@ -50,9 +50,9 @@ function Sky() {
         uAuroraTop: { value: 0.85 },
         uAuroraSpeed: { value: 1.2 },
         uAuroraShift: { value: 0 },
-        uAuroraLow: { value: token('--aurora-low', '#ff7a4a') },
-        uAuroraHigh: { value: token('--aurora-high', '#7a3a8a') },
-        uAuroraEdge: { value: token('--aurora-edge', '#ffe0b0') },
+        uAuroraLow: { value: token('--aurora-low') },
+        uAuroraHigh: { value: token('--aurora-high') },
+        uAuroraEdge: { value: token('--aurora-edge') },
         uAuroraGain: { value: 0.5 },
         uStarColor: { value: new THREE.Vector3(star.r, star.g, star.b) },
         uSunSize: { value: 0 },
@@ -110,8 +110,8 @@ function Dust() {
         uPixelRatio: { value: gl.getPixelRatio() },
         uCenter: { value: new THREE.Vector3() },
         uCore: { value: 0 },
-        uColor: { value: token('--dust', '#e6a878') },
-        uGlowColor: { value: token('--warm-core', '#ffb060') },
+        uColor: { value: token('--dust') },
+        uGlowColor: { value: token('--warm-core') },
         uOpacity: { value: 0.5 * 0.35 },          // the landing page's dust in the final void (thinner)
       },
     });
@@ -134,7 +134,7 @@ class GradeEffect extends Effect {
         ['uHighlightTint', new THREE.Uniform(new THREE.Vector3(1.02, 1.0, 0.96))],
         ['uScanlines', new THREE.Uniform(0)],
         ['uReveal', new THREE.Uniform(1)],
-        ['uCover', new THREE.Uniform(token('--bg', '#1b0f0a'))],
+        ['uCover', new THREE.Uniform(token('--bg'))],
       ]),
     });
   }
@@ -168,7 +168,7 @@ export default function World({ onLost }) {
       gl={{ antialias: false, alpha: false, stencil: false, powerPreference: 'low-power' }}
       camera={{ fov: 32, near: 0.5, far: 5000, position: [0, 0, 160] }}
       onCreated={({ gl }) => {
-        gl.setClearColor(token('--void', '#0d0806'), 1);
+        gl.setClearColor(token('--void'), 1);
         document.documentElement.classList.add('has-3d');
         gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); document.documentElement.classList.remove('has-3d'); onLost?.(); }, { once: true });
       }}

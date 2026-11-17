@@ -45,7 +45,7 @@
   --success: #a9bb98;                      /* sage */
   --key-face: var(--cream);
   --key-edge: #b9a68d;
-  --key-phrase: var(--terracotta);
+  --key-phrase: #b84d2a;                   /* terracotta, a shade deeper: white legends on it reach 4.75:1 (selected pills) */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);   /* ease-out-quint, as on the landing page */
 
   --font-ui: 'Inter Variable', 'Inter', system-ui, sans-serif;
@@ -490,6 +490,9 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
     --ink: #1b0f0a; --ink-2: #4a3a30; --ink-3: #6a5a4e; --white: #1b0f0a; --link: #1b0f0a;
     --ev-0: #e6e0d8; --ev-1: #d7b49a; --ev-2: #c07a3a; --ev-3: #b8461f; --ev-wash: #f4e4d8; --accent-wash: #f4ece2;
   }
+  html { background: var(--paper) !important; }
+  /* the 3D stages are empty boxes on paper */
+  .in-head-stage, .in-keys-stage, .in-auth-stage { display: none !important; }
   body { background: white; background-image: none; }
   .ar-scene { display: none !important; }   /* no canvas on paper */
   .in-nav, .in-footer, .in-actions, .in-back, select { display: none !important; }

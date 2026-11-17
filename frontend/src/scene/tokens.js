@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export const hex = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
 /** A token from argilla.css as a three.js colour (sRGB hex → linear). */
-export const token = (name, fallback) => new THREE.Color(hex(name) || fallback);
+export const token = (name) => new THREE.Color(hex(name));
 
 /** A small seeded random generator: the same layout on every load. */
 export function mulberry32(seed) {

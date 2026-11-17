@@ -44,7 +44,7 @@ export function useKeycapMaterial() {
           clearcoatRoughness: 0.5,
           envMapIntensity: 0.9,
           inkRoughness: 0.5,
-          glow: { colors: ['#ffffff', '#ffffff', '#ffffff'], legend: 0, side: 0, speed: 0, scale: 0.005, flicker: 0 },
+          glow: { colors: [hex('--glaze-cream'), hex('--glaze-cream'), hex('--glaze-cream')], legend: 0, side: 0, speed: 0, scale: 0.005, flicker: 0 }, // backlight off
           xrayBody: hex('--xray-body'),
           xrayGlow: hex('--xray-glow'),
         },
