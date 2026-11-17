@@ -22,7 +22,6 @@ from pathlib import Path
 import numpy as np
 from scipy.stats import binom, hypergeom, rankdata
 from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold, StratifiedKFold, cross_val_predict
 from sklearn.preprocessing import StandardScaler
 from threadpoolctl import threadpool_limits
@@ -146,15 +145,23 @@ def residual_component(d: dict):
     ref, inc = np.zeros(len(R)), np.zeros(len(I))
     fold = np.arange(len(I)) % 5
     for k, (tr, te) in enumerate(KFold(5, shuffle=True, random_state=0).split(R)):
-        models = []
-        for j in range(R.shape[1]):
-            keep = np.arange(R.shape[1]) != j
-            m = Ridge(1.0).fit(R[tr][:, keep], R[tr, j])
-            models.append((keep, m, max(np.std(R[tr, j] - m.predict(R[tr][:, keep])), 1e-6)))
-        score = lambda X: sum(((X[:, j] - m.predict(X[:, keep])) / s) ** 2 for j, (keep, m, s) in enumerate(models))  # noqa: E731
+        resid, s = _loo_ridge(R[tr])
+        score = lambda X: ((resid(X) / s) ** 2).sum(axis=1)  # noqa: E731
         ref[te] = score(R[te])
         inc[fold == k] = score(I[fold == k])
     return ref, inc
+
+
+def _loo_ridge(X: np.ndarray, alpha: float = 1.0):
+    """Every column regressed on all the others (ridge, intercept), from one inverse: with P = (Xc'Xc + alpha I)^-1,
+    column j's residual is ((X - mean) P)[:, j] / P[j, j], exactly what Ridge(alpha) fitted per column gives. One
+    d x d inverse instead of d fits, so a 1,558-column table takes seconds, not hours. Returns (residual function,
+    training residual spread per column)."""
+    mu = X.mean(axis=0)
+    Xc = X - mu
+    P = np.linalg.inv(Xc.T @ Xc + alpha * np.eye(X.shape[1]))
+    resid = lambda Z: ((Z - mu) @ P) / np.diag(P)  # noqa: E731
+    return resid, np.maximum(resid(X).std(axis=0), 1e-6)
 
 
 def detect(d: dict, use_label: bool = True, gate: float = GATE) -> dict:
