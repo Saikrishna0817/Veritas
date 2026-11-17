@@ -61,7 +61,7 @@ function Sphere() {
   const { camera, size, invalidate } = useThree();
   const { busy, presses } = useStageState();
 
-  const keys = useMemo(buildKeys, []);
+  const keys = useMemo(() => buildKeys(), []);
   const material = useKeycapMaterial();
   const geometry = useMemo(() => {
     const g = base.clone();
