@@ -6,3 +6,4 @@
 .dot { width: var(--cursor-dot); height: var(--cursor-dot); background: var(--white); }
 .hover .ring { width: var(--cursor-ring-hover); height: var(--cursor-ring-hover); }
 .hover .dot { width: var(--cursor-dot-hover); height: var(--cursor-dot-hover); }
+.off { opacity: 0 !important; }

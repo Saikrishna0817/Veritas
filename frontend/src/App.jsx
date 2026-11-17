@@ -5,6 +5,7 @@ import GlassNav from './components/glass-nav/GlassNav';
 import ProtectedRoute from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import SceneLayer from './scene/SceneLayer';
+import AppCursor from './ui/AppCursor';
 import { useAuth } from './hooks/useAuth';
 import './styles/argilla.css';
 
@@ -17,6 +18,7 @@ const HistoryPage = lazy(() => import('./pages/HistoryPage'));
 const BenchmarksPage = lazy(() => import('./pages/BenchmarksPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const AccountFlowPage = lazy(() => import('./pages/AccountFlowPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 const PageFallback = () => <div className="in-main in-hint">Loading…</div>;
 
@@ -83,7 +85,7 @@ function AppShell() {
             <Route path="/forensics" element={<Navigate to="/history" replace />} />
             <Route path="/blue-team" element={<Navigate to="/reports" replace />} />
             <Route path="/real-datasets" element={<Navigate to="/upload" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={page('Not found', <NotFoundPage />)} />
           </Routes>
         </Suspense>
       </div>
@@ -97,6 +99,7 @@ export default function App() {
     <BrowserRouter>
       {/* one 3D world behind every page, sign-in included; it persists across route changes */}
       <SceneLayer />
+      <AppCursor />
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
