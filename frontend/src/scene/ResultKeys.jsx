@@ -98,7 +98,8 @@ function Keys({ items }) {
   }, [items, n, rows, clustered]);
 
   // rows: the rank only (most suspicious highest); clusters: all level
-  const rankLift = (i) => (clustered ? 0.5 : 0.4 + 2.6 * (1 - i / Math.max(1, n - 1)));
+  // an item may carry its own lift (a model file's imports: by what the scan says about each)
+  const rankLift = (i) => (items[i].lift != null ? items[i].lift : clustered ? 0.5 : 0.4 + 2.6 * (1 - i / Math.max(1, n - 1)));
 
   useEffect(() => {
     sim.hot = hot;
@@ -154,7 +155,8 @@ function Keys({ items }) {
     const unit = (2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.max(1, size.height);
     const wide = sim.wide;
     const deep = sim.deep * Math.cos(TILT) + 4;
-    const scale = Math.min((box.width * 0.94 * unit) / wide, (box.height * 0.9 * unit) / deep);
+    // fit the stage, but a key is never wider than ~72 px (a file with three imports gets three keys, not boulders)
+    const scale = Math.min((box.width * 0.94 * unit) / wide, (box.height * 0.9 * unit) / deep, (72 * unit) / (KEY_SCALE * 2));
     g.scale.setScalar(scale);
     g.position.set((box.left + box.width / 2 - size.width / 2) * unit, -(box.top + box.height / 2 - size.height / 2) * unit, 0);
     g.rotation.set(TILT, 0, 0);

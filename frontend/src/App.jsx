@@ -78,6 +78,7 @@ function AppShell() {
             <Route path="/history" element={page('History', <HistoryPage />)} />
             <Route path="/history/:id" element={page('History', <HistoryPage />)} />
             <Route path="/model-scan" element={page('Model scanner', <ModelScanPage />)} />
+            <Route path="/model-scan/:id" element={page('Model scanner', <ModelScanPage />)} />
             <Route path="/reports" element={page('Reports', <ReportsPage />)} />
             <Route path="/benchmarks" element={page('Benchmarks', <BenchmarksPage />)} />
             <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}>{page('Admin console', <AdminDashboard />)}</ProtectedRoute>} />

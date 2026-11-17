@@ -368,7 +368,10 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
   .in-review-head { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
   .in-keys-stage { display: block; height: 200px; }
 }
-.in-table tbody tr[data-hot] td, .in-latest-row[data-hot] { background: var(--accent-wash); }
+.in-table tbody tr[data-hot] td, .in-latest-row[data-hot], .in-imports li[data-hot] { background: var(--accent-wash); }
+.in-imports { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.in-imports li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; align-items: baseline; padding: 12px 8px; border-bottom: 1px solid var(--rule-soft); }
+.in-imports .in-path { overflow-wrap: anywhere; min-width: 0; }
 
 /* ── Loading: skeletons shaped like what is coming, a slow breath (no shimmer sweep) ── */
 .in-skel { display: block; height: 14px; border-radius: 6px; background: var(--rule-soft); animation: in-breathe 1.6s ease-in-out infinite; }

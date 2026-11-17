@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, Result } from '../components/results';
+import { Skeleton } from '../components/Skeleton';
+import { PageIntro, PageTitle } from '../ui/Reveal';
 
 // Which response playbook fits a result: tables carry an attack family; for images, audio and video the strongest
 // check points at one (a shared patch or pixel change is trigger-like, a shift is a changed source).
@@ -54,13 +56,14 @@ export default function ReportsPage() {
   const family = res && familyOf(res);
   return (
     <main className="in-main"><div className="in-page">
-      <h1 className="in-h1">Reports</h1>
-      <p className="in-lede">A printable record of one analysis: the verdict, the evidence, the items to review and, when something was found, the response steps. Use your browser's print dialog to save it as a PDF.</p>
+      <PageTitle>Reports</PageTitle>
+      <PageIntro>A printable record of one analysis: the verdict, the evidence, the items to review and, when something was found, the response steps. Use your browser's print dialog to save it as a PDF.</PageIntro>
       {error && <p className="in-error" role="alert">{error}</p>}
+      {!rows && !error && <Skeleton label="Loading your analyses…" lines={1} rows={3} />}
       {rows && !rows.length && <p className="in-empty">No analyses yet. <Link to="/upload" className="in-link-text">Check a dataset</Link> first.</p>}
       {rows?.length > 0 && (
         <div className="in-actions" style={{ marginBottom: 8 }}>
-          <select className="in-input" aria-label="Analysis" value={pick} onChange={(e) => setPick(e.target.value)} style={{ minWidth: 320 }}>
+          <select className="in-input" aria-label="Analysis" value={pick} onChange={(e) => setPick(e.target.value)} style={{ minWidth: 0, width: 'min(420px, 100%)' }}>
             {rows.map((r) => <option key={r.id} value={r.id}>{r.filename} · {KINDS[KIND_OF_SOURCE[r.source]].label} · {new Date(r.created_at).toLocaleDateString()}</option>)}
           </select>
           <button className="in-btn in-btn-quiet" onClick={() => window.print()} disabled={!res}>Print or save as PDF</button>
