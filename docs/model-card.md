@@ -119,10 +119,11 @@ post-fix 339/339 is no longer a held-out number.
   0.25-0.30 against 0.72-0.82. The label check relies on ImageNet features separating the classes.
 - **Many classes with few images each give false alarms.** Tiny-ImageNet (200 classes, ~15 images each): 10% of clean
   batches at LOW_RISK and 5.8% at SUSPICIOUS (nominal 5% and 1%).
-- **No claim about informed attackers yet.** Attacks tuned to evade the image checks were run against a small CNN;
-  only one family worked (ASR >= 0.9: faint patch, all 4 runs flagged). The evasive settings found (clean-label
-  low-frequency trigger, boundary-aware flips at 1%) evade Veritas but did not work on that model. A stronger victim
-  is needed before any claim either way.
+- **Informed attackers (images, CIFAR-10, a small CNN victim):** attacks tuned to evade the checks were all flagged
+  when the attacker relabels images; every run where the backdoor worked (14 of 14 with attack success >= 90%) was
+  flagged. **A smooth low-frequency trigger on correctly labelled images is not detected:** at 5% poison it was never
+  flagged and reached 20% attack success (3% without poison). It did not reach 90% on this victim; a stronger model
+  might, and Veritas would not see it.
 - **Frequency-domain image triggers are found only through their labels.** BackdoorBench's Low Frequency and FTrojan
   triggers are caught because the attacker relabels the images; no pattern check sees the trigger itself.
 - **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are

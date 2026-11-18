@@ -19,7 +19,8 @@ export const KINDS = {
     limits: ['Images are checked at 32×32: a trigger smaller than about 1/32 of the image can vanish.',
              'At 1% poison, random label flips are ranked but rarely give a batch verdict (2 of 10 test batches).',
              'Label flips are found well only where general-purpose image features separate the classes (photos of objects, signs); on digits or hundreds of small classes they are rarely found.',
-             'With many classes and about 15 images each, clean sets give false alarms (6% at SUSPICIOUS on Tiny-ImageNet).'],
+             'With many classes and about 15 images each, clean sets give false alarms (6% at SUSPICIOUS on Tiny-ImageNet).',
+             'A smooth, low-frequency trigger added to correctly labelled images is not detected.'],
   },
   audio: {
     label: 'Audio', accept: '.zip', maxMb: 500, noun: 'clips',

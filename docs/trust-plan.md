@@ -93,6 +93,9 @@ benchmark_id. Tables not started.
 **v2 (running from 2026-11-17, `manifest-adaptive-images-v2`):** reference 3,000 so poison is 2.5% / 5% of the
 victim's training set at 5% / 10%, 40 epochs, stronger strength grids; same criterion.
 
+**Result v2 (2026-11-18):** relabelled attacks flagged at every strength; 14 of 14 runs with ASR >= 0.9 flagged. The
+clean-label low-frequency trigger evades (never flagged at 5%, ASR 0.20 there); added to the model card. Tables not started.
+
 ## Phase 4: breadth
 
 **Why:** 1-2 datasets per media type cannot show the numbers carry over.

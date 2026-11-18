@@ -290,3 +290,26 @@ at v9. Share of batches flagged at 1.3 at 1 / 3 / 5 / 10% (n = 5 each):
 - **Clean alarms are not calibrated on Tiny-ImageNet**: 5.8% of clean batches reach SUSPICIOUS (nominal 1%). With
   ~15 items per class the per-class checks' p-values are too small. Many-class, few-per-class data gets false alarms.
 - 14.3 s per batch.
+
+## Attacks tuned to evade the checks, v2: a victim that learns (Phase 3, 2026-11-18)
+
+`manifest-adaptive-images-v2`, `results/2026-11-18-benchmark-adaptive-images-v2.*`. Changed from v1 so the victim
+can learn a backdoor, criterion unchanged and written before the run: reference 3,000 (poison is 2.5% / 5% of the
+victim's training set at 5% / 10%), 40 epochs (clean accuracy 0.72), stronger strength grids, label-flip families
+dropped (covered by v1). 3 eval seeds per cell; the attacker chooses on 3 other seeds.
+
+| Family | Flagged | Runs with ASR >= 0.9 (flagged) | Highest ASR | Evasive setting |
+|---|---|---|---|---|
+| Faint 3x3 checkerboard, relabelled | 100% at every strength | 12 (12) | 1.00 | none |
+| Smooth low-frequency trigger, relabelled | 100% at every strength | 1 (1) | 0.84 mean, 0.94 best | none |
+| Warp (WaNet-style), relabelled | 100% at every strength | 1 (1) | 0.71 mean | none |
+| Low-frequency trigger, labels unchanged | 0% up to amplitude 32 at 5%, 67% at amplitude 32 / 10% | 0 | 0.41 | yes: amplitude 32 at 5% (ASR 0.20, not flagged), 16 at 10% (ASR 0.15) |
+
+- **Pre-set criterion:** every run where the attack worked (14 of 14) was flagged. That is the claim Veritas can make
+  for attackers who relabel images, on this victim and CIFAR-10.
+- **The clean-label low-frequency trigger gets past Veritas.** At 5% poison it is never flagged; on this victim it
+  then makes 20% of triggered test images go to the target class (3% without poison). It did not reach 0.9; a
+  stronger victim or longer training might, and Veritas would not see it. No pattern check reads smooth trigger
+  energy: the shift and pixel checks start to react only at amplitude 32 and 10% poison.
+- All relabelled attacks are caught by the label check (leading check at low strength); triggers strong enough to
+  work are also caught by the patch and signature checks (faint patch from opacity 0.1).
