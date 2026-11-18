@@ -110,8 +110,9 @@ clean-label low-frequency trigger evades (never flagged at 5%, ASR 0.20 there); 
 
 **Result so far (2026-11-16):** images (SVHN, Tiny-ImageNet): triggers, duplicates and class noise carry over; label
 flips do not (row AUPRC 0.25-0.30 vs 0.72-0.82), and Tiny-ImageNet gives 5.8% clean alarms at SUSPICIOUS. Audio
-(UrbanSound8K): between Speech Commands and ESC-50, clean alarms at nominal. Tables: run paused until the machine is
-free. Video: HMDB-51 waits for the archive (official link down).
+(UrbanSound8K): between Speech Commands and ESC-50, clean alarms at nominal. Tables (8 OpenML sets, 2026-11-18):
+carry over, row AUPRC 0.71 / 0.92 at 1% / 5% (0.73-0.99 by dataset), clean 1.9%; the run also exposed hours-long
+checks on wide tables, fixed exactly (876990f). Video: HMDB-51 waits for the archive (official link down).
 
 **Needs:** permission for downloads (several GB; HMDB-51 ~2 GB, UrbanSound8K ~6 GB).
 
