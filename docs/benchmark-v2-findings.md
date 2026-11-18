@@ -481,3 +481,26 @@ share of batches flagged at 1.3, before (images v8, audio v2) -> after:
 - GTSRB clean-label stays capped by class size (~70 items of the target class per batch).
 - App limit texts now say clean-label audio triggers are found in speech-like clips and not in small sound-event
   sets; video is unchanged (the check is off there). The check stays off in the no-reference screening.
+
+## New datasets, never used for tuning (Phase 4, 2026-11-18)
+
+`manifest-v2-breadth-v1`, `results/2026-11-18-benchmark-v2-breadth-v1.*`. Eight OpenML sets with shapes the 12
+benchmark sets lack: Amazon_employee_access (all categorical), Internet-Advertisements (1,558 columns), nomao,
+kr-vs-kp, mc1 (0.7% minority class), one-hundred-plants-margin (100 classes), dna, bank-marketing. Same attacks and
+rates, 1,200 incoming rows per batch (640 for the 100-class set), detector frozen at 1f2c439 apart from the exact
+speed-up of the residual check (876990f, identical scores). The first dataset also scored the 24 research variants;
+the rest only veritas2 and the baselines.
+
+| | 1% | 3% | 5% | 10% |
+|---|---|---|---|---|
+| veritas2 mean row AUPRC (12 benchmark sets) | 0.71 (0.49) | | 0.92 (0.80) | |
+| Attacked batches flagged at 1.3 (12 benchmark sets) | 64% (42%) | 91% | 95% (85%) | 97% |
+| cleanlab / kNN label / Isolation Forest / ECOD row AUPRC | 0.51 / 0.25 / 0.07 / 0.17 | | 0.65 / 0.47 / 0.15 / 0.20 | |
+
+- Clean batches: 3 of 160 at 1.3 (1.9%; nominal 5%), none at 2.0.
+- Per dataset, row AUPRC at 5%: 0.73 (Amazon, all categorical) to 0.99 (kr-vs-kp); batches flagged at 1%: 20%
+  (Amazon; one-hundred-plants, 640 rows and 100 classes) to 97% (mc1); at 5%: 70% (one-hundred-plants) to 100%.
+- Weakest at 1%: random label flips (47% of batches) and covariate shift (53%; row AUPRC 0.57).
+- Better than on the 12 benchmark sets, probably because every batch here has 1,200 rows; several of the 12 have only
+  a few hundred, so 1% is a handful of rows. The 12-set numbers stay the headline; these are the range.
+- Seconds per batch: about 1-5 for most, 17 for dna (180 columns), 42 for 100 classes, 174 for 1,558 columns.

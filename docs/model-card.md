@@ -41,6 +41,9 @@ By poison rate (batch detection at 5% false alarms), Nov 13: 1% 0.47, 3% 0.79, 5
 flagged batches: exact attack 74%, right family 86% (random vs targeted label flips are often confused). The CIFAR-10N comparison below
 was run on the Nov 7 detector. On real CIFAR-10N
 label noise `veritas2` matches cleanlab (row AUPRC 0.45 to 0.57 vs 0.46 to 0.58); it does not beat it.
+On 8 further OpenML datasets never used for tuning (all-categorical, 1,558 columns, 100 classes, 0.7% minority):
+row AUPRC 0.71 at 1% and 0.92 at 5% (0.73 to 0.99 by dataset), 64% / 95% of attacked batches flagged, clean batches
+1.9% at LOW_RISK. A 1,558-column batch of 1,200 rows takes about 3 minutes.
 
 **Calibration.** On held-out clean batches 3.7% reached LOW_RISK (nominal 5%, n = 240), 1.3% reached SUSPICIOUS (nominal 1%)
 and none reached CONFIRMED (Nov 7 detector: 7.1%, 0.8%, 0).

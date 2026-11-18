@@ -5,7 +5,7 @@ import { PageIntro, PageTitle } from '../ui/Reveal';
 // together with the docs whenever a detector changes.
 const ROWS = [
   { kind: 'Tables', data: '12 OpenML datasets (credit-g, adult, spambase, …)', auprc: [0.49, 0.80], caught: [0.42, 0.85], clean: '3.7%',
-    misses: 'Covariate shift at 1% (0.18); feature collisions are found as rows, rarely as cells.', doc: 'benchmark-v2-findings.md' },
+    misses: 'Covariate shift at 1% (0.18); feature collisions are found as rows, rarely as cells.', doc: 'benchmark-v2-findings.md', note: 'On 8 further datasets never used for tuning: 0.71 / 0.92, 64% / 95% flagged, 1.9% clean.' },
   { kind: 'Images', data: 'CIFAR-10, GTSRB', auprc: [0.87, 0.92], caught: [0.83, 0.97], clean: '3.3%',
     misses: 'Random label flips at 1% (20% of batches); images are checked at 32×32.', doc: 'image-benchmark-findings.md' },
   { kind: 'Audio', data: 'Speech Commands (test speakers), ESC-50 (folds 4–5)', auprc: [0.59, 0.76], caught: [0.51, 0.86], clean: '3.3%',
