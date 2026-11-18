@@ -503,3 +503,5 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .instrument * { animation: none !important; transition: none !important; }
 }
+.in-load-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 8px 0 16px; }
+.in-load-error .in-error { margin: 0; }

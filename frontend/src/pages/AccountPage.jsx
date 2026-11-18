@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { fmt } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
+import { LoadError } from '../components/LoadError';
+import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 
 /**
@@ -14,10 +16,8 @@ const USAGE = [['analyses', 'Analyses'], ['rows', 'Rows checked'], ['scan_mb', '
 const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
 function Usage() {
-  const [u, setU] = useState(null);
-  const [error, setError] = useState(null);
-  useEffect(() => { api.getUsage().then(setU).catch((e) => setError(e.message)); }, []);
-  if (error) return <p className="in-error" role="alert">{error}</p>;
+  const { data: u, error, retry } = useLoad(useCallback(() => api.getUsage(), []));
+  if (error) return <LoadError error={error} onRetry={retry} />;
   if (!u) return <Skeleton label="Loading your usage…" lines={0} rows={3} />;
   return (
     <>

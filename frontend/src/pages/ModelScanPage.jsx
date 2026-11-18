@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { MODEL_VERDICTS as VERDICTS } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
+import { LoadError } from '../components/LoadError';
+import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
 import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
@@ -124,13 +126,11 @@ const when = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: 'medi
 
 /** One saved scan, opened from the recent scans. */
 function ScanDetail({ id }) {
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  useEffect(() => { api.getModelScan(id).then(setResult).catch((e) => setError(e.message)); }, [id]);
+  const { data: result, error, retry } = useLoad(useCallback(() => api.getModelScan(id), [id]));
   return (
     <main className="in-main"><div className="in-page">
       <Link to="/model-scan" className="in-link-text in-back">← Scanner</Link>
-      {error && <p className="in-error" role="alert">{error}</p>}
+      {error && <LoadError error={error} onRetry={retry} />}
       {!result && !error && <Skeleton label="Loading this scan…" title lines={2} rows={3} />}
       {result && (
         <>
