@@ -41,7 +41,9 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorMessage(err.detail, fallback));
+    const e = new Error(errorMessage(err.detail, fallback));
+    e.status = res.status;   // callers can tell a final answer (4xx) from a passing failure (5xx, 429)
+    throw e;
 }
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {

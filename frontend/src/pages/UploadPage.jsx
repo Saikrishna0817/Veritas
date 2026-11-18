@@ -83,7 +83,7 @@ function SampleData({ disabled, onRun }) {
   );
 }
 
-function JobProgress({ stage, startedAt }) {
+function JobProgress({ stage, startedAt, retrying }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   const at = STEPS.findIndex(([k]) => k === stage);
@@ -97,6 +97,7 @@ function JobProgress({ stage, startedAt }) {
         ))}
       </ol>
       <div className="in-elapsed in-num">{Math.round((now - startedAt) / 1000)} s elapsed. You can leave this page; the result is saved to History.</div>
+      {retrying && <div className="in-hint">Lost the connection to Veritas. The check keeps running on the server; trying again.</div>}
     </div>
   );
 }
@@ -122,16 +123,29 @@ export default function UploadPage() {
   const [error, setError] = useState(null);
   const poll = useRef(null);
 
+  // Follows a job until it ends. The job runs on the server whatever happens here, so a dropped connection, a server
+  // error or rate limiting only pauses the wait (retried with backoff, the job stays remembered for a reload); a 4xx
+  // other than 429 is a final answer (signed out, not allowed, job gone) and ends it.
   const follow = useCallback((j) => {
     clearTimeout(poll.current);
+    let misses = 0;
+    let stage = j.stage || 'queued';
     const tick = async () => {
       try {
         const s = await api.getJob(j.id);
+        misses = 0;
         if (s.status === 'completed') { setJob(null); remember(null); setResult({ kind: j.kind, raw: s.result }); return; }
         if (s.status === 'failed') { setJob(null); remember(null); setError(s.error || 'The analysis failed.'); return; }
-        setJob({ ...j, stage: s.status });
+        stage = s.status;
+        setJob({ ...j, stage, retrying: false });
         poll.current = setTimeout(tick, 1500);
-      } catch (e) { setJob(null); remember(null); setError(e.message); }
+      } catch (e) {
+        const final = e.status >= 400 && e.status < 500 && e.status !== 429;
+        if (final) { setJob(null); remember(null); setError(e.message); return; }
+        misses += 1;
+        setJob({ ...j, stage, retrying: true });
+        poll.current = setTimeout(tick, Math.min(15000, 1500 * 2 ** misses));
+      }
     };
     tick();
   }, []);
@@ -208,7 +222,7 @@ export default function UploadPage() {
           </div>
         </form>
 
-        {job && <section className="in-section" style={{ marginTop: 28 }}><JobProgress stage={job.stage} startedAt={job.startedAt} /></section>}
+        {job && <section className="in-section" style={{ marginTop: 28 }}><JobProgress stage={job.stage} startedAt={job.startedAt} retrying={job.retrying} /></section>}
         {result && <Result kind={result.kind} raw={result.raw} />}
       </div>
     </main>
