@@ -361,12 +361,14 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 .in-page-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: center; }
 .in-review-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: end; }
 .in-head-stage, .in-keys-stage { display: none; }
+.in-cloud { height: 240px; background: var(--sheet); border: 1px solid var(--rule-soft); }
 @media (min-width: 960px) {
   .in-page-head { grid-template-columns: minmax(0, 1fr) 260px; }
   .in-head-stage { display: block; height: 240px; }
   .in-page-head-wide { grid-template-columns: minmax(0, 1fr) minmax(0, 440px); }
   .in-review-head { grid-template-columns: minmax(0, 1fr) minmax(0, 480px); }
   .in-keys-stage { display: block; height: 200px; }
+  .in-cloud { height: 320px; }
 }
 .in-table tbody tr[data-hot] td, .in-latest-row[data-hot], .in-imports li[data-hot] { background: var(--accent-wash); }
 .in-imports { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
@@ -492,7 +494,7 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
   }
   html { background: var(--paper) !important; }
   /* the 3D stages are empty boxes on paper */
-  .in-head-stage, .in-keys-stage, .in-auth-stage { display: none !important; }
+  .in-head-stage, .in-keys-stage, .in-auth-stage, .in-cloud { display: none !important; }
   body { background: white; background-image: none; }
   .ar-scene { display: none !important; }   /* no canvas on paper */
   .in-nav, .in-footer, .in-actions, .in-back, select { display: none !important; }

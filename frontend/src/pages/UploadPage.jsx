@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
+import { followJob, startDirect } from '../services/uploads';
 import { KINDS, Result } from '../components/results';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { useStage } from '../scene/stage';
@@ -121,38 +122,20 @@ export default function UploadPage() {
   const [job, setJob] = useState(saved?.id ? { ...saved, stage: 'queued' } : null);   // { id, kind, startedAt, stage }
   const [result, setResult] = useState(null); // { kind, raw }
   const [error, setError] = useState(null);
-  const poll = useRef(null);
+  const stop = useRef(() => {});
 
-  // Follows a job until it ends. The job runs on the server whatever happens here, so a dropped connection, a server
-  // error or rate limiting only pauses the wait (retried with backoff, the job stays remembered for a reload); a 4xx
-  // other than 429 is a final answer (signed out, not allowed, job gone) and ends it.
   const follow = useCallback((j) => {
-    clearTimeout(poll.current);
-    let misses = 0;
-    let stage = j.stage || 'queued';
-    const tick = async () => {
-      try {
-        const s = await api.getJob(j.id);
-        misses = 0;
-        if (s.status === 'completed') { setJob(null); remember(null); setResult({ kind: j.kind, raw: s.result }); return; }
-        if (s.status === 'failed') { setJob(null); remember(null); setError(s.error || 'The analysis failed.'); return; }
-        stage = s.status;
-        setJob({ ...j, stage, retrying: false });
-        poll.current = setTimeout(tick, 1500);
-      } catch (e) {
-        const final = e.status >= 400 && e.status < 500 && e.status !== 429;
-        if (final) { setJob(null); remember(null); setError(e.message); return; }
-        misses += 1;
-        setJob({ ...j, stage, retrying: true });
-        poll.current = setTimeout(tick, Math.min(15000, 1500 * 2 ** misses));
-      }
-    };
-    tick();
+    stop.current();
+    stop.current = followJob(api, j.id, {
+      onStatus: (stage, retrying) => setJob({ ...j, stage, retrying }),
+      onDone: (raw) => { setJob(null); remember(null); setResult({ kind: j.kind, raw }); },
+      onFail: (message) => { setJob(null); remember(null); setError(message); },
+    }, j.stage);
   }, []);
 
   useEffect(() => {
     if (saved?.id) follow(saved);
-    return () => clearTimeout(poll.current);
+    return () => stop.current();
   }, [follow, saved]);
 
   // switching the data type keeps the no-reference default (trusting part of the data stays opt-in)
@@ -181,11 +164,13 @@ export default function UploadPage() {
     const startedAt = Date.now();
     setJob({ id: null, kind, startedAt, stage: 'uploading' });
     try {
-      const { job_id } = await api.submitAnalysis(kind, file, {
+      const opts = {
         referenceFile: refMode === 'file' ? refFile : null,
         splitColumn: refMode === 'column' ? split.column : null, splitCutoff: refMode === 'column' ? split.cutoff : null,
         noReference: refMode === 'none',
-      });
+      };
+      // large tables go straight to storage when the server has it; otherwise (and for zips) the usual upload
+      const job_id = await startDirect(api, kind, file, opts) || (await api.submitAnalysis(kind, file, opts)).job_id;
       const j = { id: job_id, kind, startedAt };
       remember(j);
       follow(j);

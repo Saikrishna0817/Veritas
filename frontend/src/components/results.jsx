@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
 import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
+import ScoreCloudSlot from './ScoreCloudSlot';
 
 // Results of any analysis (table, images, audio, video), shared by the upload page, History and the dashboard.
 /* eslint-disable react-refresh/only-export-components */
@@ -329,6 +330,13 @@ export function Result({ kind, raw }) {
         <EvidenceMeters checks={res.checks} />
       </section>
       <section className="in-section"><Verdict kind={kind} res={res} /></section>
+      {raw.layer_results?.row_flags?.row_scores?.length > 0 && (
+        <section className="in-section">
+          <h2 className="in-h2">Every row, scored</h2>
+          <p className="in-sub">One point per row of your file; the higher a point, the higher its row score. Rows flagged as suspicious are terracotta. A large file shows every flagged row and an even sample of the rest.</p>
+          <ScoreCloudSlot scores={raw.layer_results.row_flags.row_scores} flagged={raw.layer_results.row_flags.flagged_indices_incoming || []} />
+        </section>
+      )}
       {res.profile && (
         <section className="in-section">
           <h2 className="in-h2">What the suspicious rows look like</h2>
