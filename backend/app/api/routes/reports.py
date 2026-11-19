@@ -15,6 +15,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
+from app.api.paging import before_cursor, next_cursor
 from app.api import dependencies as deps
 from app.core.security import require_admin, require_user
 
@@ -64,14 +65,16 @@ def _get_best_result(user: dict, prefer: str = "auto") -> dict:
 async def get_analysis_history(
     source: Optional[str] = Query(None, pattern="^(demo|upload|real_dataset|model_scan)$"),
     limit: int = Query(50, ge=1, le=200),
+    before: Optional[str] = Depends(before_cursor),
     user: dict = Depends(require_user),
 ):
-    """The caller's history (every user's for an admin): analysis_results + model_scans."""
+    """The caller's history (every user's for an admin): analysis_results + model_scans, newest first.
+    ``next_before`` is the cursor for the next older page (null on the last page)."""
     owner = deps.owner_scope(user)
-    rows = deps.db.get_history(owner, source=source, limit=limit)
+    rows = deps.db.get_history(owner, source=source, limit=limit, before=before) if source != "model_scan" else []
     model_rows = []
     if source in (None, "model_scan"):
-        model_rows = deps.db.get_model_scan_history(owner, limit=limit)
+        model_rows = deps.db.get_model_scan_history(owner, limit=limit, before=before)
         for r in model_rows:
             r["source"] = "model_scan"
             r["filename"] = r.get("model_filename")
@@ -82,17 +85,20 @@ async def get_analysis_history(
     combined = combined[:limit]
 
     stats = deps.db.get_stats(owner)
-    return {"results": combined, "stats": stats}
+    return {"results": combined, "stats": stats, "next_before": next_cursor(combined, limit)}
 
 
 @router.get("/audit/events")
 async def get_my_audit_events(
     limit: int = Query(50, ge=1, le=200),
+    before: Optional[str] = Depends(before_cursor),
     user: dict = Depends(require_user),
 ):
-    """Return recent audit activity (all system activity for admins, user's own activity for regular users)."""
+    """Return recent audit activity (all system activity for admins, user's own activity for regular users).
+    ``next_before`` is the cursor for the next older page (null on the last page)."""
     actor_id = None if user.get("role") == "admin" else user["id"]
-    return {"events": deps.db.get_audit_events(actor_id=actor_id, limit=limit)}
+    events = deps.db.get_audit_events(actor_id=actor_id, limit=limit, before=before)
+    return {"events": events, "next_before": next_cursor(events, limit)}
 
 
 

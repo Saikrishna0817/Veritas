@@ -169,9 +169,16 @@ def get_latest_real(owner_id: str) -> Optional[Dict]:
     return json.loads(row["full_json"]) if row else None
 
 
-def get_history(owner_id: str, source: str = None, limit: int = 20) -> List[Dict]:
-    """Recent results as lightweight summary rows."""
+def _before(before: str | None) -> tuple[str, tuple]:
+    """Paging cursor: (' AND created_at < ?', (before,)) or nothing. ``before`` is a created_at from the previous page."""
+    return (" AND created_at < ?", (before,)) if before else ("", ())
+
+
+def get_history(owner_id: str, source: str = None, limit: int = 20, before: str | None = None) -> List[Dict]:
+    """Recent results as lightweight summary rows, newest first; ``before`` continues from an earlier page."""
     clause, args = _scope(owner_id)
+    page, page_args = _before(before)
+    clause, args = clause + page, (*args, *page_args)
     where, params = ("source=?" + clause, (source, *args)) if source else ("1=1" + clause, args)
     rows = _get_conn().execute(
         f"""SELECT id, source, filename, verdict, score, attack_type, detection_mode, n_samples, elapsed_ms, created_at, owner_id
@@ -179,9 +186,11 @@ def get_history(owner_id: str, source: str = None, limit: int = 20) -> List[Dict
     return [dict(r) for r in rows]
 
 
-def get_model_scan_history(owner_id: str, limit: int = 20) -> List[Dict]:
-    """Recent model scan summaries."""
+def get_model_scan_history(owner_id: str, limit: int = 20, before: str | None = None) -> List[Dict]:
+    """Recent model scan summaries, newest first."""
     clause, args = _scope(owner_id)
+    page, page_args = _before(before)
+    clause, args = clause + page, (*args, *page_args)
     rows = _get_conn().execute(
         f"""SELECT id, model_filename, dataset_filename, model_type, verdict, score, attack_type, n_samples, created_at, owner_id
             FROM model_scans WHERE 1=1{clause} ORDER BY created_at DESC LIMIT ?""", (*args, limit)).fetchall()
@@ -239,17 +248,18 @@ def log_audit_event(
     return event_id
 
 
-def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]:
-    """Return recent audit records without exposing unbounded history."""
+def get_audit_events(actor_id: str | None = None, limit: int = 50, before: str | None = None) -> List[Dict]:
+    """Return recent audit records without exposing unbounded history; ``before`` continues from an earlier page."""
     limit = max(1, min(limit, 200))
     conn = _get_conn()
+    page, page_args = _before(before)
     if actor_id:
         rows = conn.execute(
-            "SELECT * FROM audit_events WHERE actor_id=? ORDER BY created_at DESC LIMIT ?",
-            (actor_id, limit),
+            f"SELECT * FROM audit_events WHERE actor_id=?{page} ORDER BY created_at DESC LIMIT ?",
+            (actor_id, *page_args, limit),
         ).fetchall()
     else:
-        rows = conn.execute("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        rows = conn.execute(f"SELECT * FROM audit_events WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?", (*page_args, limit)).fetchall()
     events = []
     for row in rows:
         event = dict(row)
@@ -418,11 +428,12 @@ def revoke_api_key(owner_id: str, key_id: str) -> bool:
     return cur.rowcount > 0
 
 
-def list_users(limit: int = 50) -> List[Dict]:
+def list_users(limit: int = 50, before: str | None = None) -> List[Dict]:
     conn = _get_conn()
+    page, page_args = _before(before)
     rows = conn.execute(
-        "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC LIMIT ?",
-        (max(1, min(limit, 200)),),
+        f"SELECT id, username, role, created_at FROM users WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?",
+        (*page_args, max(1, min(limit, 200))),
     ).fetchall()
     return [dict(row) for row in rows]
 

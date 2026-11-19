@@ -1,8 +1,10 @@
 """User management endpoints for Administrators."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+
+from app.api.paging import before_cursor, next_cursor
 
 from app.core.security import require_admin, hash_password
 from app.models import database as db
@@ -30,9 +32,15 @@ class RoleRequest(BaseModel):
 
 
 @router.get("/users", response_model=List[Dict[str, Any]])
-async def get_users(admin: dict = Depends(require_admin)):
-    """List all registered users in the platform."""
-    return db.list_users(limit=200)
+async def get_users(response: Response, limit: int = Query(200, ge=1, le=200),
+                    before: Optional[str] = Depends(before_cursor), admin: dict = Depends(require_admin)):
+    """Registered accounts, newest first. The body stays a plain list; the cursor for the next older page, when
+    there is one, is in the X-Next-Before header."""
+    users = db.list_users(limit=limit, before=before)
+    cursor = next_cursor(users, limit)
+    if cursor:
+        response.headers["X-Next-Before"] = cursor
+    return users
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
