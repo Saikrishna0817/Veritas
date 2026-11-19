@@ -36,20 +36,35 @@ Each fix has a test in `backend/tests/test_backend_review_2026_11.py`; every tes
 Full suite after the fixes: 222 passed, 8 skipped (SQLite, on Windows). Audio and video tests skip without
 torchaudio / ffmpeg on this machine; CI runs them.
 
-## 3. Found, not fixed yet (pending)
+## 3. Second batch (branch `backend/plan-features`, built on `backend/review-fixes`)
 
-| # | Severity | Problem | Proposed fix | Why it waits |
+| # | Status | Problem | What was done | Test |
 |---|---|---|---|---|
-| P1 | Medium | A signed token for an id that is in neither `users` nor `deleted_accounts` is accepted with the role in its claims. Only someone holding `VERITAS_JWT_SECRET` can mint one, so the risk is a leaked secret. | Refuse tokens whose user does not exist (fail closed). | About 15 test files mint tokens for ids that are not in the database; they need a helper that creates the user first. Mechanical but touches many files. |
-| P2 | Medium | Sign-out clears the cookies, but the token itself stays valid until it expires. A copied token keeps working. | Short access token plus a refresh token, or a server-side session id checked per request; or bump `token_version` on sign-out ("sign out everywhere"). | Design decision (one device vs all devices); changes the auth contract. |
-| P3 | Medium | No refresh tokens: sessions end hard after 60 minutes. | Refresh token in its own httpOnly cookie with rotation and reuse detection. | Same as P2; frontend change needed. |
-| P4 | Low | `DELETE /history/{id}` leaves the result in the in-memory "latest" cache, so `/forensics/latest` can show a deleted result until restart or eviction. | Clear matching cache entries on delete. | Small; next batch. |
-| P5 | Low | List endpoints have `limit` but no `offset` / cursor (`/history`, `/audit/events`, `/users`); `/users` returns at most 200. | Cursor pagination (`before=<created_at,id>`), additive query parameters. | Additive API change; frontend needs it to page. |
-| P6 | Low | Owner-scoped lists filter on `owner_id` and sort by `created_at`, but the indexes are separate single-column ones. | Migration 0007: composite `(owner_id, created_at DESC)` indexes on `analysis_results`, `model_scans`, `defense_actions`, `hitl_cases`. | Needs a check on PostgreSQL with realistic volume. |
-| P7 | Low | Admin-created duplicate usernames answer 400; sign-up answers 409. | 409 everywhere. | Changes a status code the frontend may read. |
-| P8 | Low | Usernames are unique case-sensitively (`Alice` and `alice` can both exist), while the login rate limit keys on the lower-cased name. | Unique index on `lower(username)` plus a check at creation. | Needs a migration and a decision about existing duplicates. |
-| P9 | Info | Failed sign-ins are rate-limited but not written to the audit log. | Audit `auth.login_failed` with the IP (not the password), and alert on bursts. | Small; next batch. |
-| P10 | Info | No account deactivation (suspend without erasing). | `users.disabled_at`, checked at sign-in and per request; admin endpoint. | New feature. |
+| P1 | Done | A signed token for an id in neither `users` nor `deleted_accounts` was accepted with the role in its claims, so a leaked `VERITAS_JWT_SECRET` could mint an admin. | `decode_access_token` refuses tokens whose account does not exist. Tests that minted tokens for unstored ids use `tests/auth_helpers.token_for`, which creates the account first. | `test_auth_api.py::test_a_token_for_an_account_that_does_not_exist_is_refused` |
+| P2 | Partly done | Sign-out clears the cookies, but a copied token stays valid until it expires. | `POST /auth/logout-all` ends every session of the account on every device (bumps `token_version`); API keys keep working. Plain `/auth/logout` is unchanged (this browser only). | `test_sessions_and_login_audit.py` |
+| P3 | Pending | No refresh tokens: sessions end hard after 60 minutes. | Proposed: refresh token in its own httpOnly cookie, rotated on use, reuse detection ends the family. Needs a frontend change to renew silently. | — |
+| P4 | Done | `DELETE /history/{id}` left the result in the in-memory caches, so `/forensics/latest` could still show it. | `dependencies.forget_result()` drops it from both caches. | `test_cache_and_usernames.py` |
+| P5 | Done | No paging past `limit` on `/history`, `/audit/events`, `/users`. | `?before=<created_at>` cursor on all three; `next_before` in the body (`/history`, `/audit/events`) or the `X-Next-Before` header (`/users`, whose body stays a list). Bad cursors are 422. Calls without `before` answer exactly as before. | `test_paging.py` |
+| P6 | Done | Owner-scoped lists filter on `owner_id` and sort by `created_at` with separate single-column indexes. | Migration 0007: `(owner_id, created_at DESC)` on `analysis_results`, `model_scans`, `defense_actions`, `hitl_cases`; `users(created_at)`. Not yet measured on PostgreSQL with production volume. | `test_paging.py::test_owner_and_time_indexes_exist` |
+| P7 | Done | Admin-created duplicate usernames answered 400; sign-up 409. | 409 for both. The frontend shows the message and does not read the code. | `test_cache_and_usernames.py` |
+| P8 | Done (check only) | `Alice` and `alice` could both exist. | Sign-up and admin creation refuse a name that matches an existing one in any letter case. No unique index on `lower(username)` yet: existing duplicates (if any) would make that migration fail, so check production data first. Sign-in stays exact-match. | `test_cache_and_usernames.py` |
+| P9 | Done | Failed sign-ins were not in the audit log. | `auth.login_failed` with the IP: as the account's own event when the name exists (its owner sees it), as `anonymous` with no name when it does not (people type passwords into the name field). Also logged as warnings. Alerting on bursts is still to do. | `test_sessions_and_login_audit.py` |
+| P10 | Done | No way to suspend an account without erasing it. | `POST /users/{id}/disable` and `/enable` (admin, not your own account, audited). Disabled: sign-in refused (403, only after the right password), sessions ended, API keys stop working, data kept. Migration 0008; `GET /users` adds `disabled_at`. No admin UI yet. | `test_account_disable.py` |
+
+Full suite after the second batch: 237 passed, 8 skipped (SQLite, Windows).
+
+New endpoints the frontend does not use yet: `POST /auth/logout-all`, `POST /users/{id}/disable`, `POST /users/{id}/enable`,
+and the `before` cursor. Existing response shapes are unchanged; the only changed status code is P7 (400 → 409).
+
+### Still pending
+
+| # | Item | Notes |
+|---|---|---|
+| P3 | Refresh tokens | Design above; needs the frontend. |
+| P8b | Unique index on `lower(username)` | After checking existing data for case duplicates. |
+| P9b | Alert on bursts of failed sign-ins | Prometheus counter + alert rule, or Sentry. |
+| P11 | Admin UI for disable/enable, sign out everywhere, and paging | Frontend work. |
+| P12 | Admin 2FA (TOTP) | Planned under decision 3. |
 
 ## 4. Brief items that need a decision before work starts
 
@@ -70,10 +85,9 @@ torchaudio / ffmpeg on this machine; CI runs them.
 `/metrics`, `/api/v1`, CI. Remaining: `/ready` (done above), consistent error codes (decision 1), and a written
 environment-variable reference (`.env.example` exists).
 
-**Phase 2: core.** Auth is in place; remaining: P1, P2/P3, P10, admin 2FA. Pagination and indexes: P5, P6.
+**Phase 2: core.** Done: P1, P2 (sign out everywhere), P5, P6, P10. Remaining: P3 refresh tokens, admin 2FA.
 
-**Phase 3: security and stability.** Audit of failed sign-ins (P9), cache consistency (P4), username rules (P8),
-load test of the upload and analysis endpoints (`/loadtest` exists), backup and restore procedure in `docs/runbook.md`.
+**Phase 3: security and stability.** Done: P4, P7, P8 (check), P9. Remaining: P8b, P9b alerting, load test of the upload and analysis endpoints (`/loadtest` exists), backup and restore procedure in `docs/runbook.md`.
 
 **Phase 4: advanced.** Only what the product needs: notification preferences for finished jobs, data export, then the
 items under decision 3.
@@ -81,3 +95,4 @@ items under decision 3.
 ## 6. Log
 
 - 2026-11-19: review of main at `3e84659`; fixes 1–4 with tests on `backend/review-fixes`; pending list P1–P10.
+- 2026-11-19: second batch on `backend/plan-features`: P1, P2 (logout-all), P4–P10, one commit each with tests.
