@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 class CreateUserRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=64)
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9._-]+$")   # same rule as self sign-up
     password: str = Field(min_length=10, max_length=128)
     role: str = Field(default="user", pattern="^(user|analyst|admin)$")
 
@@ -66,12 +66,16 @@ async def revoke_user_account(user_id: str, admin: dict = Depends(require_admin)
             detail="Cannot delete your own active administrator account.",
         )
     target = db.get_user_by_id(user_id)
-    success = db.delete_user(user_id)
-    if not success:
+    if not target:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    # Same erasure as self-service deletion: the id is recorded as deleted, so a session token the person still
+    # holds is refused at once instead of working until it expires, and none of their rows are left behind.
+    db.delete_account(user_id)
+    from app.api.routes.account import _forget_cached
+    _forget_cached(user_id)
     db.log_audit_event(admin["id"], "user.deleted", "user", user_id, {"username": (target or {}).get("username")})
     return {"message": "User account successfully revoked."}
 
