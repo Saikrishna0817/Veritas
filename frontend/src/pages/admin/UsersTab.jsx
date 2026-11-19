@@ -49,7 +49,42 @@ function CreateUserForm({ onCreated, onCancel, notify }) {
   );
 }
 
-/** Accounts: list, create, delete. GET /users, POST /users, DELETE /users/{id}. */
+/** One account's role: pick another, then save. The server refuses a change to your own role, so the select is off there. */
+function RoleCell({ u, isSelf, notify, onChanged }) {
+  const id = useId();
+  const [pick, setPick] = useState(u.role);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      await api.setUserRole(u.id, pick);
+      notify({ text: `“${u.username}” is now ${(ROLE_WORDS[pick] || pick).toLowerCase()}. It applies from their next request.` });
+      onChanged();
+    } catch (err) {
+      setPick(u.role);
+      notify({ error: true, text: `The role of “${u.username}” was not changed: ${err.message || 'the server refused it.'}` });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (isSelf) return ROLE_WORDS[u.role] || u.role;
+  return (
+    <div className="in-actions in-role-cell">
+      <label htmlFor={id} className="in-sr">Role of {u.username}</label>
+      <select id={id} className="in-input in-input-sm" value={pick} onChange={(e) => setPick(e.target.value)} disabled={busy}>
+        {Object.entries(ROLE_WORDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+      </select>
+      {pick !== u.role && (
+        <>
+          <button type="button" className="in-btn in-btn-sm" onClick={save} disabled={busy}>{busy ? 'Saving…' : 'Save role'}</button>
+          <button type="button" className="in-btn in-btn-quiet in-btn-sm" onClick={() => setPick(u.role)} disabled={busy}>Cancel</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Accounts: list, create, change role, delete. GET /users, POST /users, PATCH /users/{id}, DELETE /users/{id}. */
 export default function UsersTab({ users, self, notify, onChanged }) {
   const [creating, setCreating] = useState(false);
   const remove = async (u) => {
@@ -66,7 +101,7 @@ export default function UsersTab({ users, self, notify, onChanged }) {
       <div className="in-tab-head">
         <div>
           <h2 className="in-h2">Accounts</h2>
-          <p className="in-sub">Everyone who can sign in. Deleting an account removes its sign-in; their stored results stay until you delete them under Stored results.</p>
+          <p className="in-sub">Everyone who can sign in. A role change applies from the person's next request. Deleting an account removes its sign-in; their stored results stay until you delete them under Stored results.</p>
         </div>
         {!creating && <button type="button" className="in-btn" onClick={() => setCreating(true)}>Create an account</button>}
       </div>
@@ -82,7 +117,7 @@ export default function UsersTab({ users, self, notify, onChanged }) {
                 return (
                   <tr key={u.id}>
                     <td data-label="Username"><b>{u.username}</b>{isSelf && <span className="in-tag"> · you</span>}</td>
-                    <td data-label="Role">{ROLE_WORDS[u.role] || u.role}</td>
+                    <td data-label="Role"><RoleCell key={u.role} u={u} isSelf={isSelf} notify={notify} onChanged={onChanged} /></td>
                     <td data-label="Created" className="in-tag">{when(u.created_at)}</td>
                     <td data-label="ID" className="in-path in-tag">{u.id}</td>
                     <td data-label="" className="in-cell-actions">

@@ -96,7 +96,7 @@ async function signIn(page, path, user, pass) {
   await page.locator('input[type="password"]').press('Enter');
 }
 
-test('admin creates an account, reviews the queue and the log, then deletes the account', async ({ page, browser }) => {
+test('admin creates an account, changes its role, reviews the queue, deletes it, and the audit log records each step', async ({ page, browser }) => {
   test.skip(!ADMIN || !ADMIN_PASS, 'set E2E_ADMIN_USER and E2E_ADMIN_PASS');
   const name = 'e2e_u' + Date.now().toString(36), pass = 'e2e-temp-password-1';   // never signed in: logins are rate limited
 
@@ -112,6 +112,12 @@ test('admin creates an account, reviews the queue and the log, then deletes the 
   const row = page.locator('tbody tr', { hasText: name });
   await expect(row).toBeVisible();
 
+  // change the role
+  await row.getByLabel(`Role of ${name}`).selectOption('analyst');
+  await row.getByRole('button', { name: 'Save role' }).click();
+  await expect(page.getByRole('status')).toContainText(`“${name}” is now analyst`);
+  await expect(row.getByLabel(`Role of ${name}`)).toHaveValue('analyst');
+
 
   // review queue: decide the newest case when there is one, else the empty state
   await page.getByRole('tab', { name: /Review queue/ }).click();
@@ -124,19 +130,20 @@ test('admin creates an account, reviews the queue and the log, then deletes the 
     await expect(page.getByText('No cases are waiting for review.')).toBeVisible();
   }
 
-  // audit log loads
-  await page.getByRole('tab', { name: /Audit log/ }).click();
-  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
-
   // delete
   await page.getByRole('tab', { name: /Accounts/ }).click();
   await row.getByRole('button', { name: 'Delete' }).click();
   await page.getByRole('button', { name: `Delete ${name}` }).click();
   await expect(page.getByRole('status')).toContainText(`Account “${name}” deleted`);
   await expect(page.locator('tbody tr', { hasText: name })).toHaveCount(0);
-});
 
-// Known gaps in the backend (reported, not changed here): POST/DELETE /users write no audit event, and there is no
-// endpoint to change a role. These stay visible as fixme until the backend has them.
-test.fixme('the audit log records account creation, role changes and deletion', async () => {});
-test.fixme('an admin changes a user\'s role', async () => {});
+  // the audit log has all three, as the admin, about this account
+  await page.getByRole('tab', { name: /Audit log/ }).click();
+  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
+  const events = (await (await page.request.get('/api/v1/audit/events?limit=200')).json()).events
+    .filter((e) => e.details?.username === name).map((e) => e.action).sort();
+  expect(events).toEqual(['user.created', 'user.deleted', 'user.role_changed']);
+  for (const action of ['user.created', 'user.role_changed', 'user.deleted']) {
+    await expect(page.locator('td', { hasText: action }).first()).toBeVisible();
+  }
+});

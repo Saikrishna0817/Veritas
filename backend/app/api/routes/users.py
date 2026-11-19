@@ -25,6 +25,10 @@ class CreateUserRequest(BaseModel):
 
 
 
+class RoleRequest(BaseModel):
+    role: str = Field(pattern="^(user|analyst|admin)$")
+
+
 @router.get("/users", response_model=List[Dict[str, Any]])
 async def get_users(admin: dict = Depends(require_admin)):
     """List all registered users in the platform."""
@@ -42,6 +46,7 @@ async def create_user_account(payload: CreateUserRequest, admin: dict = Depends(
         )
     pwd_hash = hash_password(payload.password)
     user_id = db.create_user(payload.username, pwd_hash, role=payload.role)
+    db.log_audit_event(admin["id"], "user.created", "user", user_id, {"username": payload.username, "role": payload.role})
     return {
         "message": f"User '{payload.username}' created successfully.",
         "user": {
@@ -60,10 +65,28 @@ async def revoke_user_account(user_id: str, admin: dict = Depends(require_admin)
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own active administrator account.",
         )
+    target = db.get_user_by_id(user_id)
     success = db.delete_user(user_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
         )
+    db.log_audit_event(admin["id"], "user.deleted", "user", user_id, {"username": (target or {}).get("username")})
     return {"message": "User account successfully revoked."}
+
+
+@router.patch("/users/{user_id}")
+async def change_user_role(user_id: str, payload: RoleRequest, admin: dict = Depends(require_admin)):
+    """Change another account's role. An admin cannot change their own, so the last admin cannot lock everyone out."""
+    if user_id == admin.get("id"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot change the role of the account you are signed in with.")
+    target = db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if target["role"] != payload.role:
+        db.set_user_role(user_id, payload.role)
+        db.log_audit_event(admin["id"], "user.role_changed", "user", user_id,
+                           {"username": target["username"], "from": target["role"], "to": payload.role})
+    return {"message": f"'{target['username']}' is now {payload.role}.",
+            "user": {"id": user_id, "username": target["username"], "role": payload.role}}

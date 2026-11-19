@@ -119,6 +119,7 @@ export const api = {
     getUsers: () => apiFetch('/users'),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
+    setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
 
     // Demo & Real Datasets
     runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
