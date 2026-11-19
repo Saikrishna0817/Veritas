@@ -48,6 +48,11 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   }
 });
 
+test('a signed-out visitor at the front door is sent to the landing page', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/welcome\/$/);    // the landing page's content needs its own server (nginx, or :5180 locally)
+});
+
 test('anonymous visitors are sent to sign-in and cannot call the API', async ({ page, request }) => {
   await page.goto('/upload');
   await expect(page).toHaveURL(/\/login/);

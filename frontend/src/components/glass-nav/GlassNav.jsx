@@ -53,10 +53,13 @@ export default function GlassNav({ links }) {
     let dead = false;
     const eng = createEngine(scene);
     engine.current = eng;
-    const relayout = () => !dead && eng.layout(measure(track.current, parts.tabs, PAD[mode]));
+    // the element is kept from here: when the nav leaves the page (signing out) React clears the ref before this
+    // effect's cleanup runs, and a resize notice arriving in between must not measure null
+    const trackEl = track.current;
+    const relayout = () => !dead && trackEl.isConnected && eng.layout(measure(trackEl, parts.tabs, PAD[mode]));
     relayout();
     const ro = new ResizeObserver(relayout);
-    ro.observe(track.current);
+    ro.observe(trackEl);
     document.fonts?.ready.then(relayout);
     const onLost = (e) => {
       e.preventDefault();

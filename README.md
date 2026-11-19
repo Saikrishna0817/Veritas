@@ -217,6 +217,14 @@ npm run dev
 The app runs at `http://localhost:5173`. Vite proxies `/api` and `/ws` to `localhost:8001`. Set `VITE_API_PROXY`
 to use another address.
 
+Signed-out visitors at `/` are sent to the landing page at `/welcome/`, as nginx serves it in production. Locally,
+run the landing page's own dev server too; the app's dev server forwards `/welcome` to it (`VITE_LANDING_PROXY` to
+change the address):
+
+```bash
+cd frontend/landing && npm install && npx vite --port 5180
+```
+
 ### Docker
 
 ```bash
