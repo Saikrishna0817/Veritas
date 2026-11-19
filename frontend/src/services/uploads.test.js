@@ -127,4 +127,19 @@ describe('followJob', () => {
     await settle();
     assert.equal(api.getJob.mock.callCount(), 1);
   });
+  it('stopped while a check is in flight: no further checks or callbacks', async () => {
+    let answer;
+    api.getJob.mock.mockImplementation(() => new Promise((r) => { answer = r; }));
+    mock.timers.enable({ apis: ['setTimeout'] });
+    let calls = 0;
+    const stop = followJob(api, 'j', { onStatus() { calls++; }, onDone() { calls++; }, onFail() { calls++; } });
+    const before = api.getJob.mock.callCount();
+    stop();
+    answer({ status: 'running' });
+    await settle();
+    mock.timers.tick(5000);
+    await settle();
+    assert.equal(api.getJob.mock.callCount(), before);
+    assert.equal(calls, 0);
+  });
 });

@@ -53,9 +53,11 @@ export async function startDirect(api, kind, file, opts = {}, onStage) {
 export function followJob(api, id, { onStatus, onDone, onFail }, stage = 'queued') {
   let timer;
   let misses = 0;
+  let stopped = false;                       // a check already in flight when stopped must not schedule another
   const tick = async () => {
     try {
       const s = await api.getJob(id);
+      if (stopped) return;
       misses = 0;
       if (s.status === 'completed') return onDone(s.result);
       if (s.status === 'failed') return onFail(s.error || 'The analysis failed.');
@@ -63,6 +65,7 @@ export function followJob(api, id, { onStatus, onDone, onFail }, stage = 'queued
       onStatus(stage, false);
       timer = setTimeout(tick, 1500);
     } catch (e) {
+      if (stopped) return;
       if (e.status >= 400 && e.status < 500 && e.status !== 429) return onFail(e.message);
       misses += 1;
       onStatus(stage, true);
@@ -70,5 +73,5 @@ export function followJob(api, id, { onStatus, onDone, onFail }, stage = 'queued
     }
   };
   tick();
-  return () => clearTimeout(timer);
+  return () => { stopped = true; clearTimeout(timer); };
 }
