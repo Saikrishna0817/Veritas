@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { followJob, startDirect } from '../services/uploads';
 import { MODEL_VERDICTS as VERDICTS } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
 import { LoadError } from '../components/LoadError';
@@ -153,6 +154,8 @@ export default function ModelScanPage() {
   const [error, setError] = useState(null);
   const { data: recent, error: recentError, retry: reloadRecent } = useLoad(useCallback(() => (id ? Promise.resolve(null)
     : api.getModelScanHistory(10).then((d) => d.scans || [])), [id]));
+  const stop = useRef(() => {});
+  useEffect(() => () => stop.current(), []);
   if (id) return <ScanDetail id={id} />;
 
   const choose = (f) => {
@@ -166,12 +169,21 @@ export default function ModelScanPage() {
     if (!file) return;
     setLoading(true); setError(null);
     try {
+      const jobId = await startDirect(api, 'model', file);   // a large file straight to storage, when the server has it
+      if (jobId) {                                           // the scan then runs as a job; loading ends with it
+        stop.current = followJob(api, jobId, {
+          onStatus: () => {},
+          onDone: (raw) => { setResult(raw); setLoading(false); reloadRecent(); },
+          onFail: (message) => { setError(message || 'The scan failed.'); setLoading(false); },
+        });
+        return;
+      }
       const form = new FormData();
       form.append('model_file', file);
       setResult(await api.scanModel(form));
       reloadRecent();                              // the new scan is now first in the list
     } catch (err) { setError(err.message || 'The scan failed.'); }
-    finally { setLoading(false); }
+    setLoading(false);
   };
 
   return (

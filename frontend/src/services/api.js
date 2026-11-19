@@ -187,6 +187,10 @@ export const api = {
         return apiFormData(kind === 'table' ? '/analyze/upload?background=true' : `/analyze/${kind}`, formData);
     },
     getJob: (jobId) => apiFetch(`/jobs/${jobId}`),
+    // Direct-to-storage upload of a large CSV or model file: presign -> PUT to the URL -> complete (returns { job_id }).
+    // presign answers 501 when the server has only local storage.
+    presignUpload: (role, filename, size) => apiFetch('/uploads/presign', { method: 'POST', body: JSON.stringify({ role, filename, size }) }),
+    completeUpload: (body) => apiFetch('/uploads/complete', { method: 'POST', body: JSON.stringify(body) }),
 
     // Model Scan
     scanModel: (formData) => apiFormData('/analyze/model', formData),
