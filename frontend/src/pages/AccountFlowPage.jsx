@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import AuthFrame from '../components/AuthFrame';
+import Turnstile, { TURNSTILE_SITE_KEY } from '../components/Turnstile';
 
 const COPY = {
   signup: { title: 'Create your account', intro: 'A username, your email, and a password of 10 characters or more.', cta: 'Create account' },
@@ -22,6 +23,13 @@ export default function AccountFlowPage({ mode }) {
   const [checking, setChecking] = useState(mode === 'verify' && !!token);
   const [resend, setResend] = useState({ email: '', message: '', error: '', busy: false });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  // The human check on public forms (only when the build has a Turnstile site key). A token works once: after each
+  // attempt the widget is reset and issues a new one.
+  const [human, setHuman] = useState('');
+  const [humanReset, setHumanReset] = useState(0);
+  const needsHuman = Boolean(TURNSTILE_SITE_KEY) && (mode === 'signup' || mode === 'forgot');
+  const [resendHuman, setResendHuman] = useState('');
+  const [resendReset, setResendReset] = useState(0);
 
   // A link's token works once, so it is sent once per token, even when React runs this effect twice in development.
   const sent = useRef('');
@@ -37,8 +45,8 @@ export default function AccountFlowPage({ mode }) {
     setError(''); setMessage(''); setFields({}); setBusy(true);
     try {
       let r;
-      if (mode === 'signup') r = await api.signup(form.username, form.email, form.password);
-      else if (mode === 'forgot') r = await api.requestPasswordReset(form.email);
+      if (mode === 'signup') r = await api.signup(form.username, form.email, form.password, human || undefined);
+      else if (mode === 'forgot') r = await api.requestPasswordReset(form.email, human || undefined);
       else r = await api.confirmPasswordReset(token, form.password);
       setMessage(r.message);
     } catch (err) {
@@ -50,6 +58,7 @@ export default function AccountFlowPage({ mode }) {
         ? 'Check the fields marked below.' : err.message || 'Something went wrong.');
     } finally {
       setBusy(false);
+      if (needsHuman) setHumanReset((n) => n + 1);
     }
   }
   const fieldNote = (...names) => {
@@ -63,10 +72,11 @@ export default function AccountFlowPage({ mode }) {
     event.preventDefault();
     setResend((r) => ({ ...r, message: '', error: '', busy: true }));
     try {
-      const r = await api.resendVerification(resend.email);
+      const r = await api.resendVerification(resend.email, resendHuman || undefined);
       setResend((s) => ({ ...s, message: r.message, busy: false }));
     } catch (err) {
       setResend((s) => ({ ...s, error: err.message || 'Something went wrong.', busy: false }));
+      if (TURNSTILE_SITE_KEY) setResendReset((n) => n + 1);
     }
   }
 
@@ -79,16 +89,18 @@ export default function AccountFlowPage({ mode }) {
           {(mode === 'signup' || mode === 'reset') && (
             <label>Password<input className="in-input" type="password" placeholder="Password (10+ characters)" value={form.password} onChange={set('password')} required minLength={10} maxLength={72} autoComplete="new-password" {...described('password')} />{fieldNote('password', 'new_password')}</label>
           )}
+          {needsHuman && !message && <Turnstile onToken={setHuman} onError={setError} reset={humanReset} />}
           {error && <p className="in-error" role="alert" style={{ margin: 0 }}>{error}</p>}
           {message && <p className="in-ok" role="status" style={{ margin: 0 }}>{message}</p>}
-          {mode !== 'verify' && !message && !(mode === 'reset' && !token) && <button className="in-btn" type="submit" disabled={busy}>{busy ? 'Please wait…' : copy.cta}</button>}
+          {mode !== 'verify' && !message && !(mode === 'reset' && !token) && <button className="in-btn" type="submit" disabled={busy || (needsHuman && !human)}>{busy ? 'Please wait…' : copy.cta}</button>}
         </form>
         {mode === 'verify' && error && (
           <form className="in-auth-form" onSubmit={resendLink} aria-label="Send a new link">
             <label>Email<input className="in-input" type="email" placeholder="Email" value={resend.email} onChange={(e) => setResend({ ...resend, email: e.target.value })} required autoComplete="email" /></label>
+            {!resend.message && <Turnstile onToken={setResendHuman} onError={(e) => setResend((s) => ({ ...s, error: e }))} reset={resendReset} />}
             {resend.error && <p className="in-error" role="alert" style={{ margin: 0 }}>{resend.error}</p>}
             {resend.message ? <p className="in-ok" role="status" style={{ margin: 0 }}>{resend.message}</p>
-              : <button className="in-btn" type="submit" disabled={resend.busy}>{resend.busy ? 'Please wait…' : 'Send a new link'}</button>}
+              : <button className="in-btn" type="submit" disabled={resend.busy || (Boolean(TURNSTILE_SITE_KEY) && !resendHuman)}>{resend.busy ? 'Please wait…' : 'Send a new link'}</button>}
           </form>
         )}
         <div className="in-auth-alt">

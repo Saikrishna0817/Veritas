@@ -3,6 +3,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# Public Turnstile site key (not a secret); empty = no human check on the forms. Vite reads it at build time.
+ARG VITE_TURNSTILE_SITE_KEY=
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
 RUN npm run build
 
 # Public landing page (frontend/landing, its own project), served at /welcome/. It imports the code it shares

@@ -100,10 +100,11 @@ export const api = {
 
     me: () => apiFetch('/auth/me', { skipAuth: true }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
-    signup: (username, email, password) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password }) }),
+    // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
+    signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
-    resendVerification: (email) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
-    requestPasswordReset: (email) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    resendVerification: (email, turnstile_token) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),
+    requestPasswordReset: (email, turnstile_token) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
