@@ -38,10 +38,9 @@ async def get_users(admin: dict = Depends(require_admin)):
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user_account(payload: CreateUserRequest, admin: dict = Depends(require_admin)):
     """Create a new analyst or admin user."""
-    existing = db.get_user_by_username(payload.username)
-    if existing:
+    if db.username_taken(payload.username):          # any letter case, same as sign-up
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,           # same code as sign-up
             detail=f"User with username '{payload.username}' already exists.",
         )
     pwd_hash = hash_password(payload.password)

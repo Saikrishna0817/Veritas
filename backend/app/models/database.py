@@ -291,6 +291,11 @@ def get_user_by_username(username: str) -> Optional[Dict]:
     return dict(row) if row else None
 
 
+def username_taken(username: str) -> bool:
+    """True if any account has this name in any letter case: 'Alice' and 'alice' must not be two people."""
+    return _get_conn().execute("SELECT 1 FROM users WHERE lower(username) = lower(?)", (username,)).fetchone() is not None
+
+
 def get_user_by_email(email: str) -> Optional[Dict]:
     row = _get_conn().execute(f"SELECT {_USER_COLS} FROM users WHERE email=?", (email,)).fetchone()
     return dict(row) if row else None

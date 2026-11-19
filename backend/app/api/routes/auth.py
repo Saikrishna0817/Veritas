@@ -161,7 +161,7 @@ async def signup(body: SignupRequest, request: Request):
         raise HTTPException(status_code=429, detail="Too many sign-ups from this address. Try again later.")
     await _check_turnstile(body.turnstile_token, request)
     email = body.email.lower()
-    if db.get_user_by_username(body.username) or db.get_user_by_email(email):
+    if db.username_taken(body.username) or db.get_user_by_email(email):
         raise HTTPException(status_code=409, detail="That username or email is already registered.")
     verified = not settings.require_email_verification
     user_id = db.create_user(body.username, hash_password(body.password), role="user", email=email, email_verified=verified)

@@ -113,6 +113,7 @@ async def delete_historical_result(result_id: str, admin: dict = Depends(require
     success = deps.db.delete_result(result_id, deps.db.ALL_OWNERS)
     if not success:
         raise HTTPException(status_code=404, detail="Result record not found.")
+    deps.forget_result(result_id)
     deps.db.log_audit_event(
         admin["id"],
         "analysis.deleted",
