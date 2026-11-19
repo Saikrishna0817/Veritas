@@ -21,14 +21,22 @@ export default class PageErrorBoundary extends Component {
   }
 
   render() {
-    if (!this.state.error) return this.props.children;
+    const { error } = this.state;
+    if (!error) return this.props.children;
+    // A page's code could not be downloaded: usually a new version was deployed while this tab was open, or the
+    // connection dropped. Trying again in place cannot fix that (the failed download is remembered); a reload can.
+    const stale = /dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i.test(error.message || '');
     return (
       <main className="in-main"><div className="in-page" role="alert">
         <h1 className="in-h1">{this.props.name ? `${this.props.name} could not be shown` : 'This page could not be shown'}</h1>
-        <p className="in-lede">Something in this page failed while it was drawn. Your session and stored results are not affected.</p>
-        {this.state.error.message && <pre className="in-code">{this.state.error.message}</pre>}
+        <p className="in-lede">
+          {stale ? 'This page could not be downloaded. Veritas may have been updated since this tab was opened, or the connection dropped. Reloading fixes both.'
+            : 'Something in this page failed while it was drawn. Your session and stored results are not affected.'}
+        </p>
+        {!stale && error.message && <details className="in-hint"><summary>Technical detail</summary><pre className="in-code">{error.message}</pre></details>}
         <div className="in-actions" style={{ marginTop: 20 }}>
-          <button type="button" className="in-btn" onClick={() => this.setState({ error: null })}>Try again</button>
+          {stale ? <button type="button" className="in-btn" onClick={() => window.location.reload()}>Reload Veritas</button>
+            : <button type="button" className="in-btn" onClick={() => this.setState({ error: null })}>Try again</button>}
         </div>
       </div></main>
     );

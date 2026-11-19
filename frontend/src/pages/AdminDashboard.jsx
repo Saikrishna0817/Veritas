@@ -61,7 +61,7 @@ export default function AdminDashboard() {
       <Tabs label="Admin sections" tabs={tabs} value={tab} onChange={setTab} />
       <TabPanel id={tab}>
         {tab === 'users' && <UsersTab users={users} self={self} notify={setNotice} onChanged={() => { reloadUsers(); reloadEvents(); }} />}
-        {tab === 'defense' && <DefenseTab status={status} cases={cases} self={self} notify={setNotice} onChanged={() => { reloadStatus(); reloadCases(); reloadEvents(); }} />}
+        {tab === 'defense' && <DefenseTab status={status} cases={cases} notify={setNotice} onChanged={() => { reloadStatus(); reloadCases(); reloadEvents(); }} />}
         {tab === 'audit' && <AuditTab events={events} userNames={userNames} />}
         {tab === 'registry' && <RegistryTab records={records} userNames={userNames} notify={setNotice} onChanged={() => { reloadRecords(); reloadEvents(); }} />}
       </TabPanel>

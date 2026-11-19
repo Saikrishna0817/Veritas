@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, fmt } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
 import { LoadError } from '../components/LoadError';
+import ReviewQueue from '../components/ReviewQueue';
 import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
@@ -77,6 +78,8 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      <ReviewQueue />
 
       <section className="in-section">
         <h2 className="in-h2">What a result means</h2>

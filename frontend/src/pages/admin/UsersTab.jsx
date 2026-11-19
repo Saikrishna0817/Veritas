@@ -8,15 +8,17 @@ function CreateUserForm({ onCreated, onCancel, notify }) {
   const id = useId();
   const [form, setForm] = useState({ username: '', password: '', role: 'user' });
   const [busy, setBusy] = useState(false);
+  const [fields, setFields] = useState({});       // the server's per-field validation messages
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const submit = async (e) => {
     e.preventDefault();
-    setBusy(true);
+    setBusy(true); setFields({});
     try {
       await api.createUser(form);
       notify({ text: `Account “${form.username}” created as ${ROLE_WORDS[form.role].toLowerCase()}.` });
       onCreated();
     } catch (err) {
+      setFields(err.fields || {});
       notify({ error: true, text: `The account was not created: ${err.message || 'the server refused it.'}` });
     } finally {
       setBusy(false);
@@ -27,11 +29,13 @@ function CreateUserForm({ onCreated, onCancel, notify }) {
       <h3 id={`${id}-title`} className="in-h2">Create an account</h3>
       <p className="in-hint">The person signs in with this username and password. Accounts created here have no email address, so give them the password yourself; they cannot reset it by email.</p>
       <label htmlFor={`${id}-u`}>Username</label>
-      <input id={`${id}-u`} className="in-input" value={form.username} onChange={set('username')} required minLength={3} maxLength={64} autoComplete="off" aria-describedby={`${id}-u-hint`} />
+      <input id={`${id}-u`} className="in-input" value={form.username} onChange={set('username')} required minLength={3} maxLength={64} autoComplete="off" aria-describedby={`${id}-u-hint${fields.username ? ` ${id}-u-err` : ''}`} aria-invalid={fields.username ? true : undefined} />
       <small id={`${id}-u-hint`} className="in-hint">3 to 64 characters.</small>
+      {fields.username && <small id={`${id}-u-err`} className="in-error in-field-error">{fields.username}</small>}
       <label htmlFor={`${id}-p`}>Password</label>
-      <input id={`${id}-p`} className="in-input" type="password" value={form.password} onChange={set('password')} required minLength={10} maxLength={128} autoComplete="new-password" aria-describedby={`${id}-p-hint`} />
+      <input id={`${id}-p`} className="in-input" type="password" value={form.password} onChange={set('password')} required minLength={10} maxLength={128} autoComplete="new-password" aria-describedby={`${id}-p-hint${fields.password ? ` ${id}-p-err` : ''}`} aria-invalid={fields.password ? true : undefined} />
       <small id={`${id}-p-hint`} className="in-hint">At least 10 characters.</small>
+      {fields.password && <small id={`${id}-p-err`} className="in-error in-field-error">{fields.password}</small>}
       <label htmlFor={`${id}-r`}>Role</label>
       <select id={`${id}-r`} className="in-input" value={form.role} onChange={set('role')}>
         <option value="user">User: checks data and scans model files</option>

@@ -53,7 +53,8 @@ function ApiKeys() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => api.listApiKeys().then((d) => setKeys(d.keys || [])).catch((e) => setError(e.message)), []);
+  const [loadError, setLoadError] = useState(null);   // the list itself failed to load (kept apart from action errors)
+  const load = useCallback(() => api.listApiKeys().then((d) => { setKeys(d.keys || []); setLoadError(null); }).catch((e) => setLoadError(e)), []);
   useEffect(() => { load(); }, [load]);
 
   const create = async (e) => {
@@ -89,7 +90,8 @@ function ApiKeys() {
         </div>
       )}
       {error && <p className="in-error" role="alert">{error}</p>}
-      {!keys && !error && <Skeleton label="Loading your API keys…" lines={0} rows={2} />}
+      {loadError && <LoadError error={loadError} onRetry={() => { setLoadError(null); load(); }} />}
+      {!keys && !loadError && <Skeleton label="Loading your API keys…" lines={0} rows={2} />}
       {keys && !keys.length && <p className="in-empty">No API keys. Create one to use the command-line tool or CI.</p>}
       {keys?.length > 0 && (
         <div className="in-table-wrap">

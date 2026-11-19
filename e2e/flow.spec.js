@@ -53,3 +53,26 @@ test('sign-up page validates and explains the next step', async ({ page }) => {
   await page.getByRole('button', { name: /create account/i }).click();
   await expect(page.getByRole('status')).toContainText(/check your email|account created/i);
 });
+
+test('a deep link survives signing in, and only addresses inside the app are followed', async ({ page }) => {
+  await page.goto('/history?from=e2e');
+  await expect(page).toHaveURL(/\/login\?next=%2Fhistory%3Ffrom%3De2e$/);
+  await page.getByPlaceholder(/username/i).fill(USER);
+  await page.locator('input[type="password"]').fill(PASS);
+  await page.locator('input[type="password"]').press('Enter');
+  await page.waitForURL((u) => u.pathname === '/history' && u.search === '?from=e2e');
+
+  const home = new URL('/', page.url()).href;
+  await page.goto('/login?next=' + encodeURIComponent('//example.com'));    // signed in: sent home, never off-site
+  await expect(page).toHaveURL(home);
+});
+
+test('server validation messages appear beside the field they are about', async ({ page }) => {
+  await page.goto('/signup');
+  await page.getByPlaceholder('Username').fill('e2e_' + Date.now());
+  await page.getByPlaceholder('Email').fill('someone@localhost');           // the browser accepts it; the server does not
+  await page.getByPlaceholder(/Password/).fill('a-long-enough-password');
+  await page.getByRole('button', { name: /create account/i }).click();
+  await expect(page.getByPlaceholder('Email')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('.in-field-error')).toContainText(/email/i);
+});

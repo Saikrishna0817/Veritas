@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { MODEL_VERDICTS as VERDICTS } from '../components/results';
@@ -151,8 +151,8 @@ export default function ModelScanPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [recent, setRecent] = useState(null);
-  useEffect(() => { if (!id) api.getModelScanHistory(10).then((d) => setRecent(d.scans || [])).catch(() => setRecent([])); }, [result, id]);
+  const { data: recent, error: recentError, retry: reloadRecent } = useLoad(useCallback(() => (id ? Promise.resolve(null)
+    : api.getModelScanHistory(10).then((d) => d.scans || [])), [id]));
   if (id) return <ScanDetail id={id} />;
 
   const choose = (f) => {
@@ -169,6 +169,7 @@ export default function ModelScanPage() {
       const form = new FormData();
       form.append('model_file', file);
       setResult(await api.scanModel(form));
+      reloadRecent();                              // the new scan is now first in the list
     } catch (err) { setError(err.message || 'The scan failed.'); }
     finally { setLoading(false); }
   };
@@ -196,7 +197,8 @@ export default function ModelScanPage() {
       {result && <ScanResult result={result} actions={<button className="in-btn" onClick={() => { setResult(null); setFile(null); }}>Scan another file</button>} />}
       <section className="in-section" style={{ marginTop: 32 }}>
         <h2 className="in-h2">Recent scans</h2>
-        {!recent && <Skeleton label="Loading your recent scans…" lines={0} rows={3} />}
+        {recentError && <LoadError error={recentError} onRetry={reloadRecent} />}
+        {!recent && !recentError && <Skeleton label="Loading your recent scans…" lines={0} rows={3} />}
         {recent && !recent.length && <p className="in-empty">No scans yet. Scanned files are listed here.</p>}
         {recent?.length > 0 && (
           <div className="in-table-wrap">

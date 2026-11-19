@@ -15,9 +15,12 @@ function authHeaders(method = 'GET') {
 
 // An expired or revoked token makes every call fail with 401. Drop it and send the
 // user to the right sign-in page instead of leaving each page to show a raw error.
+// The page the person was on rides along as ?next= so signing in again brings them back to it.
 function handleUnauthorized() {
-    const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
-    if (window.location.pathname !== loginPath) window.location.assign(loginPath);
+    const { pathname, search } = window.location;
+    const loginPath = pathname.startsWith('/admin') ? '/admin/login' : '/login';
+    if (pathname === loginPath) return;
+    window.location.assign(`${loginPath}?next=${encodeURIComponent(pathname + search)}`);
 }
 
 // FastAPI validation errors (422) arrive as a list of {loc, type, msg, ctx}; turn each into a plain sentence.
@@ -29,6 +32,17 @@ function describeIssue({ loc = [], type, msg = '', ctx = {} }) {
     if (type === 'string_too_long') return `${Field} must be at most ${ctx.max_length} characters.`;
     if (type === 'missing') return `${Field} is required.`;
     return `${Field}: ${msg.replace(/^Value error, /, '')}`;
+}
+
+// The same 422 issues keyed by field name, so a form can show each one beside its input.
+function fieldIssues(detail) {
+    if (!Array.isArray(detail)) return {};
+    const out = {};
+    for (const issue of detail) {
+        const field = issue.loc?.[issue.loc.length - 1];
+        if (typeof field === 'string' && !out[field]) out[field] = describeIssue(issue);
+    }
+    return out;
 }
 
 function errorMessage(detail, fallback) {
@@ -43,6 +57,7 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const e = new Error(errorMessage(err.detail, fallback));
     e.status = res.status;   // callers can tell a final answer (4xx) from a passing failure (5xx, 429)
+    e.fields = fieldIssues(err.detail);
     throw e;
 }
 
@@ -132,11 +147,9 @@ export const api = {
     triggerQuarantine: () => apiFetch('/defense/quarantine', { method: 'POST' }),
     getDefenseStatus: () => apiFetch('/defense/status'),
     getPendingReviews: () => apiFetch('/defense/hitl/pending'),
-    submitReviewDecision: (caseId, decision, reviewer = 'analyst') =>
-        apiFetch('/defense/hitl/decide', {
-            method: 'POST',
-            body: JSON.stringify({ case_id: caseId, decision, reviewer }),
-        }),
+    // decision: approve_quarantine | mark_safe. The server records the signed-in user as the reviewer.
+    submitReviewDecision: (caseId, decision) =>
+        apiFetch('/defense/hitl/decide', { method: 'POST', body: JSON.stringify({ case_id: caseId, decision }) }),
 
     // Federated
 
