@@ -293,7 +293,7 @@ def _ensure_bootstrap_admin(conn: Database) -> None:
     conn.commit()
 
 
-_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version"
+_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version, disabled_at"
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
@@ -404,7 +404,7 @@ def get_user_by_api_key(raw: str) -> Optional[Dict]:
     conn = _get_conn()
     row = conn.execute(
         """SELECT u.id, u.username, u.role, k.id AS key_id FROM api_keys k JOIN users u ON u.id = k.owner_id
-           WHERE k.key_hash = ? AND k.revoked_at IS NULL""",
+           WHERE k.key_hash = ? AND k.revoked_at IS NULL AND u.disabled_at IS NULL""",
         (hashlib.sha256(raw.encode()).hexdigest(),),
     ).fetchone()
     if row:
@@ -432,7 +432,7 @@ def list_users(limit: int = 50, before: str | None = None) -> List[Dict]:
     conn = _get_conn()
     page, page_args = _before(before)
     rows = conn.execute(
-        f"SELECT id, username, role, created_at FROM users WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?",
+        f"SELECT id, username, role, created_at, disabled_at FROM users WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?",
         (*page_args, max(1, min(limit, 200))),
     ).fetchall()
     return [dict(row) for row in rows]
@@ -444,6 +444,19 @@ def set_user_role(user_id: str, role: str) -> bool:
     cursor = conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
     conn.commit()
     return cursor.rowcount > 0
+
+
+def set_user_disabled(user_id: str, disabled: bool) -> bool:
+    """Disable (or re-enable) an account. Disabling also ends its sessions; its data and API keys are kept, the
+    keys simply stop authenticating while the account is disabled."""
+    conn = _get_conn()
+    if disabled:
+        cur = conn.execute("UPDATE users SET disabled_at = ?, token_version = token_version + 1 WHERE id = ?",
+                           (datetime.now(timezone.utc).isoformat(), user_id))
+    else:
+        cur = conn.execute("UPDATE users SET disabled_at = NULL WHERE id = ?", (user_id,))
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def delete_user(user_id: str) -> bool:

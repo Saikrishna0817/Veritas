@@ -87,6 +87,34 @@ async def revoke_user_account(user_id: str, admin: dict = Depends(require_admin)
     return {"message": "User account successfully revoked."}
 
 
+def _set_disabled(user_id: str, disabled: bool, admin: dict) -> dict:
+    if user_id == admin.get("id"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot disable the account you are signed in with.")
+    target = db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if bool(target.get("disabled_at")) != disabled:
+        db.set_user_disabled(user_id, disabled)
+        db.log_audit_event(admin["id"], "user.disabled" if disabled else "user.enabled", "user", user_id,
+                           {"username": target["username"]})
+    state = "disabled" if disabled else "enabled"
+    return {"message": f"'{target['username']}' is {state}.",
+            "user": {"id": user_id, "username": target["username"], "role": target["role"],
+                     "disabled_at": db.get_user_by_id(user_id)["disabled_at"]}}
+
+
+@router.post("/users/{user_id}/disable")
+async def disable_user_account(user_id: str, admin: dict = Depends(require_admin)):
+    """Suspend an account without erasing it: sign-in is refused and its sessions and API keys stop working."""
+    return _set_disabled(user_id, True, admin)
+
+
+@router.post("/users/{user_id}/enable")
+async def enable_user_account(user_id: str, admin: dict = Depends(require_admin)):
+    """Lift a suspension. Earlier sessions stay ended; the person signs in again."""
+    return _set_disabled(user_id, False, admin)
+
+
 @router.patch("/users/{user_id}")
 async def change_user_role(user_id: str, payload: RoleRequest, admin: dict = Depends(require_admin)):
     """Change another account's role. An admin cannot change their own, so the last admin cannot lock everyone out."""
