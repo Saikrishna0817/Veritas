@@ -84,10 +84,8 @@ def decode_access_token(token: str) -> dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid access token claims")
     from app.models import database as db
     stored = db.get_user_by_id(claims["sub"])
-    if stored is None:
-        if db.is_deleted_account(claims["sub"]):    # an erased account's token must stop working before it expires
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists", headers={"WWW-Authenticate": "Bearer"})
-        return {"id": claims["sub"], "name": claims["name"], "role": claims["role"]}
+    if stored is None:      # deleted, or never existed: a token is only as good as the account behind it
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account no longer exists", headers={"WWW-Authenticate": "Bearer"})
     if claims.get("tv", 0) != (stored.get("token_version") or 0):   # the password changed after this token was issued
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended: sign in again", headers={"WWW-Authenticate": "Bearer"})
     return {"id": stored["id"], "name": stored["username"], "role": stored["role"]}   # the current role, not the one at sign-in

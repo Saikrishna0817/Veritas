@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.security import create_access_token
+from auth_helpers import token_for
 from app.ingestion.csv_engine import CSVIngestionEngine
 from app.main import app
 
@@ -61,7 +61,7 @@ def test_bad_split_requests_are_rejected():
 
 
 def test_upload_endpoint_accepts_a_reference_file_and_finds_the_flipped_labels():
-    headers = {"Authorization": f"Bearer {create_access_token({'id': 'u9', 'name': 'u9', 'role': 'user'})}"}
+    headers = {"Authorization": f"Bearer {token_for({'id': 'u9', 'name': 'u9', 'role': 'user'})}"}
     ref, main = _frame(1500, 1), _frame(800, 2, flip=80)    # a shuffled main file the old file-order split would mishandle
     res = TestClient(app).post("/api/v1/analyze/upload", headers=headers, files={
         "file": ("main.csv", _bytes(main), "text/csv"), "reference_file": ("ref.csv", _bytes(ref), "text/csv")})

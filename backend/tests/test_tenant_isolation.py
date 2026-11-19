@@ -9,14 +9,14 @@ from fastapi.testclient import TestClient
 
 from app.api import dependencies as deps
 from app.api.routes.websocket import ConnectionManager
-from app.core.security import create_access_token
+from auth_helpers import token_for
 from app.main import app
 
 client = TestClient(app)
 
 
 def _headers(user_id, role="user"):
-    return {"Authorization": f"Bearer {create_access_token({'id': user_id, 'name': user_id, 'role': role})}"}
+    return {"Authorization": f"Bearer {token_for({'id': user_id, 'name': user_id, 'role': role})}"}
 
 
 def _csv(seed, flip=0):
