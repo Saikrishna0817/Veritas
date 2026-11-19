@@ -37,6 +37,15 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Rows to review')).toBeVisible();
   await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
+
+  // a user account has no admin console, and the admin API answers 403
+  await page.goto('/admin');
+  await expect(page.getByRole('heading', { name: 'This page is for administrators' })).toBeVisible();
+  const csrf = (await context.cookies()).find((c) => c.name === 'veritas_csrf')?.value || '';
+  for (const [method, path] of [['get', '/api/v1/users'], ['post', '/api/v1/users'], ['delete', '/api/v1/users/x'], ['delete', '/api/v1/history/x'], ['post', '/api/v1/defense/quarantine']]) {
+    const r = await page.request[method](path, { headers: { 'X-CSRF-Token': csrf }, data: method === 'post' ? {} : undefined });
+    expect(r.status(), `${method.toUpperCase()} ${path}`).toBe(403);
+  }
 });
 
 test('anonymous visitors are sent to sign-in and cannot call the API', async ({ page, request }) => {
@@ -76,3 +85,58 @@ test('server validation messages appear beside the field they are about', async 
   await expect(page.getByPlaceholder('Email')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('.in-field-error')).toContainText(/email/i);
 });
+
+// ── Admin console ──────────────────────────────────────────────────────────────────────────────────────────────────
+const ADMIN = process.env.E2E_ADMIN_USER, ADMIN_PASS = process.env.E2E_ADMIN_PASS;
+
+async function signIn(page, path, user, pass) {
+  await page.goto(path);
+  await page.getByPlaceholder(/username/i).fill(user);
+  await page.locator('input[type="password"]').fill(pass);
+  await page.locator('input[type="password"]').press('Enter');
+}
+
+test('admin creates an account, reviews the queue and the log, then deletes the account', async ({ page, browser }) => {
+  test.skip(!ADMIN || !ADMIN_PASS, 'set E2E_ADMIN_USER and E2E_ADMIN_PASS');
+  const name = 'e2e_u' + Date.now().toString(36), pass = 'e2e-temp-password-1';   // never signed in: logins are rate limited
+
+  await signIn(page, '/admin/login', ADMIN, ADMIN_PASS);
+  await page.waitForURL((u) => u.pathname === '/admin');
+
+  // create
+  await page.getByRole('button', { name: 'Create an account' }).click();
+  await page.getByLabel('Username', { exact: true }).fill(name);
+  await page.getByLabel('Password', { exact: true }).fill(pass);
+  await page.locator('form').getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('status')).toContainText(`Account “${name}” created`);
+  const row = page.locator('tbody tr', { hasText: name });
+  await expect(row).toBeVisible();
+
+
+  // review queue: decide the newest case when there is one, else the empty state
+  await page.getByRole('tab', { name: /Review queue/ }).click();
+  const decide = page.getByRole('button', { name: 'Close, no action' }).first();
+  if (await decide.isVisible().catch(() => false)) {
+    await decide.click();
+    await page.getByRole('button', { name: 'Close case' }).click();
+    await expect(page.getByRole('status')).toContainText(/closed with no action/);
+  } else {
+    await expect(page.getByText('No cases are waiting for review.')).toBeVisible();
+  }
+
+  // audit log loads
+  await page.getByRole('tab', { name: /Audit log/ }).click();
+  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
+
+  // delete
+  await page.getByRole('tab', { name: /Accounts/ }).click();
+  await row.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: `Delete ${name}` }).click();
+  await expect(page.getByRole('status')).toContainText(`Account “${name}” deleted`);
+  await expect(page.locator('tbody tr', { hasText: name })).toHaveCount(0);
+});
+
+// Known gaps in the backend (reported, not changed here): POST/DELETE /users write no audit event, and there is no
+// endpoint to change a role. These stay visible as fixme until the backend has them.
+test.fixme('the audit log records account creation, role changes and deletion', async () => {});
+test.fixme('an admin changes a user\'s role', async () => {});
