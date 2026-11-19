@@ -37,6 +37,15 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Rows to review')).toBeVisible();
   await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
+
+  // a user account has no admin console, and the admin API answers 403
+  await page.goto('/admin');
+  await expect(page.getByRole('heading', { name: 'This page is for administrators' })).toBeVisible();
+  const csrf = (await context.cookies()).find((c) => c.name === 'veritas_csrf')?.value || '';
+  for (const [method, path] of [['get', '/api/v1/users'], ['post', '/api/v1/users'], ['delete', '/api/v1/users/x'], ['delete', '/api/v1/history/x'], ['post', '/api/v1/defense/quarantine']]) {
+    const r = await page.request[method](path, { headers: { 'X-CSRF-Token': csrf }, data: method === 'post' ? {} : undefined });
+    expect(r.status(), `${method.toUpperCase()} ${path}`).toBe(403);
+  }
 });
 
 test('anonymous visitors are sent to sign-in and cannot call the API', async ({ page, request }) => {
@@ -52,4 +61,89 @@ test('sign-up page validates and explains the next step', async ({ page }) => {
   await page.getByPlaceholder(/Password/).fill('a-long-enough-password');
   await page.getByRole('button', { name: /create account/i }).click();
   await expect(page.getByRole('status')).toContainText(/check your email|account created/i);
+});
+
+test('a deep link survives signing in, and only addresses inside the app are followed', async ({ page }) => {
+  await page.goto('/history?from=e2e');
+  await expect(page).toHaveURL(/\/login\?next=%2Fhistory%3Ffrom%3De2e$/);
+  await page.getByPlaceholder(/username/i).fill(USER);
+  await page.locator('input[type="password"]').fill(PASS);
+  await page.locator('input[type="password"]').press('Enter');
+  await page.waitForURL((u) => u.pathname === '/history' && u.search === '?from=e2e');
+
+  const home = new URL('/', page.url()).href;
+  await page.goto('/login?next=' + encodeURIComponent('//example.com'));    // signed in: sent home, never off-site
+  await expect(page).toHaveURL(home);
+});
+
+test('server validation messages appear beside the field they are about', async ({ page }) => {
+  await page.goto('/signup');
+  await page.getByPlaceholder('Username').fill('e2e_' + Date.now());
+  await page.getByPlaceholder('Email').fill('someone@localhost');           // the browser accepts it; the server does not
+  await page.getByPlaceholder(/Password/).fill('a-long-enough-password');
+  await page.getByRole('button', { name: /create account/i }).click();
+  await expect(page.getByPlaceholder('Email')).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.locator('.in-field-error')).toContainText(/email/i);
+});
+
+// ── Admin console ──────────────────────────────────────────────────────────────────────────────────────────────────
+const ADMIN = process.env.E2E_ADMIN_USER, ADMIN_PASS = process.env.E2E_ADMIN_PASS;
+
+async function signIn(page, path, user, pass) {
+  await page.goto(path);
+  await page.getByPlaceholder(/username/i).fill(user);
+  await page.locator('input[type="password"]').fill(pass);
+  await page.locator('input[type="password"]').press('Enter');
+}
+
+test('admin creates an account, changes its role, reviews the queue, deletes it, and the audit log records each step', async ({ page, browser }) => {
+  test.skip(!ADMIN || !ADMIN_PASS, 'set E2E_ADMIN_USER and E2E_ADMIN_PASS');
+  const name = 'e2e_u' + Date.now().toString(36), pass = 'e2e-temp-password-1';   // never signed in: logins are rate limited
+
+  await signIn(page, '/admin/login', ADMIN, ADMIN_PASS);
+  await page.waitForURL((u) => u.pathname === '/admin');
+
+  // create
+  await page.getByRole('button', { name: 'Create an account' }).click();
+  await page.getByLabel('Username', { exact: true }).fill(name);
+  await page.getByLabel('Password', { exact: true }).fill(pass);
+  await page.locator('form').getByRole('button', { name: 'Create account' }).click();
+  await expect(page.getByRole('status')).toContainText(`Account “${name}” created`);
+  const row = page.locator('tbody tr', { hasText: name });
+  await expect(row).toBeVisible();
+
+  // change the role
+  await row.getByLabel(`Role of ${name}`).selectOption('analyst');
+  await row.getByRole('button', { name: 'Save role' }).click();
+  await expect(page.getByRole('status')).toContainText(`“${name}” is now analyst`);
+  await expect(row.getByLabel(`Role of ${name}`)).toHaveValue('analyst');
+
+
+  // review queue: decide the newest case when there is one, else the empty state
+  await page.getByRole('tab', { name: /Review queue/ }).click();
+  const decide = page.getByRole('button', { name: 'Close, no action' }).first();
+  if (await decide.isVisible().catch(() => false)) {
+    await decide.click();
+    await page.getByRole('button', { name: 'Close case' }).click();
+    await expect(page.getByRole('status')).toContainText(/closed with no action/);
+  } else {
+    await expect(page.getByText('No cases are waiting for review.')).toBeVisible();
+  }
+
+  // delete
+  await page.getByRole('tab', { name: /Accounts/ }).click();
+  await row.getByRole('button', { name: 'Delete' }).click();
+  await page.getByRole('button', { name: `Delete ${name}` }).click();
+  await expect(page.getByRole('status')).toContainText(`Account “${name}” deleted`);
+  await expect(page.locator('tbody tr', { hasText: name })).toHaveCount(0);
+
+  // the audit log has all three, as the admin, about this account
+  await page.getByRole('tab', { name: /Audit log/ }).click();
+  await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
+  const events = (await (await page.request.get('/api/v1/audit/events?limit=200')).json()).events
+    .filter((e) => e.details?.username === name).map((e) => e.action).sort();
+  expect(events).toEqual(['user.created', 'user.deleted', 'user.role_changed']);
+  for (const action of ['user.created', 'user.role_changed', 'user.deleted']) {
+    await expect(page.locator('td', { hasText: action }).first()).toBeVisible();
+  }
 });

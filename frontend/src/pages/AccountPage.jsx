@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { fmt } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
+import { LoadError } from '../components/LoadError';
+import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 
 /**
@@ -14,10 +16,8 @@ const USAGE = [['analyses', 'Analyses'], ['rows', 'Rows checked'], ['scan_mb', '
 const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 
 function Usage() {
-  const [u, setU] = useState(null);
-  const [error, setError] = useState(null);
-  useEffect(() => { api.getUsage().then(setU).catch((e) => setError(e.message)); }, []);
-  if (error) return <p className="in-error" role="alert">{error}</p>;
+  const { data: u, error, retry } = useLoad(useCallback(() => api.getUsage(), []));
+  if (error) return <LoadError error={error} onRetry={retry} />;
   if (!u) return <Skeleton label="Loading your usage…" lines={0} rows={3} />;
   return (
     <>
@@ -53,7 +53,8 @@ function ApiKeys() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => api.listApiKeys().then((d) => setKeys(d.keys || [])).catch((e) => setError(e.message)), []);
+  const [loadError, setLoadError] = useState(null);   // the list itself failed to load (kept apart from action errors)
+  const load = useCallback(() => api.listApiKeys().then((d) => { setKeys(d.keys || []); setLoadError(null); }).catch((e) => setLoadError(e)), []);
   useEffect(() => { load(); }, [load]);
 
   const create = async (e) => {
@@ -89,7 +90,8 @@ function ApiKeys() {
         </div>
       )}
       {error && <p className="in-error" role="alert">{error}</p>}
-      {!keys && !error && <Skeleton label="Loading your API keys…" lines={0} rows={2} />}
+      {loadError && <LoadError error={loadError} onRetry={() => { setLoadError(null); load(); }} />}
+      {!keys && !loadError && <Skeleton label="Loading your API keys…" lines={0} rows={2} />}
       {keys && !keys.length && <p className="in-empty">No API keys. Create one to use the command-line tool or CI.</p>}
       {keys?.length > 0 && (
         <div className="in-table-wrap">

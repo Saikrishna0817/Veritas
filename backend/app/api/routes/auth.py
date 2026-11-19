@@ -83,11 +83,22 @@ async def _check_turnstile(token: Optional[str], request: Request) -> None:
         raise HTTPException(status_code=400, detail="Human check failed. Please try again.")
 
 
-async def _send_verification(user_id: str, email: str) -> None:
+async def _mail(to: str, subject: str, body: str) -> bool:
+    """Send one mail off the event loop (SMTP blocks). A mail server that is down or refuses must not turn the request
+    into a 500: the failure is logged and the caller decides what to tell the person."""
+    try:
+        await run_in_threadpool(mailer.send, to, subject, body)
+        return True
+    except Exception:
+        logger.exception("Sending mail failed (subject=%r): check VERITAS_SMTP_* and the mail server", subject)
+        return False
+
+
+async def _send_verification(user_id: str, email: str) -> bool:
     token = db.create_auth_token(user_id, "verify_email", VERIFY_TTL_MIN)
-    await run_in_threadpool(mailer.send, email, "Confirm your Veritas email",
-                f"Welcome to Veritas.\n\nConfirm your email address (valid 24 hours):\n{settings.public_url}/verify-email?token={token}\n\n"
-                "If you did not sign up, ignore this message.")
+    return await _mail(email, "Confirm your Veritas email",
+                       f"Welcome to Veritas.\n\nConfirm your email address (valid 24 hours):\n{settings.public_url}/verify-email?token={token}\n\n"
+                       "If you did not sign up, ignore this message.")
 
 
 @router.post("/auth/token")
@@ -130,9 +141,12 @@ async def signup(body: SignupRequest, request: Request):
         raise HTTPException(status_code=409, detail="That username or email is already registered.")
     verified = not settings.require_email_verification
     user_id = db.create_user(body.username, hash_password(body.password), role="user", email=email, email_verified=verified)
-    if not verified:
-        await _send_verification(user_id, email)
-    db.log_audit_event(user_id, "account.signup", "account", user_id, {})
+    sent = verified or await _send_verification(user_id, email)
+    db.log_audit_event(user_id, "account.signup", "account", user_id, {} if verified else {"mail_sent": sent})
+    if not sent:      # the account exists; a new link can be requested once mail works again
+        return {"message": "Account created, but the confirmation email could not be sent right now. "
+                           "In a few minutes, use “Forgot your password?” on the sign-in page: that link also confirms your address.",
+                "verification_required": True, "mail_sent": False}
     return {"message": "Account created." + ("" if verified else " Check your email to confirm your address."), "verification_required": not verified}
 
 
@@ -165,7 +179,8 @@ async def password_reset_request(body: EmailRequest, request: Request):
     user = db.get_user_by_email(body.email.lower())
     if user:
         token = db.create_auth_token(user["id"], "reset_password", RESET_TTL_MIN)
-        await run_in_threadpool(mailer.send, user["email"], "Reset your Veritas password",  # SMTP blocks: keep it off the event loop
+        # A failed send is logged and the answer stays the same, so the reply never reveals whether the address has an account.
+        await _mail(user["email"], "Reset your Veritas password",
                     f"Reset your password (valid 1 hour):\n{settings.public_url}/reset-password?token={token}\n\nIf you did not ask for this, ignore it.")
     return {"message": "If that address has an account, a reset link is on its way."}
 

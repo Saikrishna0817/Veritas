@@ -415,6 +415,14 @@ def list_users(limit: int = 50) -> List[Dict]:
     return [dict(row) for row in rows]
 
 
+def set_user_role(user_id: str, role: str) -> bool:
+    """Change an account's role. Takes effect on the next request: sessions read the current role (security.py)."""
+    conn = _get_conn()
+    cursor = conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def delete_user(user_id: str) -> bool:
     conn = _get_conn()
     cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))

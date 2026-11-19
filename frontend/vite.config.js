@@ -16,6 +16,12 @@ export default defineConfig({
         target: process.env.VITE_API_PROXY || 'http://localhost:8001',   // override when 8001 is taken
         changeOrigin: true,
       },
+      // The landing page (frontend/landing, `npm run dev` there on port 5180), served at /welcome/ as nginx does
+      '/welcome': {
+        target: process.env.VITE_LANDING_PROXY || 'http://localhost:5180',
+        ws: true,
+        changeOrigin: true,
+      },
       // WebSocket detection stream
       '/ws': {
         target: (process.env.VITE_API_PROXY || 'http://localhost:8001').replace(/^http/, 'ws'),

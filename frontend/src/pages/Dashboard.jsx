@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, fmt } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
+import { LoadError } from '../components/LoadError';
+import ReviewQueue from '../components/ReviewQueue';
+import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
 import { setHot, useStage, useStageState } from '../scene/stage';
@@ -31,18 +34,14 @@ function LatestKeys({ latest }) {
 
 export default function Dashboard() {
   const { hot } = useStageState();
-  const [latest, setLatest] = useState(null);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    api.getAnalysisHistory(200).then((d) => {
-      const byKind = {};
-      for (const r of d.results || []) {
-        const k = KIND_OF_SOURCE[r.source];
-        if (k && !byKind[k]) byKind[k] = r;        // rows arrive newest first
-      }
-      setLatest(byKind);
-    }).catch((e) => setError(e.message));
-  }, []);
+  const { data: latest, error, retry } = useLoad(useCallback(() => api.getAnalysisHistory(200).then((d) => {
+    const byKind = {};
+    for (const r of d.results || []) {
+      const k = KIND_OF_SOURCE[r.source];
+      if (k && !byKind[k]) byKind[k] = r;        // rows arrive newest first
+    }
+    return byKind;
+  }), []));
   return (
     <main className="in-main"><div className="in-page">
       <div className="in-page-head in-page-head-wide">
@@ -58,7 +57,7 @@ export default function Dashboard() {
       <section className="in-section" style={{ marginTop: 48 }}>
         <h2 className="in-h2">Latest result for each data type</h2>
         <p className="in-sub">Open one for its evidence and the items to review. <Link to="/history" className="in-link-text">All analyses</Link></p>
-        {error && <p className="in-error" role="alert">{error}</p>}
+        {error && <LoadError error={error} onRetry={retry} />}
         {!latest && !error && <Skeleton label="Loading your latest results…" lines={0} rows={4} />}
         {latest && (
           <div className="in-latest">
@@ -79,6 +78,8 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      <ReviewQueue />
 
       <section className="in-section">
         <h2 className="in-h2">What a result means</h2>

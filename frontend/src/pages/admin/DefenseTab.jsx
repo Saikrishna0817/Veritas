@@ -9,7 +9,7 @@ const ev = (x) => (typeof x === 'number' ? x.toFixed(2) : '—');
  * GET /defense/hitl/pending, POST /defense/hitl/decide. Both only record decisions: nothing in Veritas reads
  * these records to change data or block uploads yet, and the copy says so.
  */
-export default function DefenseTab({ status, cases, self, notify, onChanged }) {
+export default function DefenseTab({ status, cases, notify, onChanged }) {
   const s = status.data;
   const last = s?.last_action;
 
@@ -28,7 +28,7 @@ export default function DefenseTab({ status, cases, self, notify, onChanged }) {
 
   const decide = async (c, decision) => {
     try {
-      await api.submitReviewDecision(c.case_id, decision, self?.name || 'admin');
+      await api.submitReviewDecision(c.case_id, decision);
       notify({ text: decision === 'approve_quarantine'
         ? `Case ${shortId(c.case_id)}: its flagged rows are recorded as held back.`
         : `Case ${shortId(c.case_id)} closed with no action.` });

@@ -15,9 +15,12 @@ function authHeaders(method = 'GET') {
 
 // An expired or revoked token makes every call fail with 401. Drop it and send the
 // user to the right sign-in page instead of leaving each page to show a raw error.
+// The page the person was on rides along as ?next= so signing in again brings them back to it.
 function handleUnauthorized() {
-    const loginPath = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
-    if (window.location.pathname !== loginPath) window.location.assign(loginPath);
+    const { pathname, search } = window.location;
+    const loginPath = pathname.startsWith('/admin') ? '/admin/login' : '/login';
+    if (pathname === loginPath) return;
+    window.location.assign(`${loginPath}?next=${encodeURIComponent(pathname + search)}`);
 }
 
 // FastAPI validation errors (422) arrive as a list of {loc, type, msg, ctx}; turn each into a plain sentence.
@@ -31,6 +34,17 @@ function describeIssue({ loc = [], type, msg = '', ctx = {} }) {
     return `${Field}: ${msg.replace(/^Value error, /, '')}`;
 }
 
+// The same 422 issues keyed by field name, so a form can show each one beside its input.
+function fieldIssues(detail) {
+    if (!Array.isArray(detail)) return {};
+    const out = {};
+    for (const issue of detail) {
+        const field = issue.loc?.[issue.loc.length - 1];
+        if (typeof field === 'string' && !out[field]) out[field] = describeIssue(issue);
+    }
+    return out;
+}
+
 function errorMessage(detail, fallback) {
     if (Array.isArray(detail)) return detail.map(describeIssue).join(' ') || fallback;
     if (typeof detail === 'string') return detail;
@@ -40,8 +54,13 @@ function errorMessage(detail, fallback) {
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(errorMessage(err.detail, fallback));
+    // A server error without a readable reason (an HTML or plain "Internal Server Error" page) is not shown as is.
+    const serverFault = res.status >= 500 ? 'Veritas ran into a problem and could not finish this. Try again in a few minutes.' : null;
+    const err = await res.json().catch(() => ({ detail: serverFault || res.statusText }));
+    const e = new Error(errorMessage(err.detail, serverFault || fallback));
+    e.status = res.status;   // callers can tell a final answer (4xx) from a passing failure (5xx, 429)
+    e.fields = fieldIssues(err.detail);
+    throw e;
 }
 
 async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
@@ -83,10 +102,11 @@ export const api = {
 
     me: () => apiFetch('/auth/me', { skipAuth: true }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
-    signup: (username, email, password) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password }) }),
+    // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
+    signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
-    resendVerification: (email) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
-    requestPasswordReset: (email) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email }) }),
+    resendVerification: (email, turnstile_token) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),
+    requestPasswordReset: (email, turnstile_token) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
@@ -99,6 +119,7 @@ export const api = {
     getUsers: () => apiFetch('/users'),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
+    setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
 
     // Demo & Real Datasets
     runDemo: () => apiFetch('/demo/run', { method: 'POST' }),
@@ -130,11 +151,9 @@ export const api = {
     triggerQuarantine: () => apiFetch('/defense/quarantine', { method: 'POST' }),
     getDefenseStatus: () => apiFetch('/defense/status'),
     getPendingReviews: () => apiFetch('/defense/hitl/pending'),
-    submitReviewDecision: (caseId, decision, reviewer = 'analyst') =>
-        apiFetch('/defense/hitl/decide', {
-            method: 'POST',
-            body: JSON.stringify({ case_id: caseId, decision, reviewer }),
-        }),
+    // decision: approve_quarantine | mark_safe. The server records the signed-in user as the reviewer.
+    submitReviewDecision: (caseId, decision) =>
+        apiFetch('/defense/hitl/decide', { method: 'POST', body: JSON.stringify({ case_id: caseId, decision }) }),
 
     // Federated
 

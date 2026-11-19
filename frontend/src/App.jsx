@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import Brand from './components/Brand';
 import GlassNav from './components/glass-nav/GlassNav';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute, { LANDING } from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import SceneLayer from './scene/SceneLayer';
 import AppCursor from './ui/AppCursor';
@@ -39,7 +39,8 @@ function AppNav() {
   const navigate = useNavigate();
   const admin = user?.role === 'admin';
   const links = admin ? ADMIN_NAV : NAV;
-  const signOut = async () => { await logout(); navigate(admin ? '/admin/login' : '/login', { replace: true }); };
+  // a user goes back to the landing page (a separate page, so a full load); an admin to the admin sign-in
+  const signOut = async () => { await logout(); if (admin) navigate('/admin/login', { replace: true }); else window.location.assign(LANDING); };
   return (
     <header className="in-nav">
       <div className="in-nav-inner">
@@ -67,7 +68,8 @@ function AppFooter() {
   );
 }
 
-const page = (name, element) => <PageErrorBoundary name={name}>{element}</PageErrorBoundary>;
+// keyed by page, so an error on one page does not stay on screen after moving to another
+const page = (name, element) => <PageErrorBoundary key={name} name={name}>{element}</PageErrorBoundary>;
 
 function AppShell() {
   return (
@@ -85,7 +87,7 @@ function AppShell() {
             <Route path="/reports" element={page('Reports', <ReportsPage />)} />
             <Route path="/benchmarks" element={page('Benchmarks', <BenchmarksPage />)} />
             <Route path="/account" element={page('Account', <AccountPage />)} />
-            <Route path="/admin" element={<ProtectedRoute requiredRole="admin" fallback={<Navigate to="/admin/login" replace />}>{page('Admin console', <AdminDashboard />)}</ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute requiredRole="admin">{page('Admin console', <AdminDashboard />)}</ProtectedRoute>} />
             {/* Pages folded into others; old links still land somewhere sensible. */}
             <Route path="/forensics" element={<Navigate to="/history" replace />} />
             <Route path="/blue-team" element={<Navigate to="/reports" replace />} />
@@ -107,15 +109,15 @@ export default function App() {
       <AppCursor />
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin/login" element={<LoginPage admin />} />
-          <Route path="/signup" element={<AccountFlowPage mode="signup" />} />
-          <Route path="/verify-email" element={<AccountFlowPage mode="verify" />} />
-          <Route path="/forgot-password" element={<AccountFlowPage mode="forgot" />} />
-          <Route path="/reset-password" element={<AccountFlowPage mode="reset" />} />
-          <Route path="/terms" element={<LegalPage doc="terms" />} />
-          <Route path="/privacy" element={<LegalPage doc="privacy" />} />
-          <Route path="/*" element={<ProtectedRoute fallback={<Navigate to="/login" replace />}><AppShell /></ProtectedRoute>} />
+          <Route path="/login" element={page('Sign in', <LoginPage />)} />
+          <Route path="/admin/login" element={page('Sign in', <LoginPage admin />)} />
+          <Route path="/signup" element={page('Sign up', <AccountFlowPage mode="signup" />)} />
+          <Route path="/verify-email" element={page('Email confirmation', <AccountFlowPage mode="verify" />)} />
+          <Route path="/forgot-password" element={page('Password reset', <AccountFlowPage mode="forgot" />)} />
+          <Route path="/reset-password" element={page('Password reset', <AccountFlowPage mode="reset" />)} />
+          <Route path="/terms" element={page('Terms', <LegalPage doc="terms" />)} />
+          <Route path="/privacy" element={page('Privacy', <LegalPage doc="privacy" />)} />
+          <Route path="/*" element={<ProtectedRoute><AppShell /></ProtectedRoute>} />
         </Routes>
       </Suspense>
     </BrowserRouter>
