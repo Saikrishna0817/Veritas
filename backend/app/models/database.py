@@ -321,6 +321,13 @@ def set_email_verified(user_id: str) -> None:
     conn.commit()
 
 
+def end_all_sessions(user_id: str) -> None:
+    """Every token issued so far for this account stops working (security.decode_access_token checks the version)."""
+    conn = _get_conn()
+    conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = ?", (user_id,))
+    conn.commit()
+
+
 def set_password_hash(user_id: str, password_hash: str) -> None:
     conn = _get_conn()
     # a new password ends every session: tokens carrying the old version are rejected (security.decode_access_token)
