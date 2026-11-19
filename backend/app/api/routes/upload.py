@@ -197,7 +197,7 @@ async def analyze_audio_zip(
     no_reference: bool | None = Form(None, description="No trusted reference: screen every item against the others. Default: true unless a reference zip is given; false = a random 70% of each class is the reference"),
     user: dict = Depends(require_user),
 ):
-    """Check an audio dataset for poisoning (PCM WAV, any rate, mixed to mono 16 kHz). Background job: returns
+    """Check an audio dataset for poisoning (uncompressed PCM or float WAV, any rate, mixed to mono 16 kHz). Background job: returns
     202 + job_id; poll GET /jobs/{job_id}. Up to 6,000 clips, padded or trimmed to the median length (at most 10 s)."""
     from app.detection import image_embed
     try:

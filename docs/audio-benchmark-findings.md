@@ -84,7 +84,7 @@ Share of batches flagged at 1.3 at 1 / 3 / 5 / 10% (n = 5 each), row AUPRC at 5%
 - Clean batches at 1.3: 3 of 60 (5.0%, nominal 5%).
 - Between Speech Commands and ESC-50 on every attack, closer to Speech Commands. Clean-label: partly found (ESC-50 1 of
   20 batches, UrbanSound8K 6 of 20, Speech Commands 19 of 20), in line with the clips per class.
-- An app gap: 2% of UrbanSound8K's clips are 32-bit float or ADPCM WAV, which uploads reject.
+- An app gap (since fixed for float): 2% of UrbanSound8K's clips are 32-bit float or ADPCM WAV, which uploads rejected. Float WAV is now read; ADPCM is refused with a message saying to convert it to PCM.
 - 20 s per batch.
 
 ## In the app

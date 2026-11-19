@@ -67,7 +67,7 @@ above chance (AUROC 0.72-0.92), but only 2-16% of the listed images are confirme
 
 ## Audio-data check
 
-`POST /analyze/audio` takes a zip of PCM WAV files in class folders (optionally a reference zip). The image detector
+`POST /analyze/audio` takes a zip of uncompressed WAV files (PCM or float) in class folders (optionally a reference zip). The image detector
 runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for the label and shift checks. Held-out
 (Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md): mean row AUPRC 0.59 at 1% and
 0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. With the
@@ -104,7 +104,7 @@ post-fix 339/339 is no longer a held-out number.
 - **Weakest attacks at 1%:** covariate shift (row AUPRC 0.18; 0.61 at 5%) and feature collision (0.39).
 - **Attack profile** names the closest of six known attacks; an attack of another kind will be given one of those names.
 - **Data types:** tables (numeric and categorical columns, up to 200,000 rows validated) and labelled images (up to
-  6,000 per check) audio clips (PCM WAV, up to 6,000, at most 10 s used) and video clips (8 frames each, up to 6,000). Not free text yet.
+  6,000 per check) audio clips (PCM or float WAV, up to 6,000, at most 10 s used) and video clips (8 frames each, up to 6,000). Not free text yet.
 - **Images are checked at 32x32.** A trigger smaller than about 1/32 of the image side can vanish in the resize. Image
   results name the leading check, not an attack type; label flips at 1% are the weakest case (20% of batches flagged).
 - **A verdict needs a trusted reference.** With no reference file or split column (the default), every row or item is

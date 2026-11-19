@@ -61,7 +61,7 @@ function AppFooter() {
     <footer className="in-footer">
       <div className="in-footer-inner">
         <span>Veritas checks training data for poisoning. A verdict is evidence at a stated false-alarm level, not proof.</span>
-        <span className="in-footer-links"><Link to="/benchmarks">How it was measured</Link><Link to="/terms">Terms (draft)</Link><Link to="/privacy">Privacy (draft)</Link></span>
+        <span className="in-footer-links"><a href="/welcome/">About Veritas</a><Link to="/benchmarks">How it was measured</Link><Link to="/terms">Terms (draft)</Link><Link to="/privacy">Privacy (draft)</Link></span>
       </div>
     </footer>
   );

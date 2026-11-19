@@ -40,7 +40,7 @@ def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS
     members = [m for m in zf.infolist() if not m.is_dir()]
     if len(members) > MAX_ENTRIES:
         raise ValueError(f"The {what} has {len(members)} files; the limit is {MAX_ENTRIES}.")
-    images, skipped, total = [], 0, 0
+    images, skipped, total, reason = [], 0, 0, ""
     for m in sorted(members, key=lambda m: m.filename):
         path = PurePosixPath(m.filename.replace("\\", "/"))
         if any(p.startswith(".") or p == "__MACOSX" for p in path.parts) or path.suffix.lower() not in extensions:
@@ -53,12 +53,16 @@ def _read_zip(data: bytes, what: str, warnings: list[str], extensions=EXTENSIONS
             raise ValueError(f"The {what} unpacks to more than {MAX_UNCOMPRESSED >> 20} MB of {noun}s.")
         try:
             arr = decode(zf.read(m))
-        except Exception:      # corrupt, truncated, unsupported, too large
+        except Exception as exc:      # corrupt, truncated, unsupported, too large
             skipped += 1
+            reason = reason or f"{path.name}: {str(exc)[:120]}"
             continue
         images.append((str(path), path.parent.name if len(path.parts) > 1 else "", arr))
+    why = f" (first: {reason})" if reason else ""
+    if skipped and not images:
+        raise ValueError(f"None of the {skipped} {noun}(s) in the {what} could be read or all were over {max_file >> 20} MB{why}.")
     if skipped:
-        warnings.append(f"Skipped {skipped} {noun}(s) in the {what} that could not be read or were over {max_file >> 20} MB.")
+        warnings.append(f"Skipped {skipped} {noun}(s) in the {what} that could not be read or were over {max_file >> 20} MB{why}.")
     return images
 
 
