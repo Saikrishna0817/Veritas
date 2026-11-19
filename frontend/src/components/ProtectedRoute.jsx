@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { LoadError } from './LoadError';
@@ -9,6 +10,13 @@ function signInPath(location, admin) {
   const here = location.pathname + location.search;
   const base = admin ? '/admin/login' : '/login';
   return here === '/' || here === base ? base : `${base}?next=${encodeURIComponent(here)}`;
+}
+
+// The landing page is its own build at /welcome/ (nginx in production, the dev proxy locally), so it is a page load.
+export const LANDING = '/welcome/';
+function ToLanding() {
+  useEffect(() => { window.location.replace(LANDING); }, []);
+  return <div className="instrument in-shell"><div className="in-main in-hint" role="status">Opening Veritas…</div></div>;
 }
 
 export default function ProtectedRoute({ children, requiredRole }) {
@@ -30,6 +38,9 @@ export default function ProtectedRoute({ children, requiredRole }) {
       </div></main></div>
     );
   }
+
+  // A signed-out visitor at the site's front door sees the landing page first; its Sign in leads back here.
+  if (!user && location.pathname === '/' && !location.search && requiredRole !== 'admin') return <ToLanding />;
 
   if (!user) {
     return <Navigate to={signInPath(location, requiredRole === 'admin' || location.pathname.startsWith('/admin'))} replace />;

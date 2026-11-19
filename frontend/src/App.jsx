@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import Brand from './components/Brand';
 import GlassNav from './components/glass-nav/GlassNav';
-import ProtectedRoute from './components/ProtectedRoute';
+import ProtectedRoute, { LANDING } from './components/ProtectedRoute';
 import PageErrorBoundary from './components/PageErrorBoundary';
 import SceneLayer from './scene/SceneLayer';
 import AppCursor from './ui/AppCursor';
@@ -39,7 +39,8 @@ function AppNav() {
   const navigate = useNavigate();
   const admin = user?.role === 'admin';
   const links = admin ? ADMIN_NAV : NAV;
-  const signOut = async () => { await logout(); navigate(admin ? '/admin/login' : '/login', { replace: true }); };
+  // a user goes back to the landing page (a separate page, so a full load); an admin to the admin sign-in
+  const signOut = async () => { await logout(); if (admin) navigate('/admin/login', { replace: true }); else window.location.assign(LANDING); };
   return (
     <header className="in-nav">
       <div className="in-nav-inner">
