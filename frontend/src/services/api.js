@@ -54,8 +54,10 @@ function errorMessage(detail, fallback) {
 async function failIfNotOk(res, fallback, skipAuth = false) {
     if (res.ok) return;
     if (res.status === 401 && !skipAuth) handleUnauthorized();
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    const e = new Error(errorMessage(err.detail, fallback));
+    // A server error without a readable reason (an HTML or plain "Internal Server Error" page) is not shown as is.
+    const serverFault = res.status >= 500 ? 'Veritas ran into a problem and could not finish this. Try again in a few minutes.' : null;
+    const err = await res.json().catch(() => ({ detail: serverFault || res.statusText }));
+    const e = new Error(errorMessage(err.detail, serverFault || fallback));
     e.status = res.status;   // callers can tell a final answer (4xx) from a passing failure (5xx, 429)
     e.fields = fieldIssues(err.detail);
     throw e;
