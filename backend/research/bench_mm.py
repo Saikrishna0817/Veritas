@@ -35,7 +35,7 @@ from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
 
 ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm, "mm_lead": mm_lead,
-                 **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid", "chroma", "sig")}}
+                 **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid", "chroma", "sig", "sig_smooth")}}
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_MM_MANIFEST", "manifest-mm-images-v2.json")

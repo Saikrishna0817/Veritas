@@ -66,6 +66,7 @@ export const CHECK_NAMES = {
   cell: ['Shared patch', 'one local pattern repeated across items'], resid: ['Shared faint pattern', 'a faint pattern repeated across items'],
   chroma: ['Colour noise', 'noise in flat regions'],
   sig: ['Within-class pattern', 'a pattern shared by part of one class, labels left correct'],
+  sig_smooth: ['Within-class smooth pattern', 'a smooth, low-frequency pattern shared by part of one class, labels left correct'],
 };
 
 const SCALE_MAX = 8;

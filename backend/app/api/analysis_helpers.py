@@ -201,7 +201,7 @@ def _mm_threads() -> int:
     return min(4, os.cpu_count() or 1)
 
 
-def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info: dict, class_signature: bool = True) -> dict[str, Any]:
+def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info: dict, class_signature: bool = True, smooth_signature: bool = False) -> dict[str, Any]:
     """Run veritas_mm on views R (N, 32, 32, 3) uint8 and embeddings E, with the reference first in ``ing``. Builds
     the detector inputs exactly as the benchmarks do: PCA of E fitted on reference rows, fit/calibration split."""
     from sklearn.decomposition import PCA
@@ -221,7 +221,7 @@ def _run_mm(R, E, ing: dict, started: float, source: str, noun: str, extra_info:
         (Xf, Xc, Xi), (Pf, Pc, Pi), (Rf, Rc, Ri) = part(Z, zs.transform), part(P, ps.transform), part(R, lambda a: a)
         d = {"X_fit": Xf, "X_cal": Xc, "X_inc": Xi, "y_fit": y[n_cal:s], "y_cal": y[:n_cal], "y_inc": y[s:],
              "n_classes": len(names), "P_fit": Pf, "P_cal": Pc, "P_inc": Pi, "R_fit": Rf, "R_cal": Rc, "R_inc": Ri,
-             "class_signature": class_signature}
+             "class_signature": class_signature, "smooth_signature": smooth_signature}
         out = veritas_mm.detect(d)
     verdict, suspicion = veritas2.verdict_for(out["batch_evidence"])
     cut = min(2.0, float(np.log10(s + 1)))
@@ -290,7 +290,7 @@ def _orchestrate_images(zip_bytes: bytes, filename: str, owner_id: str, referenc
     started = time.perf_counter()
     ing = ImageIngestionEngine().ingest(zip_bytes, filename, reference_bytes, self_check)
     E = image_embed.embed_images(ing["images"], threads=_mm_threads())
-    return _run_mm(ing["images"], E, ing, started, "image_upload", "image", {"image_size": "32x32 RGB (resized)"})
+    return _run_mm(ing["images"], E, ing, started, "image_upload", "image", {"image_size": "32x32 RGB (resized)"}, smooth_signature=True)
 
 
 def _orchestrate_audio(zip_bytes: bytes, filename: str, owner_id: str, reference_bytes: bytes | None = None,
