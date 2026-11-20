@@ -15,20 +15,34 @@ from app.core.security import SESSION_COOKIE, decode_access_token, token_expiry
 router = APIRouter()
 
 AUTH_TIMEOUT_SECS = 5
+RECHECK_SECS = 30           # an open stream re-checks its session this often (and on every frame)
+
+
+def _still_valid(token: str) -> bool:
+    """False once the session is ended (sign out everywhere, password change), or the account is disabled or deleted."""
+    try:
+        decode_access_token(token)
+        return True
+    except Exception:
+        return False
 
 
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
         self._owners: dict[int, str] = {}
+        self._tokens: dict[int, str] = {}
 
-    def connect(self, websocket: WebSocket, owner_id: str):
+    def connect(self, websocket: WebSocket, owner_id: str, token: str | None = None):
         """Register an already-accepted, authenticated socket for one user."""
         self.active_connections.append(websocket)
         self._owners[id(websocket)] = owner_id
+        if token:
+            self._tokens[id(websocket)] = token
 
     def disconnect(self, websocket: WebSocket):
         self._owners.pop(id(websocket), None)
+        self._tokens.pop(id(websocket), None)
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
@@ -37,6 +51,14 @@ class ConnectionManager:
         message = json.dumps({"event": event, "data": data})
         dead = []
         for connection in [c for c in list(self.active_connections) if self._owners.get(id(c)) == owner_id]:
+            token = self._tokens.get(id(connection))
+            if token and not _still_valid(token):       # session ended since the socket opened: send nothing more
+                dead.append(connection)
+                try:
+                    await connection.close(code=1008, reason="Session ended")
+                except Exception:
+                    pass
+                continue
             try:
                 await connection.send_text(message)
             except Exception:
@@ -96,17 +118,25 @@ async def detection_stream(websocket: WebSocket):
 
     expires_at = token_expiry(token)
     manager: ConnectionManager = websocket.app.state.ws_manager
-    manager.connect(websocket, decode_access_token(token)["id"])
+    manager.connect(websocket, decode_access_token(token)["id"], token)
     try:
         while True:
             remaining = expires_at - time.time()
             if remaining <= 0:
                 await websocket.close(code=1008, reason="Token expired")
                 break
+            if not _still_valid(token):
+                await websocket.close(code=1008, reason="Session ended")
+                break
             try:
-                msg = json.loads(await asyncio.wait_for(websocket.receive_text(), remaining))
+                raw = await asyncio.wait_for(websocket.receive_text(), min(remaining, RECHECK_SECS))
             except asyncio.TimeoutError:
-                continue  # loop re-checks expiry and closes
+                continue  # loop re-checks expiry and the session
+            if not _still_valid(token):
+                await websocket.close(code=1008, reason="Session ended")
+                break
+            try:
+                msg = json.loads(raw)
             except ValueError:
                 continue  # ignore malformed frames instead of dropping the socket
             if isinstance(msg, dict) and msg.get("type") == "ping":
