@@ -84,7 +84,7 @@ def _take(upload_id: str, user: dict, roles: tuple[str, ...]) -> dict:
 @router.post("/uploads/complete", status_code=202)
 async def complete_upload(body: CompleteRequest, user: dict = Depends(require_user)):
     main = _take(body.upload_id, user, ("csv", "model"))
-    store, rows = storage(), [main]
+    store, rows, charged = storage(), [main], None
     try:
         if main["role"] == "model":
             if body.reference_upload_id:
@@ -102,10 +102,11 @@ async def complete_upload(body: CompleteRequest, user: dict = Depends(require_us
                 payload.update(split_column=body.split_column or None, split_cutoff=body.split_cutoff or None)
             if body.self_check or (body.self_check is None and not body.reference_upload_id and not (body.split_column or body.split_cutoff)):
                 payload["self_check"] = True
-            payload["charged"] = quota.charge_analysis(user, rows=max(1, main["size"] // BYTES_PER_ROW))
+            payload["charged"] = charged = quota.charge_analysis(user, rows=max(1, main["size"] // BYTES_PER_ROW))
             job_id = job_store.submit("csv_upload", payload, owner_id=user["id"])
     except Exception:
-        for row in rows:                     # the job never started, so nothing else will delete these
+        quota.refund(user["id"], charged)    # the job never started: give the quota back
+        for row in rows:                     # ... and nothing else will delete these
             store.delete(row["storage_key"])
         raise
     return JSONResponse(status_code=202, content={"job_id": job_id, "status": "queued"})
