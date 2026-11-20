@@ -313,3 +313,41 @@ dropped (covered by v1). 3 eval seeds per cell; the attacker chooses on 3 other 
   energy: the shift and pixel checks start to react only at amplitude 32 and 10% poison.
 - All relabelled attacks are caught by the label check (leading check at low strength); triggers strong enough to
   work are also caught by the patch and signature checks (faint patch from opacity 0.1).
+
+## A check for the smooth clean-label trigger, tried and turned off (2026-11-19/20)
+
+**Dev study** (`research/mm/weakness_study_dev.py`, Fashion-MNIST and CIFAR-100 only). The within-class signature search
+run on 8x8 block means, with the reference's 100 strongest principal directions projected out (`sig_smooth`).
+- **Rule set before the held-out runs:** keep it if it finds the smooth trigger on a dev set and adds at most 1 clean
+  alarm in 60 per dev set.
+- **Dev result:** Fashion-MNIST AUPRC 1.00, every batch flagged; CIFAR-100 partly (AUPRC 0.03-0.69); clean alarms 0, 0
+  and 1 in 60.
+- **Held-out runs:** quoted once, not tuned on.
+  - `manifest-mm-images-v10`, `manifest-mm-images-breadth-v2`, `manifest-adaptive-images-v3`.
+  - Results in `results/2026-11-19-benchmark-mm-images-{v10,breadth-v2}.*` and `...-adaptive-images-v3.*`.
+  - Detector commit 57395e6.
+
+| Held-out set | Clean batches flagged (>= 1.3), before -> with sig_smooth | At SUSPICIOUS (>= 2.0) |
+|---|---|---|
+| CIFAR-10 | 4.2% -> 20.8% | 1.7% -> 10.8% |
+| GTSRB | 2.5% -> 27.5% | 0.0% -> 15.8% |
+| SVHN | 4.2% -> 29.2% | 0.0% -> 11.7% |
+| Tiny-ImageNet | 10.0% -> 10.0% (the check never fired) | 5.8% -> 5.8% |
+
+- **Clean alarms rose 5-11x on three of four held-out sets.** `sig_smooth` alone passed its alarm level on 20-31 of
+  120 clean batches per dataset. The dev sets did not show this.
+- **No standard attack gained.** Every attack flagged before is still flagged. The small rises for label flips (for
+  example 20% -> 40% of batches at 1% on CIFAR-10) are what the extra clean alarms alone produce.
+- **Adaptive v3: it does see strong smooth triggers.** Before (v2) the clean-label smooth trigger was never flagged at
+  5% poison.
+  - Amplitude 32 is now flagged in 100% of runs (evidence 33-72, row AUPRC 0.85-0.89; ASR 0.20 / 0.41).
+  - Amplitude 16 is flagged in 67% / 100% of runs.
+  - The attacker's evasive choice moves to amplitude 8, which is not flagged but barely works (ASR 0.04-0.05, 0.03
+    without poison).
+  - No run reached ASR 0.9.
+- **Decision: off.** A detector that flags about 1 in 4 clean batches cannot report the smooth trigger usefully. The
+  check stays in the code, opt-in (`d["smooth_signature"] = True`), and the app runs as at v9. The smooth clean-label
+  trigger stays on the not-detected list.
+- **What a retry needs.** A dev set that reproduces these clean alarms, so a gate can be chosen without the held-out
+  results. The adaptive evidence (33-72 at amplitude 32) is far above the clean alarms, so a stricter gate may separate
+  them, but that has to be shown on dev data.

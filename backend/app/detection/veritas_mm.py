@@ -229,7 +229,7 @@ def components(d: dict) -> dict:
     label = {"label": label_crossfit_component(d)} if d["n_classes"] > 1 else {}   # unlabeled: no label check
     # Off for video: clips of one class vary too much (dev: chance ranking, 13% clean alarms)
     sig = {"sig": class_signature_component(r)} if d["n_classes"] > 1 and d.get("class_signature", True) else {}
-    if d["n_classes"] > 1 and d.get("smooth_signature", True):   # images only: off for audio and video (not studied)
+    if d["n_classes"] > 1 and d.get("smooth_signature", False):   # opt-in: on held-out images it raised clean alarms 5-11x (docs/image-benchmark-findings.md)
         sig["sig_smooth"] = class_signature_component(r, view=smooth_view(r["R_cal"]))
     return {**label, **sig, "shift": v2.shift_component(r), "pixel": pixel_component(r),
             "dup": duplicate_component(r), "cell": shared_residual_cell_component(r),
@@ -275,7 +275,7 @@ def self_check(R: np.ndarray, E: np.ndarray, y: np.ndarray, n_classes: int, pca_
         z = lambda idx: zs.transform(pca.transform(E[idx]))  # noqa: E731
         d = {"X_fit": z(fit), "X_cal": z(cal), "X_inc": z(te), "y_fit": y[fit], "y_cal": y[cal], "y_inc": y[te], "n_classes": n_classes,
              "P_fit": ps.transform(P[fit]), "P_cal": ps.transform(P[cal]), "P_inc": ps.transform(P[te]), "R_fit": R[fit], "R_cal": R[cal], "R_inc": R[te],
-             "class_signature": False, "smooth_signature": False}   # not screening lists (chosen on dev without them)
+             "class_signature": False}   # not screening lists (chosen on dev without them)
         for name, (cal_s, inc_s, *one) in components(d).items():
             rows.setdefault(name, np.zeros(len(R)))[te] = v2.extrapolated_neg_log_p(cal_s, inc_s)
             e = label_evidence(d, cal_s, one[0]) if name == "label" else v2.multi_tail_test(cal_s, inc_s, TAILS)

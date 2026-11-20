@@ -126,7 +126,8 @@ post-fix 339/339 is no longer a held-out number.
   when the attacker relabels images; every run where the backdoor worked (14 of 14 with attack success >= 90%) was
   flagged. **A smooth low-frequency trigger on correctly labelled images is not detected:** at 5% poison it was never
   flagged and reached 20% attack success (3% without poison). It did not reach 90% on this victim; a stronger model
-  might, and Veritas would not see it.
+  might, and Veritas would not see it. A check built for it (2026-11-19) caught strong versions in the adaptive test but raised
+  clean alarms 5-11x on held-out image sets, so it is off (docs/image-benchmark-findings.md).
 - **Frequency-domain image triggers are found only through their labels.** BackdoorBench's Low Frequency and FTrojan
   triggers are caught because the attacker relabels the images; no pattern check sees the trigger itself.
 - **The scanner's corpus was written by the same person who wrote the scanner.** No real-world malicious models are

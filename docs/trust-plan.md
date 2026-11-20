@@ -96,6 +96,12 @@ victim's training set at 5% / 10%, 40 epochs, stronger strength grids; same crit
 **Result v2 (2026-11-18):** relabelled attacks flagged at every strength; 14 of 14 runs with ASR >= 0.9 flagged. The
 clean-label low-frequency trigger evades (never flagged at 5%, ASR 0.20 there); added to the model card. Tables not started.
 
+**Fix attempt (2026-11-19/20):** a smooth within-class check (`sig_smooth`), chosen on dev, held-out runs
+images v10, breadth v2 and adaptive v3, each quoted once.
+- It flagged strong smooth triggers (amplitude 32: 100% of runs).
+- It raised clean alarms 5-11x on CIFAR-10, GTSRB and SVHN (for example CIFAR-10 4.2% -> 20.8%).
+- It is off; the trigger stays on the not-detected list. See docs/image-benchmark-findings.md.
+
 ## Phase 4: breadth
 
 **Why:** 1-2 datasets per media type cannot show the numbers carry over.
