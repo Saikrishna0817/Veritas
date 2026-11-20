@@ -58,6 +58,7 @@ Row AUPRC (random = the poison rate) / share of attacked batches flagged at 1.3:
 | Tone trigger (v2 -> v3) | 60 -> 100% | 100% | 100% | 100% | 0% | 0% | 20% | 80% |
 
 - Speech Commands mean over the 7 attacks, flagged at 1% / 5%: 51 / 86% -> 69 / 100%. ESC-50 unchanged (3 / 37%).
+- Mean row AUPRC at 1% / 5%: Speech Commands 0.59 / 0.76 -> 0.74 / 0.93, ESC-50 0.29 / 0.53 -> 0.28 / 0.51.
 - Clean batches at 1.3: Speech Commands 3.3 -> 5.0% (3 of 60, nominal 5%), ESC-50 3.3%; none at 2.0.
 - Pooled clean-label row AUPRC at 5%: 0.03 -> 0.52 (interval 0.04-1.00: near 1 on Speech Commands, chance on ESC-50).
 - Clean-label triggers are found in speech-like sets with enough clips per class; not in small sound-event sets

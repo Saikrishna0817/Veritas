@@ -32,6 +32,7 @@ from sklearn.model_selection import train_test_split  # noqa: E402
 from sklearn.preprocessing import StandardScaler  # noqa: E402
 
 from research.baselines import DETECTORS  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_TAB_MANIFEST", "manifest-v2.json")
@@ -350,7 +351,7 @@ def main() -> None:
             if len(records) % 50 == 0 or len(records) == len(specs):
                 print(f"{len(records)}/{len(specs)} batches, {time.perf_counter() - started:.0f}s", flush=True)
 
-    report = {"manifest": m, "label": label, "n_batches": len(records),
+    report = {"manifest": m, "label": label, "detector_commit": detector_commit(), "n_batches": len(records),
               "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = ROOT / "results" / f"{date.today().isoformat()}-benchmark-v2-{label}"

@@ -32,6 +32,7 @@ from research.mm import datasets  # noqa: E402
 from research.mm.detector import report  # noqa: E402
 from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / os.getenv("VERITAS_ADAPTIVE_MANIFEST", "manifest-adaptive-images-v1.json")
@@ -232,7 +233,7 @@ def main() -> None:
     label = "smoke" if args.smoke else args.label
     m, started, ckpt = load_manifest(args.smoke), time.perf_counter(), checkpoint_path("adaptive-images", label)
     records = run(m, ckpt)
-    report = {"manifest": m, "label": label, "runtime_seconds": round(time.perf_counter() - started, 1),
+    report = {"manifest": m, "label": label, "detector_commit": detector_commit(), "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": summarize(records, m), "runs": records}
     out = ROOT / "results" / f"{date.today().isoformat()}-benchmark-adaptive-images-{label}"
     out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")

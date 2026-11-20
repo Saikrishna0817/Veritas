@@ -27,6 +27,7 @@ from research.audio.spectro import spectrogram_images  # noqa: E402
 from research.bench_v2 import aggregate, detector_inputs, to_markdown  # noqa: E402
 from research.mm.embed import embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 MANIFEST_PATH = bench_mm.ROOT / "benchmark" / os.getenv("VERITAS_AUDIO_MANIFEST", "manifest-audio-v1.json")
 CACHE = datasets.ROOT / "cache"
@@ -138,7 +139,7 @@ def run(m: dict, jobs_fn, splits: list[str], label: str, kind: str, workers: int
         m.update(override)
     started, ckpt = time.perf_counter(), bench_mm.checkpoint_path(kind, label)
     records = bench_mm.score_all(m, jobs_fn, len(batch_specs(m)), workers, ckpt)
-    report = {"manifest": m, "label": label, "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
+    report = {"manifest": m, "label": label, "detector_commit": detector_commit(), "n_batches": len(records), "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = bench_mm.ROOT / "results" / f"{date.today().isoformat()}-benchmark-{kind}-{label}"
     out.with_suffix(".json").write_text(json.dumps(report, indent=1, default=str) + "\n")

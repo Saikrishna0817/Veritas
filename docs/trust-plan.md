@@ -142,6 +142,11 @@ named limit or a new attack in the benchmark.
   evidence behind it.
 - The model card lists each claim with the run that supports it and links to the result files.
 
+Status (2026-11-20): `make claims` recomputes the model card's 47 headline numbers from the committed result files
+(also run in CI, `backend/tests/test_claims.py`); `make reproduce [ONLY=...]` reruns the ten benchmarks from their
+manifests and checks the new numbers against the committed intervals. Results now record the detector commit. The
+audio paragraph of the model card quoted the v2 detector's row AUPRC; it now quotes v3, the detector the app runs.
+
 ## Order and rough effort
 
 | Phase | Effort | Downloads | Changes the claims |

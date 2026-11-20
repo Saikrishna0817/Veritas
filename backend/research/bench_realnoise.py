@@ -27,6 +27,7 @@ import numpy as np  # noqa: E402
 from research import noise_data  # noqa: E402
 from research.baselines import DETECTORS  # noqa: E402
 from research.bench_v2 import _row_metrics, detector_inputs  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 ROOT = Path(__file__).parent
 MANIFEST_PATH = ROOT / "benchmark" / "manifest-realnoise.json"
@@ -173,7 +174,7 @@ def main() -> None:
             if i % 10 == 0 or i == len(specs):
                 print(f"{i}/{len(specs)} batches, {time.perf_counter() - started:.0f}s", flush=True)
     label = args.label or args.profile
-    report = {"manifest": m, "label": label, "n_batches": len(records),
+    report = {"manifest": m, "label": label, "detector_commit": detector_commit(), "n_batches": len(records),
               "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = ROOT / "results" / f"{date.today().isoformat()}-benchmark-realnoise-{label}"

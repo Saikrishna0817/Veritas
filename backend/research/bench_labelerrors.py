@@ -13,7 +13,6 @@ for _var in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
 
 import argparse  # noqa: E402
 import json  # noqa: E402
-import subprocess  # noqa: E402
 import time  # noqa: E402
 from datetime import date  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -29,6 +28,7 @@ from research.bench_v2 import detector_inputs  # noqa: E402
 from research.mm import datasets  # noqa: E402
 from research.mm.embed import embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 ROOT = Path(__file__).parent
 MANIFEST = json.loads((ROOT / "benchmark" / "manifest-labelerrors-v1.json").read_text())
@@ -183,6 +183,7 @@ def to_markdown(report: dict) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--datasets", nargs="+", default=MANIFEST["datasets"])
+    parser.add_argument("--label", default="v1")
     parser.add_argument("--limit", type=int, default=None, help="cap the test set (smoke run)")
     args = parser.parse_args()
     n_ref = MANIFEST["mode_a_reference"]["n_reference"]
@@ -190,9 +191,9 @@ def main() -> None:
         if args.limit is None:
             parser.error("VERITAS_LE_NREF is only allowed with --limit")
         n_ref = int(os.environ["VERITAS_LE_NREF"])
-    label = "v1-smoke" if args.limit else "v1"
+    label = args.label + ("-smoke" if args.limit else "")
     started = time.perf_counter()
-    commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
+    commit = detector_commit()
     res = {n: run_dataset(n, args.limit, n_ref, 1000) for n in args.datasets}
     report = {"manifest": MANIFEST, "label": label, "detector_commit": commit, "limit": args.limit, "n_reference_used": n_ref,
               "runtime_seconds": round(time.perf_counter() - started, 1), "datasets": res}

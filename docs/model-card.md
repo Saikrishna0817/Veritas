@@ -1,6 +1,6 @@
 # Veritas model card
 
-Last updated 2026-11-07. Covers the two things Veritas does: **training-data checks** (`veritas2`) and
+Last updated 2026-11-20. Covers the two things Veritas does: **training-data checks** (`veritas2`) and
 **model-file scanning**. Numbers come from `docs/benchmark-v2-findings.md` and `docs/scanner-benchmark.md`;
 raw results are in `backend/research/results/`.
 
@@ -69,10 +69,10 @@ above chance (AUROC 0.72-0.92), but only 2-16% of the listed images are confirme
 
 `POST /analyze/audio` takes a zip of uncompressed WAV files (PCM or float) in class folders (optionally a reference zip). The image detector
 runs on 32x32 log-mel spectrograms, with HuBERT-base (layer 6) embeddings for the label and shift checks. Held-out
-(Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md): mean row AUPRC 0.59 at 1% and
-0.76 at 5% on Speech Commands, 0.29 and 0.53 on ESC-50; clean batches flagged 3.3% at LOW_RISK. With the
-within-class signature check (v3): clean-label triggers flagged in 19 of 20 Speech Commands test batches (v2: 2) and
-1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0% at LOW_RISK. UrbanSound8K (never used for tuning):
+(Speech Commands testing speakers, ESC-50 folds 4-5; docs/audio-benchmark-findings.md), current detector (v3, with the
+within-class signature check): mean row AUPRC 0.74 at 1% and 0.93 at 5% on Speech Commands, 0.28 and 0.51 on ESC-50
+(v2: 0.59 / 0.76 and 0.29 / 0.53); clean-label triggers flagged in 19 of 20 Speech Commands test batches (v2: 2) and
+1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0% at LOW_RISK, ESC-50 clean batches 3.3%. UrbanSound8K (never used for tuning):
 row AUPRC 0.31-0.98 by attack at 5%, clean-label triggers in 6 of 20 batches, clean batches 5.0% at LOW_RISK.
 
 ## Video-data check
@@ -95,6 +95,28 @@ Benchmark: 710 generated malicious files and 221 benign files (156 pinned Huggin
 picklescan 1.0.5 and modelscan 0.8.8. On the held-out split, first run: Veritas flagged 73% DANGEROUS (83% including
 REVIEW) with 0 of 74 benign files DANGEROUS, picklescan 20%, modelscan 16%. The scanner was fixed after that run, so the
 post-fix 339/339 is no longer a held-out number.
+
+## Claims and evidence
+
+Each headline number above, the benchmark run behind it and its result file. `make claims` recomputes all of them
+from the committed result files (CI runs it as `backend/tests/test_claims.py`); `make reproduce` reruns the benchmarks
+from their manifests and checks the new numbers against intervals of +-0.03 (row AUPRC), +-0.05 (share of attacked
+batches or runs) and +-0.02 (share of clean batches flagged). Definitions, commands and intervals:
+`backend/research/claims.py`. Every result file names its manifest; files written from 2026-11-20 on also record the
+detector commit.
+
+| Run | Claims it backs (numbers in the text above) | Result file |
+|---|---|---|
+| `tables` | row AUPRC at 5% poison (random = 0.05) 0.80; batch detection rate at 5% false alarms 0.86; Nov 13: 1% 0.47; 3% 0.79; 10% 0.94; On held-out clean batches 3.7% reached LOW_RISK; 1.3% reached SUSPICIOUS | [`2026-11-13-benchmark-v2-final-r4-resid-attack`](../backend/research/results/2026-11-13-benchmark-v2-final-r4-resid-attack.md) |
+| `tables-breadth` | row AUPRC 0.71 at 1%; and 0.92 at 5% (0.73 to 0.99 by dataset); 64% / 95% of attacked batches flagged; 1.9% at LOW_RISK | [`2026-11-18-benchmark-v2-breadth-v1`](../backend/research/results/2026-11-18-benchmark-v2-breadth-v1.md) |
+| `images` | row AUPRC 0.87 at 1% poison; and 0.92 at 5%; 83% of attacked batches flagged at 1%; clean batches flagged 3.3% at LOW_RISK. About 4 s | [`2026-11-16-benchmark-mm-images-v9-sig`](../backend/research/results/2026-11-16-benchmark-mm-images-v9-sig.md) |
+| `images-bb` | 80-100% of batches flagged at 5%; 40-80% at 1% | [`2026-11-16-benchmark-mm-images-ext-v1`](../backend/research/results/2026-11-16-benchmark-mm-images-ext-v1.md) |
+| `images-breadth` | 10% of clean batches at LOW_RISK; 5.8% at SUSPICIOUS | [`2026-11-16-benchmark-mm-images-breadth-v1`](../backend/research/results/2026-11-16-benchmark-mm-images-breadth-v1.md) |
+| `label-errors` | (AUROC 0.72-0.92); only 2-16% of the listed images; precision 4% on CIFAR-10; 15% on CIFAR-100 | [`2026-11-16-labelerrors-v1`](../backend/research/results/2026-11-16-labelerrors-v1.md) |
+| `adaptive` | (14 of 14 with attack success >= 90%) was flagged; at 5% poison it was never flagged; reached 20% attack success | [`2026-11-18-benchmark-adaptive-images-v2`](../backend/research/results/2026-11-18-benchmark-adaptive-images-v2.md) |
+| `audio` | mean row AUPRC 0.74 at 1% and 0.93 at 5% on Speech Commands; 0.28 and 0.51 on ESC-50; clean-label triggers flagged in 19 of 20 Speech Commands; and 1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0%; ESC-50 clean batches 3.3% | [`2026-11-16-benchmark-audio-test-v3-sig`](../backend/research/results/2026-11-16-benchmark-audio-test-v3-sig.md) |
+| `audio-breadth` | clean-label triggers in 6 of 20 batches; clean batches 5.0% at LOW_RISK | [`2026-11-16-benchmark-audio-breadth-v1`](../backend/research/results/2026-11-16-benchmark-audio-breadth-v1.md) |
+| `video` | mean row AUPRC 0.53 at 1% and 0.75 at 5%; 46% / 86% of attacked batches flagged; clean batches flagged 4.2% at LOW_RISK; 2.5% at SUSPICIOUS (nominal 1%) | [`2026-11-14-benchmark-video-test-v2`](../backend/research/results/2026-11-14-benchmark-video-test-v2.md) |
 
 ## Known limits
 
