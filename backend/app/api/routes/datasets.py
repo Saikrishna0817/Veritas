@@ -113,8 +113,8 @@ async def get_demo_dataset():
 
 @router.get("/datasets/demo/samples")
 async def get_demo_samples(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     filter_status: Optional[str] = None,
 ):
     data = deps.get_demo_data()

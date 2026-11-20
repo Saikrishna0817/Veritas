@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api import dependencies as deps
 from app.api.analysis_helpers import run_model_analysis
+from app.api.paging import before_cursor, next_cursor
 from app.api.routes.upload import read_upload_limited
 from app.core import quota
 from app.core.storage import new_key, storage
@@ -78,8 +80,13 @@ async def scan_model(
 
 
 @router.get("/analyze/model/history")
-async def get_model_scan_history(limit: int = 20, user: dict = Depends(require_user)):
-    return {"scans": deps.db.get_model_scan_history(deps.owner_scope(user), limit=limit)}
+async def get_model_scan_history(
+    limit: int = Query(20, ge=1, le=200),
+    before: Optional[str] = Depends(before_cursor),
+    user: dict = Depends(require_user),
+):
+    scans = deps.db.get_model_scan_history(deps.owner_scope(user), limit=limit, before=before)
+    return {"scans": scans, "next_before": next_cursor(scans, limit)}
 
 
 @router.get("/analyze/model/{scan_id}")
