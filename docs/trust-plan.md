@@ -96,6 +96,12 @@ victim's training set at 5% / 10%, 40 epochs, stronger strength grids; same crit
 **Result v2 (2026-11-18):** relabelled attacks flagged at every strength; 14 of 14 runs with ASR >= 0.9 flagged. The
 clean-label low-frequency trigger evades (never flagged at 5%, ASR 0.20 there); added to the model card. Tables not started.
 
+**Fix attempt (2026-11-19/20):** a smooth within-class check (`sig_smooth`), chosen on dev, held-out runs
+images v10, breadth v2 and adaptive v3, each quoted once.
+- It flagged strong smooth triggers (amplitude 32: 100% of runs).
+- It raised clean alarms 5-11x on CIFAR-10, GTSRB and SVHN (for example CIFAR-10 4.2% -> 20.8%).
+- It is off; the trigger stays on the not-detected list. See docs/image-benchmark-findings.md.
+
 ## Phase 4: breadth
 
 **Why:** 1-2 datasets per media type cannot show the numbers carry over.
@@ -135,6 +141,11 @@ named limit or a new attack in the benchmark.
 - Every result records the detector version and manifest it was measured against, so a report can be traced to the
   evidence behind it.
 - The model card lists each claim with the run that supports it and links to the result files.
+
+Status (2026-11-20): `make claims` recomputes the model card's 47 headline numbers from the committed result files
+(also run in CI, `backend/tests/test_claims.py`); `make reproduce [ONLY=...]` reruns the ten benchmarks from their
+manifests and checks the new numbers against the committed intervals. Results now record the detector commit. The
+audio paragraph of the model card quoted the v2 detector's row AUPRC; it now quotes v3, the detector the app runs.
 
 ## Order and rough effort
 

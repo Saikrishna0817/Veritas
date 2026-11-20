@@ -67,3 +67,6 @@ data/raw/
 e2e/node_modules/
 e2e/test-results/
 backups/
+
+# ── Benchmark reruns from `make reproduce` (compare with research.claims --fresh; not committed) ─
+backend/research/results/*-repro-*

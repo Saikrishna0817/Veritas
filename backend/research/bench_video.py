@@ -70,7 +70,7 @@ def prepare_batch(spec: dict, ds: datasets.VideoSet, img, emb, pix) -> dict:
                         m["calibration_fraction_of_reference"])
     n_cal = int(len(ref) * m["calibration_fraction_of_reference"])
     scaler = StandardScaler().fit(pix[ref][n_cal:])
-    d.update({"class_signature": False, "smooth_signature": False, "P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc), "R_cal": img[ref][:n_cal],
+    d.update({"class_signature": False, "P_cal": scaler.transform(pix[ref][:n_cal]), "P_inc": scaler.transform(P_inc), "R_cal": img[ref][:n_cal],
               "R_inc": R_inc, "P_fit": scaler.transform(pix[ref][n_cal:]), "R_fit": img[ref][n_cal:]})
     return {"d": d, "mask": mask}
 

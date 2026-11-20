@@ -33,6 +33,7 @@ from research.mm.attacks import ATTACKS, make_context  # noqa: E402
 from research.mm.detector import check_detector, mm_lead, pixel_c2st, veritas_mm  # noqa: E402
 from research.mm.embed import clean_embeddings, embed_images  # noqa: E402
 from research.mm.pixel import pixel_features  # noqa: E402
+from research import detector_commit  # noqa: E402
 
 ALL_DETECTORS = {**DETECTORS, "pixel_c2st": pixel_c2st, "veritas_mm": veritas_mm, "mm_lead": mm_lead,
                  **{f"mm_{n}": check_detector(n) for n in ("label", "shift", "pixel", "dup", "cell", "resid", "chroma", "sig", "sig_smooth")}}
@@ -172,7 +173,7 @@ def main() -> None:
     label = args.label or args.profile
     started, ckpt = time.perf_counter(), checkpoint_path("mm-images", label)
     records = score_all(m, jobs, len(batch_specs(m)), args.workers, ckpt)
-    report = {"manifest": m, "label": label, "n_batches": len(records),
+    report = {"manifest": m, "label": label, "detector_commit": detector_commit(), "n_batches": len(records),
               "runtime_seconds": round(time.perf_counter() - started, 1),
               "summary": aggregate(records, m), "batches": records}
     out = ROOT / "results" / f"{date.today().isoformat()}-benchmark-mm-images-{label}"

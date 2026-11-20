@@ -72,6 +72,7 @@ def test_backdoored_images_are_flagged_first():
     assert job["status"] == "completed", job
     res = job["result"]
     assert res["verdict"] in ("SUSPICIOUS", "CONFIRMED_POISONED") and res["leading_check"]
+    assert "sig_smooth" not in str(res["checks"])   # off in the app: held-out clean alarms rose 5-11x
     top = [f["file"] for f in res["flagged_images"][:len(bad)]]
     assert len(set(top) & bad) >= 0.75 * len(bad), (top, res["checks"])
     assert any(x["filename"] == "inc.zip" for x in client.get("/api/v1/history", headers=h).json()["results"])
