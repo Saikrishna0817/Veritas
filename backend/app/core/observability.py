@@ -12,6 +12,8 @@ REQUESTS = Counter("veritas_http_requests_total", "HTTP requests", ["method", "r
 LATENCY = Histogram("veritas_http_request_seconds", "HTTP request latency", ["method", "route"],
                     buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60))
 JOBS = Counter("veritas_jobs_total", "Background jobs finished", ["job_type", "status"])
+# outcome: wrong_password (the account exists), unknown_account, rate_limited. No usernames or IPs as labels.
+LOGIN_FAILURES = Counter("veritas_auth_login_failures_total", "Refused sign-in attempts", ["outcome"])
 
 
 def init_sentry() -> bool:

@@ -12,6 +12,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core import mailer
 from app.core.config import settings
+from app.core.observability import LOGIN_FAILURES
 from app.core.rate_limit import make_limiter
 from app.core.security import (authenticate_user, clear_session_cookies, create_access_token, hash_password, require_user,
                                set_session_cookies)
@@ -104,8 +105,10 @@ async def _send_verification(user_id: str, email: str) -> bool:
 @router.post("/auth/token")
 async def token(credentials: LoginRequest, request: Request, response: Response):
     if not login_rate_limiter.allow(_ip(request)):
+        LOGIN_FAILURES.labels("rate_limited").inc()
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Try again in one minute.")
     if not login_user_rate_limiter.allow(credentials.username.lower()):
+        LOGIN_FAILURES.labels("rate_limited").inc()
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts for this account. Try again in 15 minutes.")
     user = authenticate_user(credentials.username, credentials.password)
     if user is None:
@@ -129,6 +132,7 @@ def _audit_failed_login(username: str, request: Request) -> None:
     sees it under their activity; for an unknown name only the IP is kept (people type passwords into the name field)."""
     known = db.get_user_by_username(username)
     ip = _ip(request)
+    LOGIN_FAILURES.labels("wrong_password" if known else "unknown_account").inc()
     if known:
         db.log_audit_event(known["id"], "auth.login_failed", "account", known["id"], {"ip": ip})
         logger.warning("Failed sign-in for account %s from %s", known["id"], ip)
