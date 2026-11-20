@@ -113,3 +113,20 @@ def test_direct_upload_refunds_quota_when_queueing_fails(monkeypatch):
         assert r.status_code == 500
         assert db.get_usage(owner).get("analyses", 0) == 0 and db.get_usage(owner).get("rows", 0) == 0
         assert store.size(key) is None
+
+
+# ── a HITL case is decided once, even by two requests at the same time ──────
+
+def test_a_hitl_case_is_decided_only_once_under_a_race(monkeypatch):
+    from app.api import dependencies as deps
+    owner = "race-" + uuid.uuid4().hex[:6]
+    case = deps.hitl.enqueue([{"id": f"row_{i}", "poison_status": "suspected"} for i in range(5)], {}, 0.5,
+                             scope="race", owner_id=owner)
+    stale = db.get_pending_hitl_cases(owner)            # both requests read the case while it was still pending
+    monkeypatch.setattr(db, "get_pending_hitl_cases", lambda o: stale)
+    first = deps.hitl.decide(case["case_id"], "mark_safe", "r1", owner_id=owner)
+    second = deps.hitl.decide(case["case_id"], "approve_quarantine", "r2", owner_id=owner)
+    assert first is not None and second is None
+    monkeypatch.undo()
+    decided = [d for d in db.get_hitl_decisions(owner) if d["case_id"] == case["case_id"]]
+    assert [d["decision"] for d in decided] == ["mark_safe"]

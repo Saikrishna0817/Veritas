@@ -567,28 +567,26 @@ def get_pending_hitl_cases(owner_id: str) -> List[Dict[str, Any]]:
     return [json.loads(row["details_json"]) for row in rows]
 
 
-def save_hitl_decision(decision: Dict[str, Any]) -> None:
+def save_hitl_decision(decision: Dict[str, Any]) -> bool:
+    """Resolve a pending case and record the decision, in one transaction. False when the case was not pending any
+    more (another decision got there first), and then nothing is recorded."""
     conn = _get_conn()
-    decision_id = str(uuid.uuid4())
-    conn.execute(
-        """
-        INSERT INTO hitl_decisions (id, case_id, decision, reviewer, decided_at)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            decision_id,
-            decision["case_id"],
-            decision["decision"],
-            decision.get("reviewer", "analyst"),
-            decision.get("decided_at", datetime.now(timezone.utc).isoformat()),
-        ),
-    )
-    # Also update case status in hitl_cases table
-    conn.execute(
-        "UPDATE hitl_cases SET status = 'resolved' WHERE case_id = ?",
-        (decision["case_id"],),
-    )
-    conn.commit()
+    try:
+        claimed = conn.execute("UPDATE hitl_cases SET status = 'resolved' WHERE case_id = ? AND status = 'pending'",
+                               (decision["case_id"],)).rowcount
+        if not claimed:
+            conn.rollback()
+            return False
+        conn.execute(
+            "INSERT INTO hitl_decisions (id, case_id, decision, reviewer, decided_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), decision["case_id"], decision["decision"], decision.get("reviewer", "analyst"),
+             decision.get("decided_at", datetime.now(timezone.utc).isoformat())),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return True
 
 
 def get_hitl_decisions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
