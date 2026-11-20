@@ -109,6 +109,7 @@ async def token(credentials: LoginRequest, request: Request, response: Response)
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts for this account. Try again in 15 minutes.")
     user = authenticate_user(credentials.username, credentials.password)
     if user is None:
+        _audit_failed_login(credentials.username, request)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
 
     # Flow-specific role enforcement
@@ -123,10 +124,33 @@ async def token(credentials: LoginRequest, request: Request, response: Response)
     return {"access_token": access, "token_type": "bearer", "user": user, "csrf_token": csrf}
 
 
+def _audit_failed_login(username: str, request: Request) -> None:
+    """Failed sign-ins go to the audit log. For an existing account the event is the account's own, so its owner
+    sees it under their activity; for an unknown name only the IP is kept (people type passwords into the name field)."""
+    known = db.get_user_by_username(username)
+    ip = _ip(request)
+    if known:
+        db.log_audit_event(known["id"], "auth.login_failed", "account", known["id"], {"ip": ip})
+        logger.warning("Failed sign-in for account %s from %s", known["id"], ip)
+    else:
+        db.log_audit_event("anonymous", "auth.login_failed", "account", None, {"ip": ip, "known_account": False})
+        logger.warning("Failed sign-in for an unknown username from %s", ip)
+
+
 @router.post("/auth/logout")
 async def logout(response: Response):
+    """Clears this browser's cookies. The token itself stays valid until it expires; /auth/logout-all ends it."""
     clear_session_cookies(response)
     return {"message": "Signed out."}
+
+
+@router.post("/auth/logout-all")
+async def logout_everywhere(response: Response, user: dict = Depends(require_user)):
+    """End every session of the caller's account on every device, this one included. API keys keep working."""
+    db.end_all_sessions(user["id"])
+    clear_session_cookies(response)
+    db.log_audit_event(user["id"], "auth.signed_out_everywhere", "account", user["id"], {})
+    return {"message": "Signed out on every device."}
 
 
 @router.post("/auth/signup", status_code=status.HTTP_201_CREATED)
@@ -137,7 +161,7 @@ async def signup(body: SignupRequest, request: Request):
         raise HTTPException(status_code=429, detail="Too many sign-ups from this address. Try again later.")
     await _check_turnstile(body.turnstile_token, request)
     email = body.email.lower()
-    if db.get_user_by_username(body.username) or db.get_user_by_email(email):
+    if db.username_taken(body.username) or db.get_user_by_email(email):
         raise HTTPException(status_code=409, detail="That username or email is already registered.")
     verified = not settings.require_email_verification
     user_id = db.create_user(body.username, hash_password(body.password), role="user", email=email, email_verified=verified)

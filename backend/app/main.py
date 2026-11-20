@@ -62,9 +62,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_allow_origins),
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-CSRF-Token"],
-    expose_headers=["X-Request-ID"],
+    expose_headers=["X-Request-ID", "X-Next-Before"],
 )
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ app.state.ws_manager = manager
 
 @app.get("/health")
 async def health():
-    """Basic liveness probe.  For a readiness probe use /health/ready."""
+    """Basic liveness probe. For a readiness probe use /ready."""
     from app.models import database as db
     try:
         stats = db.get_stats(db.ALL_OWNERS)
@@ -94,6 +94,31 @@ async def health():
         "db": "ok" if db_ok else "error",
         "total_analyses": stats.get("total_analyses", 0),
     }
+
+
+@app.get("/ready")
+async def ready():
+    """Readiness probe: 200 only when the database answers (and Redis, when configured). 503 otherwise, so a load
+    balancer stops sending traffic. Failure details go to the log, not the response."""
+    from fastapi.responses import JSONResponse
+    from app.models import database as db
+    checks = {}
+    try:
+        db.connection().execute("SELECT 1").fetchone()
+        checks["database"] = "ok"
+    except Exception:
+        logger.exception("Readiness: database check failed")
+        checks["database"] = "error"
+    if settings.redis_url:
+        try:
+            import redis
+            redis.Redis.from_url(settings.redis_url, socket_timeout=1, socket_connect_timeout=1).ping()
+            checks["redis"] = "ok"
+        except Exception:
+            logger.exception("Readiness: Redis check failed")
+            checks["redis"] = "error"
+    ok = all(v == "ok" for v in checks.values())
+    return JSONResponse({"status": "ready" if ok else "not_ready", "checks": checks}, status_code=200 if ok else 503)
 
 
 @app.get("/")

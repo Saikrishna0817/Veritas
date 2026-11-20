@@ -10,7 +10,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api import dependencies as deps
 from app.core.rate_limit import SlidingWindowRateLimiter
-from app.core.security import create_access_token
+from auth_helpers import token_for
 from app.ingestion.csv_engine import CSVIngestionEngine
 from app.jobs.queue import job_store
 from app.main import app
@@ -19,7 +19,7 @@ client = TestClient(app)
 
 
 def _auth(user_id="u1", name="alice", role="user"):
-    return {"Authorization": f"Bearer {create_access_token({'id': user_id, 'name': name, 'role': role})}"}
+    return {"Authorization": f"Bearer {token_for({'id': user_id, 'name': name, 'role': role})}"}
 
 
 def _csv(df: pd.DataFrame) -> bytes:

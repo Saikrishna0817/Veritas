@@ -12,7 +12,7 @@ pytest.importorskip("moto")
 from moto import mock_aws  # noqa: E402
 
 from app.core import storage as storage_mod  # noqa: E402
-from app.core.security import create_access_token  # noqa: E402
+from auth_helpers import token_for  # noqa: E402
 from app.main import app  # noqa: E402
 
 client = TestClient(app)
@@ -20,7 +20,7 @@ BUCKET = "veritas-direct"
 
 
 def _h(uid):
-    return {"Authorization": f"Bearer {create_access_token({'id': uid, 'name': uid, 'role': 'user'})}"}
+    return {"Authorization": f"Bearer {token_for({'id': uid, 'name': uid, 'role': 'user'})}"}
 
 
 def _csv(seed=3, flip=60):

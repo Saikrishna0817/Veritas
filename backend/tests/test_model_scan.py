@@ -193,11 +193,11 @@ def test_sandbox_failure_is_treated_as_dangerous(monkeypatch):
 def test_model_endpoint_scans_without_loading_and_reports_the_verdict(monkeypatch):
     from fastapi.testclient import TestClient
 
-    from app.core.security import create_access_token
+    from auth_helpers import token_for
     from app.main import app
 
     monkeypatch.delenv(FLAG, raising=False)
-    headers = {"Authorization": f"Bearer {create_access_token({'id': 'u7', 'name': 'u7', 'role': 'user'})}"}
+    headers = {"Authorization": f"Bearer {token_for({'id': 'u7', 'name': 'u7', 'role': 'user'})}"}
     c = TestClient(app)
     evil = c.post("/api/v1/analyze/model", headers=headers, files={"model_file": ("evil.pkl", pickle.dumps(_Eval()), "application/octet-stream")})
     assert evil.status_code == 200 and evil.json()["verdict"] == "DANGEROUS" and FLAG not in os.environ

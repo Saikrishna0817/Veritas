@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.api.router import api_router
 
+from auth_helpers import token_for
 from app.core.security import (
     authenticate_user,
     create_access_token,
@@ -69,18 +70,18 @@ def test_every_rest_endpoint_except_token_issuance_requires_authentication():
 
 def test_regular_user_and_admin_authentication_and_role_detection():
     # Admin login
-    admin_token = create_access_token({"id": "admin-1", "name": "admin", "role": "admin"})
+    admin_token = token_for({"id": "admin-1", "name": "admin", "role": "admin"})
     decoded_admin = decode_access_token(admin_token)
     assert decoded_admin["role"] == "admin"
 
     # Regular user login
-    user_token = create_access_token({"id": "user-1", "name": "regular_user", "role": "user"})
+    user_token = token_for({"id": "user-1", "name": "regular_user", "role": "user"})
     decoded_user = decode_access_token(user_token)
     assert decoded_user["role"] == "user"
 
 
 def test_regular_user_cannot_access_admin_apis():
-    user_token = create_access_token({"id": "user-1", "name": "regular_user", "role": "user"})
+    user_token = token_for({"id": "user-1", "name": "regular_user", "role": "user"})
     headers = {"Authorization": f"Bearer {user_token}"}
 
     # Regular user calling /users (Admin-only)
@@ -95,7 +96,7 @@ def test_regular_user_cannot_access_admin_apis():
 
 
 def test_admin_can_access_admin_apis():
-    admin_token = create_access_token({"id": "admin", "name": "admin", "role": "admin"})
+    admin_token = token_for({"id": "admin", "name": "admin", "role": "admin"})
     headers = {"Authorization": f"Bearer {admin_token}"}
 
     # Admin calling /users
@@ -105,7 +106,7 @@ def test_admin_can_access_admin_apis():
 
 
 def test_regular_user_can_access_user_apis():
-    user_token = create_access_token({"id": "user-regular-001", "name": "user", "role": "user"})
+    user_token = token_for({"id": "user-regular-001", "name": "user", "role": "user"})
     headers = {"Authorization": f"Bearer {user_token}"}
 
     # Regular user calling /auth/me
@@ -142,8 +143,8 @@ def test_portal_required_role_enforcement():
 
 
 def test_delete_historical_result_permissions():
-    user_token = create_access_token({"id": "user-1", "name": "user", "role": "user"})
-    admin_token = create_access_token({"id": "admin", "name": "admin", "role": "admin"})
+    user_token = token_for({"id": "user-1", "name": "user", "role": "user"})
+    admin_token = token_for({"id": "admin", "name": "admin", "role": "admin"})
 
     # Regular user attempting DELETE /history/non-existent
     res_user = client.delete("/api/v1/history/fake-id", headers={"Authorization": f"Bearer {user_token}"})
@@ -157,3 +158,12 @@ def test_delete_historical_result_permissions():
 
 
 
+
+
+def test_a_token_for_an_account_that_does_not_exist_is_refused():
+    """Only the server can sign tokens, but a leaked secret must not mint an admin out of nothing."""
+    forged = create_access_token({"id": "never-created", "name": "ghost", "role": "admin"})
+    with pytest.raises(HTTPException) as error:
+        decode_access_token(forged)
+    assert error.value.status_code == 401
+    assert client.get("/api/v1/users", headers={"Authorization": f"Bearer {forged}"}).status_code == 401

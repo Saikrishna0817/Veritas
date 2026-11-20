@@ -169,9 +169,16 @@ def get_latest_real(owner_id: str) -> Optional[Dict]:
     return json.loads(row["full_json"]) if row else None
 
 
-def get_history(owner_id: str, source: str = None, limit: int = 20) -> List[Dict]:
-    """Recent results as lightweight summary rows."""
+def _before(before: str | None) -> tuple[str, tuple]:
+    """Paging cursor: (' AND created_at < ?', (before,)) or nothing. ``before`` is a created_at from the previous page."""
+    return (" AND created_at < ?", (before,)) if before else ("", ())
+
+
+def get_history(owner_id: str, source: str = None, limit: int = 20, before: str | None = None) -> List[Dict]:
+    """Recent results as lightweight summary rows, newest first; ``before`` continues from an earlier page."""
     clause, args = _scope(owner_id)
+    page, page_args = _before(before)
+    clause, args = clause + page, (*args, *page_args)
     where, params = ("source=?" + clause, (source, *args)) if source else ("1=1" + clause, args)
     rows = _get_conn().execute(
         f"""SELECT id, source, filename, verdict, score, attack_type, detection_mode, n_samples, elapsed_ms, created_at, owner_id
@@ -179,9 +186,11 @@ def get_history(owner_id: str, source: str = None, limit: int = 20) -> List[Dict
     return [dict(r) for r in rows]
 
 
-def get_model_scan_history(owner_id: str, limit: int = 20) -> List[Dict]:
-    """Recent model scan summaries."""
+def get_model_scan_history(owner_id: str, limit: int = 20, before: str | None = None) -> List[Dict]:
+    """Recent model scan summaries, newest first."""
     clause, args = _scope(owner_id)
+    page, page_args = _before(before)
+    clause, args = clause + page, (*args, *page_args)
     rows = _get_conn().execute(
         f"""SELECT id, model_filename, dataset_filename, model_type, verdict, score, attack_type, n_samples, created_at, owner_id
             FROM model_scans WHERE 1=1{clause} ORDER BY created_at DESC LIMIT ?""", (*args, limit)).fetchall()
@@ -239,17 +248,18 @@ def log_audit_event(
     return event_id
 
 
-def get_audit_events(actor_id: str | None = None, limit: int = 50) -> List[Dict]:
-    """Return recent audit records without exposing unbounded history."""
+def get_audit_events(actor_id: str | None = None, limit: int = 50, before: str | None = None) -> List[Dict]:
+    """Return recent audit records without exposing unbounded history; ``before`` continues from an earlier page."""
     limit = max(1, min(limit, 200))
     conn = _get_conn()
+    page, page_args = _before(before)
     if actor_id:
         rows = conn.execute(
-            "SELECT * FROM audit_events WHERE actor_id=? ORDER BY created_at DESC LIMIT ?",
-            (actor_id, limit),
+            f"SELECT * FROM audit_events WHERE actor_id=?{page} ORDER BY created_at DESC LIMIT ?",
+            (actor_id, *page_args, limit),
         ).fetchall()
     else:
-        rows = conn.execute("SELECT * FROM audit_events ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        rows = conn.execute(f"SELECT * FROM audit_events WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?", (*page_args, limit)).fetchall()
     events = []
     for row in rows:
         event = dict(row)
@@ -283,12 +293,17 @@ def _ensure_bootstrap_admin(conn: Database) -> None:
     conn.commit()
 
 
-_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version"
+_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version, disabled_at"
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
     row = _get_conn().execute(f"SELECT {_USER_COLS} FROM users WHERE username=?", (username,)).fetchone()
     return dict(row) if row else None
+
+
+def username_taken(username: str) -> bool:
+    """True if any account has this name in any letter case: 'Alice' and 'alice' must not be two people."""
+    return _get_conn().execute("SELECT 1 FROM users WHERE lower(username) = lower(?)", (username,)).fetchone() is not None
 
 
 def get_user_by_email(email: str) -> Optional[Dict]:
@@ -318,6 +333,13 @@ def create_user(username: str, password_hash: str, role: str = "analyst", email:
 def set_email_verified(user_id: str) -> None:
     conn = _get_conn()
     conn.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+def end_all_sessions(user_id: str) -> None:
+    """Every token issued so far for this account stops working (security.decode_access_token checks the version)."""
+    conn = _get_conn()
+    conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = ?", (user_id,))
     conn.commit()
 
 
@@ -382,7 +404,7 @@ def get_user_by_api_key(raw: str) -> Optional[Dict]:
     conn = _get_conn()
     row = conn.execute(
         """SELECT u.id, u.username, u.role, k.id AS key_id FROM api_keys k JOIN users u ON u.id = k.owner_id
-           WHERE k.key_hash = ? AND k.revoked_at IS NULL""",
+           WHERE k.key_hash = ? AND k.revoked_at IS NULL AND u.disabled_at IS NULL""",
         (hashlib.sha256(raw.encode()).hexdigest(),),
     ).fetchone()
     if row:
@@ -406,11 +428,12 @@ def revoke_api_key(owner_id: str, key_id: str) -> bool:
     return cur.rowcount > 0
 
 
-def list_users(limit: int = 50) -> List[Dict]:
+def list_users(limit: int = 50, before: str | None = None) -> List[Dict]:
     conn = _get_conn()
+    page, page_args = _before(before)
     rows = conn.execute(
-        "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC LIMIT ?",
-        (max(1, min(limit, 200)),),
+        f"SELECT id, username, role, created_at, disabled_at FROM users WHERE 1=1{page} ORDER BY created_at DESC LIMIT ?",
+        (*page_args, max(1, min(limit, 200))),
     ).fetchall()
     return [dict(row) for row in rows]
 
@@ -421,6 +444,19 @@ def set_user_role(user_id: str, role: str) -> bool:
     cursor = conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
     conn.commit()
     return cursor.rowcount > 0
+
+
+def set_user_disabled(user_id: str, disabled: bool) -> bool:
+    """Disable (or re-enable) an account. Disabling also ends its sessions; its data and API keys are kept, the
+    keys simply stop authenticating while the account is disabled."""
+    conn = _get_conn()
+    if disabled:
+        cur = conn.execute("UPDATE users SET disabled_at = ?, token_version = token_version + 1 WHERE id = ?",
+                           (datetime.now(timezone.utc).isoformat(), user_id))
+    else:
+        cur = conn.execute("UPDATE users SET disabled_at = NULL WHERE id = ?", (user_id,))
+    conn.commit()
+    return cur.rowcount > 0
 
 
 def delete_user(user_id: str) -> bool:

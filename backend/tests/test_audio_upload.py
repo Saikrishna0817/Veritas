@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.security import create_access_token
+from auth_helpers import token_for
 from app.ingestion.audio_engine import _decode_wav
 from app.main import app
 
@@ -18,7 +18,7 @@ RATE = 16_000
 
 
 def _h(uid):
-    return {"Authorization": f"Bearer {create_access_token({'id': uid, 'name': uid, 'role': 'user'})}"}
+    return {"Authorization": f"Bearer {token_for({'id': uid, 'name': uid, 'role': 'user'})}"}
 
 
 def _wav(x, rate=RATE, width=2, channels=1):
