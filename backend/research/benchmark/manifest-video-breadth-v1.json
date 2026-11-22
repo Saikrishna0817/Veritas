@@ -1,0 +1,68 @@
+{
+ "schema_version": 2,
+ "benchmark_id": "veritas-video-poisoning-breadth-v1",
+ "created_at": "2026-11-22",
+ "immutable": true,
+ "random_seed": 20261115,
+ "source": "HMDB-51 (Kuehne et al. 2011; CC BY 4.0), from the Hugging Face mirror MichiganNLP/hmdb that the Serre lab page links (hmdb51_org.zip, a ZIP repack of the official RAR; the lab's own download links returned 404 on 2026-11-22; every clip is stored twice with the same CRC and is used once), official split 1 (test_train_splits.zip: label 2 = test clips, label 1 = training clips, the reference pool for dev). 51 classes, about 6.8k clips; many clips are short and low quality, which is part of why it is a useful second set. 8 frames per clip at 64x64 decoded by the app; ResNet-18 ImageNet embedding averaged over frames; pixel and shared-pattern checks on the temporal mean of the 8 frames (32x32). Attacks on decoded frames.",
+ "reference_fraction": 0.6,
+ "calibration_fraction_of_reference": 0.3,
+ "batch_rows": 3000,
+ "pca_dims": 32,
+ "datasets": {
+  "test": [
+   {
+    "data_id": "hmdb51"
+   }
+  ]
+ },
+ "attacks": [
+  "label_flip_random",
+  "label_flip_targeted",
+  "patch_backdoor",
+  "blended_backdoor",
+  "clean_label_backdoor",
+  "duplicate_flood",
+  "class_noise"
+ ],
+ "poison_rates": [
+  0.01,
+  0.03,
+  0.05,
+  0.1
+ ],
+ "seeds": 5,
+ "clean_batches_per_seed": 24,
+ "detectors": [
+  "veritas_mm",
+  "mm_label",
+  "mm_shift",
+  "mm_pixel",
+  "mm_dup",
+  "mm_cell",
+  "mm_resid",
+  "mm_chroma"
+ ],
+ "metrics": {
+  "row": [
+   "auroc",
+   "auprc",
+   "precision_at_k"
+  ],
+  "batch": {
+   "tpr_at_clean_fpr": 0.05,
+   "tail_quantile": 0.99
+  },
+  "ci": {
+   "method": "cluster bootstrap over datasets",
+   "resamples": 1000,
+   "level": 0.95
+  }
+ },
+ "policy": "New held-out dataset: nothing was tuned on HMDB-51; the detector is frozen at fb3ab71 (its video results reproduce manifest-video-v2 exactly; the commit is recorded in the result) and the result is quoted once. Never edit this file in place: create a new benchmark_id for any change.",
+ "sha256": {
+  "hmdb51_org.zip": "2d652f386debd04ae8f83508faacb959c03c9cbf1176fc76848b73cda4d52e57",
+  "test_train_splits.zip": "12df0053bd9d570817edb10d2299030f43646969d5d42ff40200249b45ab2efa"
+ },
+ "view": "mean"
+}

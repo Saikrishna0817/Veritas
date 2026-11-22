@@ -24,7 +24,10 @@ SPLITS = ROOT / "ucf101" / "UCF101TrainTestSplits-RecognitionTask.zip"
 
 
 HMDB = ROOT / "hmdb51"
-HMDB_SHA256 = {"hmdb51_org.rar": "TODO", "test_train_splits.rar": "TODO"}   # official Serre lab archives
+# Hugging Face mirror MichiganNLP/hmdb (ZIP repack of the official RARs, linked from serre.lab.brown.edu/hmdb51; the lab's
+# own Google Drive links returned 404 on 2026-11-22). SHA-256 equals the mirror's LFS object id.
+HMDB_SHA256 = {"hmdb51_org.zip": "2d652f386debd04ae8f83508faacb959c03c9cbf1176fc76848b73cda4d52e57",
+               "test_train_splits.zip": "12df0053bd9d570817edb10d2299030f43646969d5d42ff40200249b45ab2efa"}
 
 
 @dataclass
@@ -54,19 +57,34 @@ def _decode_member(name: str) -> np.ndarray:
 
 def _untar(archive: Path, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["bsdtar", "-xf", str(archive), "-C", str(dest)], check=True)     # RAR; our own download
+    subprocess.run(["bsdtar", "-xf", str(archive), "-C", str(dest)], check=True)     # our own download, checksum checked
+
+
+def _check_sha256(path: Path) -> None:
+    import hashlib
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1 << 24), b""):
+            h.update(chunk)
+    if h.hexdigest() != HMDB_SHA256[path.name]:
+        raise RuntimeError(f"{path} has SHA-256 {h.hexdigest()}, expected {HMDB_SHA256[path.name]}")
 
 
 def _hmdb_list(split: str) -> list[str]:
-    """Official split 1 as '<class>/<clip>.avi', sorted. Extracts the outer RAR, the 51 class RARs and the split files
-    once. In the split files 1 = train (dev here), 2 = test, 0 = unused."""
+    """Official split 1 as '<class>/<clip>.avi', sorted. Checks and extracts the archives once. The mirror's zip holds
+    every clip twice (<class>/<clip>.avi and <class>/<class>/<clip>.avi, same CRC); only the first is extracted.
+    In the split files 1 = train (dev here), 2 = test, 0 = unused."""
     raw, spl = HMDB / "raw", HMDB / "splits"
     if not any(raw.glob("*/*.avi")):
-        _untar(HMDB / "hmdb51_org.rar", raw)
-        for rar in sorted(raw.glob("*.rar")):
-            _untar(rar, raw)
+        _check_sha256(HMDB / "hmdb51_org.zip")
+        with zipfile.ZipFile(HMDB / "hmdb51_org.zip") as zf:
+            for name in zf.namelist():
+                parts = PurePosixPath(name).parts
+                if len(parts) == 2 and name.endswith(".avi") and ".." not in parts:
+                    zf.extract(name, raw)
     if not any(spl.rglob("*_split1.txt")):
-        _untar(HMDB / "test_train_splits.rar", spl)
+        _check_sha256(HMDB / "test_train_splits.zip")
+        _untar(HMDB / "test_train_splits.zip", spl)
     want = "1" if split == "dev" else "2"
     return sorted(f"{f.name[:-len('_test_split1.txt')]}/{name}" for f in spl.rglob("*_test_split1.txt")
                   for name, flag in (line.split()[:2] for line in f.read_text().splitlines() if line.strip()) if flag == want)
