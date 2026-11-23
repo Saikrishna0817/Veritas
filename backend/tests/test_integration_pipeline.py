@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core.security import create_access_token
+from auth_helpers import token_for
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def client():
 
 @pytest.fixture
 def auth_headers():
-    token = create_access_token({"id": "test-admin", "name": "test-admin", "role": "admin"})
+    token = token_for({"id": "test-admin", "name": "test-admin", "role": "admin"})
     return {"Authorization": f"Bearer {token}"}
 
 

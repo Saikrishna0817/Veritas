@@ -31,11 +31,11 @@ def server():
 
 @pytest.fixture(scope="module")
 def key(server):
-    from app.core.security import create_access_token
+    from auth_helpers import token_for
     import urllib.request, json
     from app.models import database as db
     uid = db.create_user("cli-user", "x", role="user", email="cli@example.com")      # keys belong to real accounts
-    token = create_access_token({"id": uid, "name": "cli-user", "role": "user"})
+    token = token_for({"id": uid, "name": "cli-user", "role": "user"})
     req = urllib.request.Request(f"{server}/account/api-keys", data=json.dumps({"name": "ci"}).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     return json.loads(urllib.request.urlopen(req).read())["key"]

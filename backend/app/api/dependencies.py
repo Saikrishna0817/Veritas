@@ -108,6 +108,24 @@ class _LRUCache:
 demo_result_cache: _LRUCache = _LRUCache(maxsize=20)
 upload_result_cache: _LRUCache = _LRUCache(maxsize=50)
 
+
+def _stored_id(result: Any) -> str | None:
+    """The id database.save_result stores a result under."""
+    if not isinstance(result, dict):
+        return None
+    return result.get("job_id") or result.get("dataset_id") or (result.get("dataset_info") or {}).get("dataset_id")
+
+
+def forget_result(result_id: str) -> int:
+    """Drop a deleted result from the in-memory caches, so /forensics/latest and friends stop showing it."""
+    dropped = 0
+    for cache in (upload_result_cache, demo_result_cache):
+        with cache._lock:
+            for key in [k for k, v in cache._data.items() if k == result_id or _stored_id(v) == result_id]:
+                del cache._data[key]
+                dropped += 1
+    return dropped
+
 def owner_scope(user: dict) -> str:
     """Whose rows a list/read endpoint may show: everyone's for an admin, otherwise only the caller's."""
     return db.ALL_OWNERS if user.get("role") == "admin" else user["id"]
