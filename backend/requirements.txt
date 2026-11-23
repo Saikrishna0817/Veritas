@@ -2,7 +2,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.16.0
 bcrypt==5.0.0
-boto3==1.43.126
+boto3==1.44.0
 certifi==2026.10.23
 click==8.5.1
 colorama==0.4.6
@@ -20,8 +20,8 @@ numpy==2.5.4
 pandas==3.1.0
 prometheus_client==0.26.0
 psycopg[binary]==3.3.8
-pydantic==2.12.5
-pydantic_core==2.41.5
+pydantic==2.14.3
+pydantic_core==2.50.4
 PyJWT==2.15.1
 pytest==9.2.0
 python-dateutil==2.9.0.post0
@@ -30,14 +30,14 @@ python-multipart==0.0.33
 redis==8.1.0
 rq==3.0.0
 scikit-learn==1.9.1
-scipy==1.17.0
+scipy==1.18.1
 sentry-sdk==2.74.0
 six==1.17.0
 starlette==1.10.0
 threadpoolctl==3.6.0
-typing-inspection==0.4.2
+typing-inspection==0.4.5
 typing_extensions==4.16.0
 tzdata==2025.3
-uvicorn==0.41.0
+uvicorn==0.54.0
 watchfiles==1.1.1
 websockets==16.0
