@@ -3,6 +3,35 @@
 Started 2026-11-19 from a review of `backend/` on main at `3e84659`. This file keeps the task list current: what is
 done, what is pending, bugs found and bugs fixed. Update it in the same commit as the change.
 
+## 0. Current status (2026-11-20, branch `backend/continuation`)
+
+Branches, oldest first; each builds on the one before:
+
+- `backend/review-fixes` (PR #42): fixes 1 to 4.
+- `backend/plan-features` (PR #43): P1 to P10. CI passed on SQLite, PostgreSQL and e2e.
+- `backend/continuation`: the third batch (section 3b), with main merged in at `fb3ab71`.
+
+Full suite: 255 passed, 6 skipped, on SQLite on Windows. The 6 skipped tests need torchaudio and ffmpeg.
+
+| Area | Status | Missing before "done" |
+|---|---|---|
+| Sign-in, sessions, CSRF, API keys | Partly complete | P3 refresh tokens; P12 admin 2FA |
+| Sign-up, email verification, password reset | Complete | none known |
+| Account self-service (usage, erase data, delete, keys) | Complete | none known (erasure is now one transaction) |
+| Admin user management (list, create, role, delete, disable) | Complete in the API; needs UI | P11 admin screens |
+| Analyses (CSV, images, audio, video, model scan, demo, real datasets) | Complete | detector quality is out of scope here (see model card) |
+| Direct-to-storage upload | Complete | quota refund fixed (B7) |
+| Background jobs | Complete | no automatic retry (analyses are deterministic, so a retry would fail the same way); stale jobs fail after 30 min |
+| History, reports, audit log | Complete | paging on every list |
+| Defense and HITL review | Complete | double-decision race fixed (B8) |
+| Live detection stream (WebSocket) | Complete | revocation fixed (B5) |
+| Observability | Complete | `/ready`, metrics, sign-in alert rule; no load test of production volume |
+| Error shape and layering | Needs refactoring | decisions 1 and 2 (section 4) |
+
+"Complete" means: endpoint, validation, authentication, owner scoping, error answers and tests are all there, and
+there are no known bugs. The routes and the data layer were reviewed in depth. The detection engines were not
+reviewed, because their code and numbers are out of scope.
+
 ## 1. What the backend is today
 
 | Area | What is there |
@@ -56,13 +85,32 @@ Full suite after the second batch: 237 passed, 8 skipped (SQLite, Windows).
 New endpoints the frontend does not use yet: `POST /auth/logout-all`, `POST /users/{id}/disable`, `POST /users/{id}/enable`,
 and the `before` cursor. Existing response shapes are unchanged; the only changed status code is P7 (400 → 409).
 
+## 3b. Third batch (branch `backend/continuation`)
+
+Each fix has a test that fails on the code before it. The tests are in `test_ws_session_revocation.py`,
+`test_backend_review_2026_11_20.py` and `test_login_metrics.py`.
+
+| # | Severity | Problem | Root cause | Fix |
+|---|---|---|---|---|
+| B5 | Medium (security) | After sign-out everywhere, disabling or deleting an account, an open live stream kept receiving that person's events for up to 60 min. | `/ws/v1/detection-stream` checked only the token's expiry. | The stream re-checks the session every 30 s and on every frame, and closes it (1008). Broadcasts skip and close a socket whose session has ended. |
+| B6 | Medium | `/analyze/model/history?limit=-1` returned every scan on SQLite and a 500 on PostgreSQL. `/datasets/demo/samples` took any limit and offset. | Plain `int` parameters with no bounds. | `limit` is 1 to 200 with the `before` cursor, as on `/history`. Demo samples take a limit of 1 to 500 and an offset of 0 or more. |
+| B6b | Low | A `next_before` pasted into a URL without encoding was refused: its `+00:00` arrived as ` 00:00`. | `+` means a space in a query string. | Cursors now end in `Z`, and a `+` that arrived as a space is still read correctly. |
+| B7 | Medium (data integrity) | Account erasure could stop half-way: the data was gone but the account remained. On SQLite, the uncommitted deletes stayed on the shared connection for the next unrelated commit to write. | Two separate commits, and no rollback on error. | One transaction with a rollback; `delete_owner_data` rolls back the same way. |
+| B8 | Low | When queueing a direct upload failed, the files were deleted but the day's quota was still charged. | No refund in the error path. | `quota.refund` runs in the error path. |
+| B9 | Medium (data integrity) | Two concurrent HITL decisions on one case were both recorded, and both side effects ran (for example, a quarantine after the case had been marked safe). | Read-then-write without a condition. | The case is claimed with `UPDATE ... WHERE status = 'pending'` in the same transaction; the second request gets 404. |
+| P9b | Feature | No alert on bursts of failed sign-ins. | — | `veritas_auth_login_failures_total{outcome}` counts wrong passwords, unknown names and rate-limited attempts, with no names or IPs. The runbook has the alert rule. |
+
+Checked and found fine: job status is scoped to its owner (404 for other people's jobs); presigned uploads are
+single-use and size-checked; WebSocket origin checking.
+
 ### Still pending
 
 | # | Item | Notes |
 |---|---|---|
 | P3 | Refresh tokens | Design above; needs the frontend. |
-| P8b | Unique index on `lower(username)` | After checking existing data for case duplicates. |
-| P9b | Alert on bursts of failed sign-ins | Prometheus counter + alert rule, or Sentry. |
+| P8b | Unique index on `lower(username)` | First run `SELECT lower(username), count(*) FROM users GROUP BY 1 HAVING count(*) > 1` on production. If it returns no rows, the index can be added as migration 0009; if it does, rename those accounts first. |
+| P13 | Load test at production volume | `/loadtest` exists. Run it against staging with PostgreSQL to measure the 0007 indexes. |
+| P14 | Delete abandoned direct-upload blobs | The `pending_uploads` rows go with the account, but the S3 objects rely on a bucket lifecycle rule. Check that the rule exists in production. |
 | P11 | Admin UI for disable/enable, sign out everywhere, and paging | Frontend work. |
 | P12 | Admin 2FA (TOTP) | Planned under decision 3. |
 
@@ -87,7 +135,8 @@ environment-variable reference (`.env.example` exists).
 
 **Phase 2: core.** Done: P1, P2 (sign out everywhere), P5, P6, P10. Remaining: P3 refresh tokens, admin 2FA.
 
-**Phase 3: security and stability.** Done: P4, P7, P8 (check), P9. Remaining: P8b, P9b alerting, load test of the upload and analysis endpoints (`/loadtest` exists), backup and restore procedure in `docs/runbook.md`.
+**Phase 3: security and stability.** Done: P4, P7, P8 (check), P9, P9b and B5 to B9. The backup and restore
+procedure is already in `docs/runbook.md`. Remaining: P8b, P13 load test, P14.
 
 **Phase 4: advanced.** Only what the product needs: notification preferences for finished jobs, data export, then the
 items under decision 3.
@@ -96,3 +145,4 @@ items under decision 3.
 
 - 2026-11-19: review of main at `3e84659`; fixes 1–4 with tests on `backend/review-fixes`; pending list P1–P10.
 - 2026-11-19: second batch on `backend/plan-features`: P1, P2 (logout-all), P4–P10, one commit each with tests.
+- 2026-11-20: PR #43 CI green. Third batch on `backend/continuation` (main merged in): B5–B9 fixed, P9b done.

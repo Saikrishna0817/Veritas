@@ -468,14 +468,18 @@ def delete_user(user_id: str) -> bool:
 
 def delete_account(user_id: str) -> Dict[str, int]:
     """Erase the user and everything keyed to them, audit events included (right to erasure)."""
-    counts = delete_owner_data(user_id)
     conn = _get_conn()
-    for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("jobs", "owner_id"),
-                       ("audit_events", "actor_id"), ("users", "id")):
-        counts[table] = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,)).rowcount
-    conn.execute("INSERT INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",
-                 (user_id, datetime.now(timezone.utc).isoformat()))
-    conn.commit()
+    try:                                  # one transaction: a failure part-way leaves the account and its data whole
+        counts = _delete_owner_rows(conn, user_id)
+        for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("jobs", "owner_id"),
+                           ("audit_events", "actor_id"), ("users", "id")):
+            counts[table] = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,)).rowcount
+        conn.execute("INSERT INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",
+                     (user_id, datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     return counts
 
 
@@ -563,28 +567,26 @@ def get_pending_hitl_cases(owner_id: str) -> List[Dict[str, Any]]:
     return [json.loads(row["details_json"]) for row in rows]
 
 
-def save_hitl_decision(decision: Dict[str, Any]) -> None:
+def save_hitl_decision(decision: Dict[str, Any]) -> bool:
+    """Resolve a pending case and record the decision, in one transaction. False when the case was not pending any
+    more (another decision got there first), and then nothing is recorded."""
     conn = _get_conn()
-    decision_id = str(uuid.uuid4())
-    conn.execute(
-        """
-        INSERT INTO hitl_decisions (id, case_id, decision, reviewer, decided_at)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            decision_id,
-            decision["case_id"],
-            decision["decision"],
-            decision.get("reviewer", "analyst"),
-            decision.get("decided_at", datetime.now(timezone.utc).isoformat()),
-        ),
-    )
-    # Also update case status in hitl_cases table
-    conn.execute(
-        "UPDATE hitl_cases SET status = 'resolved' WHERE case_id = ?",
-        (decision["case_id"],),
-    )
-    conn.commit()
+    try:
+        claimed = conn.execute("UPDATE hitl_cases SET status = 'resolved' WHERE case_id = ? AND status = 'pending'",
+                               (decision["case_id"],)).rowcount
+        if not claimed:
+            conn.rollback()
+            return False
+        conn.execute(
+            "INSERT INTO hitl_decisions (id, case_id, decision, reviewer, decided_at) VALUES (?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), decision["case_id"], decision["decision"], decision.get("reviewer", "analyst"),
+             decision.get("decided_at", datetime.now(timezone.utc).isoformat())),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return True
 
 
 def get_hitl_decisions(owner_id: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -642,12 +644,22 @@ _OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cas
 def delete_owner_data(owner_id: str) -> Dict[str, int]:
     """Erase everything stored for one user (the delete-my-data action). Audit events stay: they hold no results."""
     conn = _get_conn()
+    try:
+        counts = _delete_owner_rows(conn, owner_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return counts
+
+
+def _delete_owner_rows(conn, owner_id: str) -> Dict[str, int]:
+    """The deletes behind delete_owner_data, without committing (callers own the transaction)."""
     counts = {}
     conn.execute("DELETE FROM hitl_decisions WHERE case_id IN (SELECT case_id FROM hitl_cases WHERE owner_id = ?)", (owner_id,))
     for table in _OWNED_TABLES:
         counts[table] = conn.execute(f"DELETE FROM {table} WHERE owner_id = ?", (owner_id,)).rowcount
     counts["usage_daily"] = conn.execute("DELETE FROM usage_daily WHERE owner_id = ?", (owner_id,)).rowcount
-    conn.commit()
     return counts
 
 

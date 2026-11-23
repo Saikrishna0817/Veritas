@@ -61,8 +61,22 @@ Not verified against real S3 or R2 (tests use a mocked bucket): check that a PUT
 ## Monitoring and alerts
 - Uptime: point UptimeRobot / Better Stack at `https://<host>/health` (alert on non-200 or `"status":"degraded"`).
 - Metrics: set `VERITAS_METRICS_TOKEN`; Prometheus / Grafana Agent scrapes `/metrics` with `Authorization: Bearer <token>`
-  (hidden without a token). Series: `veritas_http_requests_total`, `veritas_http_request_seconds`, `veritas_jobs_total`.
+  (hidden without a token). Series: `veritas_http_requests_total`, `veritas_http_request_seconds`, `veritas_jobs_total`,
+  `veritas_auth_login_failures_total{outcome="wrong_password"|"unknown_account"|"rate_limited"}`.
   Suggested alerts: 5xx rate > 2% for 10 min; p95 latency > 3 s; `veritas_jobs_total{status="failed"}` rising; queue depth.
+- Readiness: `/ready` answers 503 when the database (or Redis, when configured) does not answer; use it for the load
+  balancer or orchestrator, and `/health` for liveness.
+- Failed sign-ins: who and from where is in the audit log (`auth.login_failed`); the counter is for alerting. Prometheus rule:
+
+  ```yaml
+  - alert: VeritasSignInBurst
+    expr: sum(increase(veritas_auth_login_failures_total[10m])) > 50
+    for: 5m
+    annotations: { summary: "Many refused sign-ins: check the audit log for auth.login_failed by IP" }
+  ```
+
+  Tune the threshold to normal traffic. A steady rise of `rate_limited` means the limits are holding an attack back;
+  a rise of `unknown_account` alone usually means name guessing.
 - Errors: set `SENTRY_DSN` (backend). Logs: `docker compose logs -f backend worker`.
 - Queue depth: `docker compose exec redis redis-cli llen rq:queue:veritas`.
 

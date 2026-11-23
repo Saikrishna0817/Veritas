@@ -174,7 +174,8 @@ class HumanInTheLoopQueue:
             "decided_at": datetime.now(timezone.utc).isoformat(),
             "case": case,
         }
-        db.save_hitl_decision(decision_record)
+        if not db.save_hitl_decision(decision_record):     # decided concurrently by another request
+            return None
         return decision_record
 
     def get_pending(self, owner_id: str) -> List[Dict]:
