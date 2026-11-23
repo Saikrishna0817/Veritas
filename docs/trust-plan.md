@@ -118,7 +118,9 @@ images v10, breadth v2 and adaptive v3, each quoted once.
 flips do not (row AUPRC 0.25-0.30 vs 0.72-0.82), and Tiny-ImageNet gives 5.8% clean alarms at SUSPICIOUS. Audio
 (UrbanSound8K): between Speech Commands and ESC-50, clean alarms at nominal. Tables (8 OpenML sets, 2026-11-18):
 carry over, row AUPRC 0.71 / 0.92 at 1% / 5% (0.73-0.99 by dataset), clean 1.9%; the run also exposed hours-long
-checks on wide tables, fixed exactly (876990f). Video: HMDB-51 waits for the archive (official link down).
+checks on wide tables, fixed exactly (876990f). Video (HMDB-51, 2026-11-22): row AUPRC 0.48 / 0.63
+at 1% / 5% (UCF-101 0.53 / 0.75), 14% / 60% of attacked batches flagged (46% / 86%), clean 3.3%; label flips
+carry over worst, as for images on unfamiliar data.
 
 **Needs:** permission for downloads (several GB; HMDB-51 ~2 GB, UrbanSound8K ~6 GB).
 
@@ -142,8 +144,8 @@ named limit or a new attack in the benchmark.
   evidence behind it.
 - The model card lists each claim with the run that supports it and links to the result files.
 
-Status (2026-11-20): `make claims` recomputes the model card's 47 headline numbers from the committed result files
-(also run in CI, `backend/tests/test_claims.py`); `make reproduce [ONLY=...]` reruns the ten benchmarks from their
+Status (2026-11-20): `make claims` recomputes the model card's headline numbers (54 on 2026-11-22) from the committed result files
+(also run in CI, `backend/tests/test_claims.py`); `make reproduce [ONLY=...]` reruns the eleven benchmarks from their
 manifests and checks the new numbers against the committed intervals. Results now record the detector commit. The
 audio paragraph of the model card quoted the v2 detector's row AUPRC; it now quotes v3, the detector the app runs.
 

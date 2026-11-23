@@ -39,6 +39,7 @@ RUNS = {
     "audio":         ("2026-11-16-benchmark-audio-test-v3-sig", "VERITAS_AUDIO_MANIFEST=manifest-audio-v3.json", "bench_audio --splits test"),
     "audio-breadth": ("2026-11-16-benchmark-audio-breadth-v1", "VERITAS_AUDIO_MANIFEST=manifest-audio-breadth-v1.json", "bench_audio --splits test"),
     "video":         ("2026-11-14-benchmark-video-test-v2", "VERITAS_VIDEO_MANIFEST=manifest-video-v2.json", "bench_video --splits test"),
+    "video-breadth": ("2026-11-22-benchmark-video-breadth-v1", "VERITAS_VIDEO_MANIFEST=manifest-video-breadth-v1.json", "bench_video --splits test"),
 }
 
 
@@ -132,6 +133,13 @@ CLAIMS = [
     ("video", "46% / 86% of\nattacked batches flagged", flagged, dict(det="veritas_mm", rate=0.05), 0.86, S),
     ("video", "clean batches flagged 4.2% at LOW_RISK", flagged, dict(det="veritas_mm", clean=True), 0.042, C),
     ("video", "2.5% at SUSPICIOUS (nominal 1%)", flagged, dict(det="veritas_mm", clean=True, at=SUSPICIOUS), 0.025, C),
+    ("video-breadth", "HMDB-51 (never used for tuning, 612-clip batches): mean row AUPRC 0.48 at 1%", auprc, dict(det="veritas_mm", rate=0.01), 0.48, A),
+    ("video-breadth", "and 0.63 at 5%; 14% / 60% of attacked batches flagged", auprc, dict(det="veritas_mm", rate=0.05), 0.63, A),
+    ("video-breadth", "and 0.63 at 5%; 14% / 60% of attacked batches flagged", flagged, dict(det="veritas_mm", rate=0.01), 0.14, S),
+    ("video-breadth", "and 0.63 at 5%; 14% / 60% of attacked batches flagged", flagged, dict(det="veritas_mm", rate=0.05), 0.60, S),
+    ("video-breadth", "clean batches 3.3% at LOW_RISK, 1.7% at SUSPICIOUS", flagged, dict(det="veritas_mm", clean=True), 0.033, C),
+    ("video-breadth", "clean batches 3.3% at LOW_RISK, 1.7% at SUSPICIOUS", flagged, dict(det="veritas_mm", clean=True, at=SUSPICIOUS), 0.017, C),
+    ("video-breadth", "random label flips at 5% were flagged in none of 5 batches", flagged, dict(det="veritas_mm", rate=0.05, attack="label_flip_random"), 0.0, S),
 ]
 
 

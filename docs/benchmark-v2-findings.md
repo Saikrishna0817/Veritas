@@ -262,6 +262,12 @@ Verified by running it, not just writing it:
   token, uploads a CSV through the UI and sees the verdict and "Label Check"; anonymous users are redirected and get 401; sign-up shows the next step.
 - **Load (k6, 5 virtual users, 30 s, one laptop):** history reads p95 13 ms, enqueue p95 25 ms, no errors other than the intended 429s.
   This is a smoke test, not capacity planning.
+- **Load, many accounts (k6, 2026-11-23, one laptop, API on 8011 with the in-process job pool of 2):** each virtual user has its own
+  account (API key, `-e KEYS=`), reads history and uploads a 400-row CSV, then waits for the job. No failed requests at 20 or 50 users
+  (4,290 and 10,417 requests in 3 minutes); reads p95 47 / 182 ms, enqueue p95 263 / 296 ms; API memory peak 320 MB. The limit is the job
+  queue: about 0.7 analyses per second at both loads, so the wait from upload to result grows with the number of users (median 3 s alone,
+  24 s with 20 users, 73 s with 50). The compose stack runs one job at a time per worker container; more workers
+  (`docker compose up --scale worker=N`) is the lever, not the API.
 - **Backup:** `scripts/backup.sh` + `scripts/restore-drill.sh` restored a real dump into a scratch database and matched row counts.
 - **Dependencies:** `pip-audit` found 16 known issues in the pins (starlette, python-multipart, pyasn1, anyio, certifi, idna, python-dotenv,
   python-jose with no fix); upgraded, `python-jose` replaced by PyJWT, now clean; `npm audit --omit=dev` clean; frontend lint and build pass.

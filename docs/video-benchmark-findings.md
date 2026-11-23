@@ -52,6 +52,32 @@ At 3% the mean is 0.66 / 69%, at 10% 0.75 / 80%.
   triggers were benchmarked.
 - About 16 s per 3,000-clip batch on one CPU thread (frame embedding excluded; computed once per clip).
 
+## New dataset, never used for tuning: HMDB-51 (2026-11-22)
+
+`manifest-video-breadth-v1`, `results/2026-11-22-benchmark-video-breadth-v1.*`, detector at ccd8e9e (video code as in
+v2; a rerun of v2 at fb3ab71 reproduced its numbers exactly). HMDB-51 official split 1 test clips (1,530, 30 per class
+in 51 classes), from the Hugging Face mirror MichiganNLP/hmdb the Serre lab page links (the lab's own links returned
+404), SHA-256 pinned. The test pool is small, so batches hold 612 clips (1,200 on UCF-101): 1% poison is 6 clips.
+
+| Attack | row AUPRC 1% / 5% | flagged 1% / 5% | UCF-101 row AUPRC 1% / 5% | UCF-101 flagged 1% / 5% |
+|---|---|---|---|---|
+| Random label flips | 0.13 / 0.46 | 0 / 0% | 0.50 / 0.85 | 0 / 100% |
+| Targeted label flips | 0.47 / 0.24 | 20 / 20% | 0.43 / 0.66 | 40 / 80% |
+| Patch trigger | 0.16 / 0.77 | 0 / 100% | 0.53 / 0.91 | 20 / 100% |
+| Blended trigger | 1.00 / 1.00 | 0 / 100% | 1.00 / 1.00 | 100 / 100% |
+| Clean-label trigger | 0.03 / 0.10 | 0 / 0% | 0.01 / 0.02 | 0 / 20% |
+| Duplicate flood | 0.89 / 0.88 | 60 / 100% | 0.90 / 0.93 | 100 / 100% |
+| Class noise | 0.70 / 0.97 | 20 / 100% | 0.35 / 0.88 | 60 / 100% |
+| **Mean** | **0.48 / 0.63** | **14 / 60%** | 0.53 / 0.75 | 46 / 86% |
+
+- Clean batches: 3.3% at LOW_RISK (4 of 120, nominal 5%), 1.7% at SUSPICIOUS (nominal 1%). Calibration carries over.
+- Label flips carry over worst: random flips at 5% were flagged in none of 5 batches (UCF-101: all). With 30 clips per
+  class and ImageNet frame features, the label check cannot tell HMDB-51's actions apart well; the same failure as
+  images on SVHN and Tiny-ImageNet.
+- Triggers and duplicates carry over at 5% (all batches flagged); at 1% (6 clips) only duplicates are flagged reliably.
+  Part of the drop at 1% is the smaller batch: 6 poisoned clips give the tail test less to work with.
+- Clean-label triggers: not detected, as on UCF-101.
+
 ## In the app
 
 `POST /analyze/video` (zip of video files in class folders: mp4, avi, mov, mkv, webm, mpg; optional reference zip;

@@ -80,7 +80,9 @@ row AUPRC 0.31-0.98 by attack at 5%, clean-label triggers in 6 of 20 batches, cl
 `POST /analyze/video` takes a zip of video files in class folders. ffmpeg decodes 8 frames per clip; the image detector
 runs on the frames' temporal mean, with the mean ResNet-18 frame embedding for the label and shift checks. Held-out
 (UCF-101 testlist01 groups; docs/video-benchmark-findings.md): mean row AUPRC 0.53 at 1% and 0.75 at 5%; 46% / 86% of
-attacked batches flagged; clean batches flagged 4.2% at LOW_RISK, 2.5% at SUSPICIOUS (nominal 1%). Clean-label video
+attacked batches flagged; clean batches flagged 4.2% at LOW_RISK, 2.5% at SUSPICIOUS (nominal 1%). HMDB-51 (never used for tuning, 612-clip batches): mean row
+AUPRC 0.48 at 1% and 0.63 at 5%; 14% / 60% of attacked batches flagged; clean batches 3.3% at LOW_RISK, 1.7% at
+SUSPICIOUS; random label flips at 5% were flagged in none of 5 batches. Clean-label video
 triggers are not detected, and only static every-frame triggers were tested.
 
 ## Model-file scanner
@@ -117,6 +119,7 @@ detector commit.
 | `audio` | mean row AUPRC 0.74 at 1% and 0.93 at 5% on Speech Commands; 0.28 and 0.51 on ESC-50; clean-label triggers flagged in 19 of 20 Speech Commands; and 1 of 20 on ESC-50; Speech Commands clean batches flagged 5.0%; ESC-50 clean batches 3.3% | [`2026-11-16-benchmark-audio-test-v3-sig`](../backend/research/results/2026-11-16-benchmark-audio-test-v3-sig.md) |
 | `audio-breadth` | clean-label triggers in 6 of 20 batches; clean batches 5.0% at LOW_RISK | [`2026-11-16-benchmark-audio-breadth-v1`](../backend/research/results/2026-11-16-benchmark-audio-breadth-v1.md) |
 | `video` | mean row AUPRC 0.53 at 1% and 0.75 at 5%; 46% / 86% of attacked batches flagged; clean batches flagged 4.2% at LOW_RISK; 2.5% at SUSPICIOUS (nominal 1%) | [`2026-11-14-benchmark-video-test-v2`](../backend/research/results/2026-11-14-benchmark-video-test-v2.md) |
+| `video-breadth` | HMDB-51 (never used for tuning, 612-clip batches): mean row AUPRC 0.48 at 1%; and 0.63 at 5%; 14% / 60% of attacked batches flagged; clean batches 3.3% at LOW_RISK, 1.7% at SUSPICIOUS; random label flips at 5% were flagged in none of 5 batches | [`2026-11-22-benchmark-video-breadth-v1`](../backend/research/results/2026-11-22-benchmark-video-breadth-v1.md) |
 
 ## Known limits
 
