@@ -53,8 +53,11 @@ def load_manifest(profile: str = "full") -> dict:
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 
+@lru_cache(maxsize=None)
 def _openml(data_id: int):
-    """fetch_openml's default ARFF parser breaks on categorical columns under pandas 3.1; liac-arff does not."""
+    """fetch_openml's default ARFF parser breaks on categorical columns under pandas 3.1; liac-arff does not.
+    sklearn takes that parse error for a bad cache and downloads the file again, so load each dataset once per
+    process (load_dataset's cache is keyed by seed, which changes every batch). Callers copy before changing it."""
     try:
         return fetch_openml(data_id=data_id, data_home=str(CACHE), as_frame=True, parser="auto")
     except Exception:  # a TypeError, or the same failure wrapped by sklearn's retry helper inside a worker process
