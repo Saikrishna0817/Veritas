@@ -73,6 +73,9 @@ app.include_router(ws_router)
 
 observability.install(app)
 
+from app.core import errors  # noqa: E402
+errors.install(app)
+
 # Store WebSocket manager on app state so routes can broadcast events
 app.state.ws_manager = manager
 

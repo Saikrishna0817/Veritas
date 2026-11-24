@@ -187,6 +187,8 @@ start without these settings:
 | `VERITAS_ADMIN_USERNAME` | Any username; this admin account is created at startup. |
 | `VERITAS_ADMIN_PASSWORD` | Not a known default, at least 8 characters. |
 
+Every variable, with defaults, is listed in [docs/environment.md](docs/environment.md).
+
 Docker needs `POSTGRES_PASSWORD` too. `.env.example` lists every setting `docker-compose.yml` passes through (mail,
 Turnstile, S3 storage, CORS, the public URL and the rest) with placeholder values: `cp .env.example .env` and fill it in.
 

@@ -26,7 +26,7 @@ Full suite: 255 passed, 6 skipped, on SQLite on Windows. The 6 skipped tests nee
 | Defense and HITL review | Complete | double-decision race fixed (B8) |
 | Live detection stream (WebSocket) | Complete | revocation fixed (B5) |
 | Observability | Complete | `/ready`, metrics, sign-in alert rule; no load test of production volume |
-| Error shape and layering | Needs refactoring | decisions 1 and 2 (section 4) |
+| Error shape and layering | Errors done (decision 1a); layering open | decision 2 (section 4) |
 
 "Complete" means: endpoint, validation, authentication, owner scoping, error answers and tests are all there, and
 there are no known bugs. The routes and the data layer were reviewed in depth. The detection engines were not
@@ -107,9 +107,9 @@ single-use and size-checked; WebSocket origin checking.
 
 | # | Item | Notes |
 |---|---|---|
-| P8b | Unique index on `lower(username)` | First run `SELECT lower(username), count(*) FROM users GROUP BY 1 HAVING count(*) > 1` on production. If it returns no rows, the index can be added as migration 0009; if it does, rename those accounts first. |
+| P8b | ~~Unique index on `lower(username)`~~ | Done 2026-11-24: migration 0009 renames later case-duplicates (`<name>-<first 6 of id>`), then adds the index. |
 | P13 | Load test at production volume | `/loadtest` exists. Run it against staging with PostgreSQL to measure the 0007 indexes. |
-| P14 | Delete abandoned direct-upload blobs | The `pending_uploads` rows go with the account, but the S3 objects rely on a bucket lifecycle rule. Check that the rule exists in production. |
+| P14 | Delete abandoned direct-upload blobs | Docs part done 2026-11-24: exact lifecycle rule and check command in `docs/runbook.md`. Still to do: apply it and run the check on the production bucket. |
 | P11 | Admin UI for disable/enable, sign out everywhere, and paging | Done 2026-11-24. Disable / Enable with inline confirm, "Sign out on every device" on the Account page, "Load more" on users, audit log, stored results, History and model scans. |
 | P12 | Admin 2FA (TOTP) | Done: see section 3c. Not yet done: QR code in the UI (no QR library installed), admin UI to reset another person's 2FA, requiring 2FA on the data endpoints an admin reaches through `require_user` (only `require_admin` endpoints are gated). |
 
@@ -127,7 +127,7 @@ single-use and size-checked; WebSocket origin checking.
 
 ## 4. Brief items that need a decision before work starts
 
-1. **Standard response envelope** (`{"success", "data", "message"}` / `{"success": false, "error": {...}}`). Every
+1. **Standard response envelope** (decided 2026-11-24: option (a), done. Every error body is `{"detail", "code"}`, see `app/core/errors.py`.) (`{"success", "data", "message"}` / `{"success": false, "error": {...}}`). Every
    endpoint and every caller changes shape at once: the frontend (`services/api.js`), the CLI and the e2e tests.
    Options: (a) keep the current shapes, and only standardise errors to `{"detail", "code"}` additively; (b) add it as
    `/api/v2` and move clients over; (c) switch in place in one coordinated change with the frontend.
@@ -141,13 +141,13 @@ single-use and size-checked; WebSocket origin checking.
 ## 5. Feature plan (phased)
 
 **Phase 1: foundation.** Mostly in place: config from env, migrations, central request IDs, logging, `/health`,
-`/metrics`, `/api/v1`, CI. Remaining: `/ready` (done above), consistent error codes (decision 1), and a written
-environment-variable reference (`.env.example` exists).
+`/metrics`, `/api/v1`, CI. Remaining: `/ready` (done above), consistent error codes (done 2026-11-24), and a written
+environment-variable reference (done: `docs/environment.md`).
 
 **Phase 2: core.** Done: P1, P2 (sign out everywhere), P3, P5, P6, P10, P12.
 
 **Phase 3: security and stability.** Done: P4, P7, P8 (check), P9, P9b and B5 to B9. The backup and restore
-procedure is already in `docs/runbook.md`. Remaining: P8b, P13 load test, P14.
+procedure is already in `docs/runbook.md`. Remaining: P13 load test, P14 (apply the rule in production).
 
 **Phase 4: advanced.** Only what the product needs: notification preferences for finished jobs, data export, then the
 items under decision 3.
@@ -159,3 +159,4 @@ items under decision 3.
 - 2026-11-20: PR #43 CI green. Third batch on `backend/continuation` (main merged in): B5–B9 fixed, P9b done.
 - 2026-11-24: fourth batch on `backend/auth-refresh-2fa`: auth service extracted, P3 refresh tokens, P12 admin 2FA.
 - 2026-11-24: P11 on `frontend/admin-p11`: disable/enable, sign out everywhere, Load more on paged lists.
+- 2026-11-24: branch `backend/errors-envdocs`: decision 1 (a) done (error `code`), `docs/environment.md`, P8b (migration 0009), P14 docs part.
