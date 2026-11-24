@@ -7,25 +7,15 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.core import mailer
 from app.core.config import settings
-from app.core.observability import LOGIN_FAILURES
-from app.core.rate_limit import make_limiter
-from app.core.security import (authenticate_user, clear_session_cookies, create_access_token, hash_password, require_user,
-                               set_session_cookies)
-from app.models import database as db
+from app.core.security import require_user
+from app.services import auth as service
+from app.services.auth import login_rate_limiter, login_user_rate_limiter, mail_rate_limiter, signup_rate_limiter  # noqa: F401  (tests clear these)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-login_rate_limiter = make_limiter("login", 5, 60)
-login_user_rate_limiter = make_limiter("login-user", 10, 900)   # per username, so guessing spread over many IPs is slowed too
-signup_rate_limiter = make_limiter("signup", 5, 3600)
-mail_rate_limiter = make_limiter("mail", 5, 3600)
-
-VERIFY_TTL_MIN, RESET_TTL_MIN = 24 * 60, 60
 
 
 def _ip(request: Request) -> str:
@@ -84,143 +74,59 @@ async def _check_turnstile(token: Optional[str], request: Request) -> None:
         raise HTTPException(status_code=400, detail="Human check failed. Please try again.")
 
 
-async def _mail(to: str, subject: str, body: str) -> bool:
-    """Send one mail off the event loop (SMTP blocks). A mail server that is down or refuses must not turn the request
-    into a 500: the failure is logged and the caller decides what to tell the person."""
-    try:
-        await run_in_threadpool(mailer.send, to, subject, body)
-        return True
-    except Exception:
-        logger.exception("Sending mail failed (subject=%r): check VERITAS_SMTP_* and the mail server", subject)
-        return False
-
-
-async def _send_verification(user_id: str, email: str) -> bool:
-    token = db.create_auth_token(user_id, "verify_email", VERIFY_TTL_MIN)
-    return await _mail(email, "Confirm your Veritas email",
-                       f"Welcome to Veritas.\n\nConfirm your email address (valid 24 hours):\n{settings.public_url}/verify-email?token={token}\n\n"
-                       "If you did not sign up, ignore this message.")
-
-
 @router.post("/auth/token")
 async def token(credentials: LoginRequest, request: Request, response: Response):
-    if not login_rate_limiter.allow(_ip(request)):
-        LOGIN_FAILURES.labels("rate_limited").inc()
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts. Try again in one minute.")
-    if not login_user_rate_limiter.allow(credentials.username.lower()):
-        LOGIN_FAILURES.labels("rate_limited").inc()
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts for this account. Try again in 15 minutes.")
-    user = authenticate_user(credentials.username, credentials.password)
-    if user is None:
-        _audit_failed_login(credentials.username, request)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
-
-    # Flow-specific role enforcement
-    if credentials.required_role == "admin" and user.get("role") != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied: Account does not have administrator privileges.")
-    if credentials.required_role in ("user", "analyst") and user.get("role") == "admin":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Administrator account detected. Please use the Administrator Login portal at /admin/login.")
-
-    access = create_access_token(user)
-    csrf = set_session_cookies(response, access)       # browsers use the cookies; API clients can keep using the bearer token
-    return {"access_token": access, "token_type": "bearer", "user": user, "csrf_token": csrf}
-
-
-def _audit_failed_login(username: str, request: Request) -> None:
-    """Failed sign-ins go to the audit log. For an existing account the event is the account's own, so its owner
-    sees it under their activity; for an unknown name only the IP is kept (people type passwords into the name field)."""
-    known = db.get_user_by_username(username)
-    ip = _ip(request)
-    LOGIN_FAILURES.labels("wrong_password" if known else "unknown_account").inc()
-    if known:
-        db.log_audit_event(known["id"], "auth.login_failed", "account", known["id"], {"ip": ip})
-        logger.warning("Failed sign-in for account %s from %s", known["id"], ip)
-    else:
-        db.log_audit_event("anonymous", "auth.login_failed", "account", None, {"ip": ip, "known_account": False})
-        logger.warning("Failed sign-in for an unknown username from %s", ip)
+    user = service.check_password_login(credentials.username, credentials.password, _ip(request), credentials.required_role)
+    return service.issue_session(response, user)
 
 
 @router.post("/auth/logout")
 async def logout(response: Response):
     """Clears this browser's cookies. The token itself stays valid until it expires; /auth/logout-all ends it."""
-    clear_session_cookies(response)
+    service.sign_out(response)
     return {"message": "Signed out."}
 
 
 @router.post("/auth/logout-all")
 async def logout_everywhere(response: Response, user: dict = Depends(require_user)):
     """End every session of the caller's account on every device, this one included. API keys keep working."""
-    db.end_all_sessions(user["id"])
-    clear_session_cookies(response)
-    db.log_audit_event(user["id"], "auth.signed_out_everywhere", "account", user["id"], {})
+    service.sign_out_everywhere(response, user["id"])
     return {"message": "Signed out on every device."}
 
 
 @router.post("/auth/signup", status_code=status.HTTP_201_CREATED)
 async def signup(body: SignupRequest, request: Request):
-    if not settings.signup_enabled:
-        raise HTTPException(status_code=403, detail="Sign-up is closed.")
-    if not signup_rate_limiter.allow(_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many sign-ups from this address. Try again later.")
+    service.check_signup_allowed(_ip(request))
     await _check_turnstile(body.turnstile_token, request)
-    email = body.email.lower()
-    if db.username_taken(body.username) or db.get_user_by_email(email):
-        raise HTTPException(status_code=409, detail="That username or email is already registered.")
-    verified = not settings.require_email_verification
-    user_id = db.create_user(body.username, hash_password(body.password), role="user", email=email, email_verified=verified)
-    sent = verified or await _send_verification(user_id, email)
-    db.log_audit_event(user_id, "account.signup", "account", user_id, {} if verified else {"mail_sent": sent})
-    if not sent:      # the account exists; a new link can be requested once mail works again
-        return {"message": "Account created, but the confirmation email could not be sent right now. "
-                           "In a few minutes, use “Forgot your password?” on the sign-in page: that link also confirms your address.",
-                "verification_required": True, "mail_sent": False}
-    return {"message": "Account created." + ("" if verified else " Check your email to confirm your address."), "verification_required": not verified}
+    return await service.register(body.username, body.email, body.password)
 
 
 @router.post("/auth/verify-email")
 async def verify_email(body: TokenRequest):
-    user_id = db.consume_auth_token(body.token, "verify_email")
-    if user_id is None:
-        raise HTTPException(status_code=400, detail="This link is invalid or has expired. Request a new one.")
-    db.set_email_verified(user_id)
+    service.verify_email(body.token)
     return {"message": "Email confirmed. You can sign in."}
 
 
 @router.post("/auth/resend-verification")
 async def resend_verification(body: EmailRequest, request: Request):
     """Always answers the same way so it cannot be used to discover which emails have accounts."""
-    if not mail_rate_limiter.allow(_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
+    service.check_mail_allowed(_ip(request))
     await _check_turnstile(body.turnstile_token, request)
-    user = db.get_user_by_email(body.email.lower())
-    if user and not user.get("email_verified", 1):
-        await _send_verification(user["id"], user["email"])
+    await service.resend_verification(body.email)
     return {"message": "If that address has an unconfirmed account, a new link is on its way."}
 
 
 @router.post("/auth/password-reset/request")
 async def password_reset_request(body: EmailRequest, request: Request):
-    if not mail_rate_limiter.allow(_ip(request)):
-        raise HTTPException(status_code=429, detail="Too many requests. Try again later.")
+    service.check_mail_allowed(_ip(request))
     await _check_turnstile(body.turnstile_token, request)
-    user = db.get_user_by_email(body.email.lower())
-    if user:
-        token = db.create_auth_token(user["id"], "reset_password", RESET_TTL_MIN)
-        # A failed send is logged and the answer stays the same, so the reply never reveals whether the address has an account.
-        await _mail(user["email"], "Reset your Veritas password",
-                    f"Reset your password (valid 1 hour):\n{settings.public_url}/reset-password?token={token}\n\nIf you did not ask for this, ignore it.")
+    await service.request_password_reset(body.email)
     return {"message": "If that address has an account, a reset link is on its way."}
 
 
 @router.post("/auth/password-reset/confirm")
 async def password_reset_confirm(body: ResetConfirm):
-    user_id = db.consume_auth_token(body.token, "reset_password")
-    if user_id is None:
-        raise HTTPException(status_code=400, detail="This link is invalid or has expired. Request a new one.")
-    db.set_password_hash(user_id, hash_password(body.new_password))
-    db.set_email_verified(user_id)      # receiving the reset mail proves the address
-    db.log_audit_event(user_id, "account.password_reset", "account", user_id, {})
+    service.confirm_password_reset(body.token, body.new_password)
     return {"message": "Password changed. You can sign in."}
 
 
