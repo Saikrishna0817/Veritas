@@ -94,6 +94,38 @@ Order: security and data integrity, broken core flows, launch blockers, missing 
 | D1 | README API table brought up to date | `README.md` (also `/account/export`, `/users/{id}/2fa/reset`); `docs/legal/privacy-policy.md` names the download; `docs/backend-plan.md` P12 row | — | S | done |
 | D2 | Superseding entries in `decisions.md` for K4, K5 | `docs/decisions.md` | — | S | done |
 
+## 4b. Status after this branch (2026-11-25)
+
+Test runs on the branch head, same machine and setup as section 3:
+
+- Backend: `pytest` 258 passed, 18 skipped (8 new tests in 4 files; the same 18 skips as on main).
+- Frontend: `eslint` clean; `npm test` 18 of 18 (now also in CI); `vite build` passes.
+- e2e: Playwright 7 of 7 passed.
+
+| Requirement | Before | After | Evidence |
+|---|---|---|---|
+| Admin 2FA, required for admins when `VERITAS_REQUIRE_ADMIN_2FA=true` | PARTLY DONE | DONE | `security.sees_everyone`, `test_admin_2fa_scope.py` |
+| Admin can reset another person's 2FA | MISSING | DONE | `POST /users/{id}/2fa/reset`, Accounts tab, `test_admin_2fa_reset.py`, browser 1440 / 390 px |
+| Retention while the server runs | PARTLY DONE | DONE | `dependencies.purge_if_due`, lifespan task, `test_retention_schedule.py` |
+| Self-service copy of my data | MISSING | DONE | `GET /account/export`, Account page, `test_account_export.py`, browser 1440 / 390 px |
+| Frontend unit tests run in CI | MISSING | DONE | `package.json` test script, `ci.yml` step |
+| Admin accounts table with an open confirm | (not listed; found while checking F1) | DONE | `argilla.css` `.in-cell-actions > .in-confirm`: 0 px sideways overflow at 1440 and 390 px |
+| README API table, `decisions.md`, stale comment | NEEDS POLISH | DONE | commit `c49eaab` |
+| 2FA enrollment shows a QR code | MISSING | MISSING (proposal D5) | needs a dependency |
+| Terms and privacy reviewed by a person | MISSING | MISSING (D1) | needs a person |
+| Production deploy, monitoring running, P14 applied, restore drill on the real stack | NOT VERIFIED | NOT VERIFIED (D2) | no hosting, secrets or bucket here |
+| Accessibility | NEEDS POLISH | NEEDS POLISH | new controls are buttons with names and use the existing inline confirm (focus moves to it, Escape closes); no full audit: no automated a11y tool without a new dependency |
+
+Every other row of section 3 is unchanged (DONE).
+
+**Not verified here**
+
+- PostgreSQL, Redis, torch, moto and ffmpeg tests (18 skipped locally). CI runs them on the pull request.
+- `GET /account/export` and the 2FA reset on PostgreSQL: plain SQL with `?` placeholders as elsewhere in `database.py`;
+  CI's PostgreSQL job covers the new tests.
+- The browser checks used Chrome; Edge was mid-update on this machine and would not start.
+- Nothing on a deployed stack (see D2).
+
 ## 5. Decisions left for the owner
 
 - **D1 Legal.** `docs/legal/*` need a person to fill placeholders and review them before public launch.
@@ -107,3 +139,4 @@ Order: security and data integrity, broken core flows, launch blockers, missing 
 ## 6. Log
 
 - 2026-11-25: audit of `0878b79`; plan written.
+- 2026-11-25: S1, S2, C1, F1, F2, P1, D1, D2 done, one commit each; origin/main merged (no new commits).
