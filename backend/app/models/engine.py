@@ -10,6 +10,11 @@ import sqlite3
 from typing import Any, Sequence
 
 
+def _plain_read(sql: str) -> bool:
+    head = sql.lstrip().upper()
+    return head.startswith(("SELECT", "WITH")) and " FOR UPDATE" not in head and " FOR SHARE" not in head
+
+
 class Database:
     """One live connection plus the dialect it speaks. Not shared between threads."""
 
@@ -54,7 +59,17 @@ class Database:
 
     def execute(self, sql: str, params: Sequence[Any] = ()):
         try:
-            return self._conn.execute(self._sql(sql), tuple(params))
+            if self.dialect != "postgres":
+                return self._conn.execute(self._sql(sql), tuple(params))
+            # With autocommit off, a read opens a transaction that nothing commits when the request only reads, so the
+            # pooled connection sat "idle in transaction": it blocks migrations (DDL waits for its lock) and vacuum.
+            # A plain read that opened the transaction is committed at once; psycopg has already fetched its rows.
+            import psycopg
+            opened = self._conn.info.transaction_status == psycopg.pq.TransactionStatus.IDLE
+            cur = self._conn.execute(self._sql(sql), tuple(params))
+            if opened and _plain_read(sql):
+                self._conn.commit()
+            return cur
         except Exception:
             if self.dialect == "postgres":
                 self._conn.rollback()      # a failed statement poisons a Postgres transaction
