@@ -1,6 +1,6 @@
 import { api } from '../../services/api';
 import { KINDS, KIND_OF_SOURCE, MODEL_VERDICTS, verdictWords, fmt } from '../../components/results';
-import { ConfirmAction, LoadState, when } from './shared';
+import { ConfirmAction, LoadMore, LoadState, when } from './shared';
 
 const typeOf = (r) => (r.source === 'model_scan' ? 'Model file' : KINDS[KIND_OF_SOURCE[r.source]]?.label || r.source || '—');
 const verdictOf = (r) => (r.source === 'model_scan'
@@ -59,7 +59,7 @@ export default function RegistryTab({ records, userNames, notify, onChanged }) {
             </tbody>
           </table>
         </div>
-        {list.length >= 100 && <p className="in-hint">Showing the newest 100 results.</p>}
+        <LoadMore resource={records} what="results" />
       </LoadState>
     </>
   );
