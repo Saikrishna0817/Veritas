@@ -206,6 +206,52 @@ function DeleteAccount({ admin }) {
   );
 }
 
+// Two-factor sign-in (TOTP). The secret and the recovery codes are shown once, here, and never again.
+function TwoFactor() {
+  const { data, error: loadError, retry } = useLoad(useCallback(() => api.me(), []));
+  const [setup, setSetup] = useState(null);       // {secret, otpauth_uri} between "Set up" and "Turn on"
+  const [codes, setCodes] = useState(null);       // recovery codes, shown once
+  const [on, setOn] = useState(null);             // overrides the loaded state after a change
+  const [code, setCode] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  if (loadError) return <LoadError error={loadError} onRetry={retry} />;
+  if (!data) return <Skeleton label="Loading…" lines={1} rows={0} />;
+  const enabled = on ?? data.two_factor_enabled;
+  const run = async (fn) => { setBusy(true); setError(null); try { await fn(); setCode(''); } catch (err) { setError(err.message); } finally { setBusy(false); } };
+  return (
+    <>
+      {error && <p className="in-error" role="alert">{error}</p>}
+      {codes && (
+        <div className="in-key-once" role="status">
+          <p>Save these recovery codes now. Each works once if you lose your phone. They are not shown again.</p>
+          <code className="in-code">{codes.join('  ')}</code>
+          <div className="in-actions"><button type="button" className="in-btn in-btn-quiet" onClick={() => setCodes(null)}>I have stored them</button></div>
+        </div>
+      )}
+      {!enabled && !setup && (
+        <div className="in-actions"><button className="in-btn" disabled={busy} onClick={() => run(async () => setSetup(await api.twoFactorSetup()))}>Set up two-factor sign-in</button></div>
+      )}
+      {!enabled && setup && (
+        <form className="in-auth-form" onSubmit={(e) => { e.preventDefault(); run(async () => { const r = await api.twoFactorEnable(code); setCodes(r.recovery_codes); setOn(true); setSetup(null); }); }}>
+          <p className="in-sub">Add this account to an authenticator app: enter the key below, or open the link on your phone.</p>
+          <code className="in-code">{setup.secret}</code>
+          <code className="in-code" style={{ wordBreak: 'break-all' }}>{setup.otpauth_uri}</code>
+          <label>Code from the app<input className="in-input" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" required /></label>
+          <button className="in-btn" type="submit" disabled={busy}>Turn on</button>
+        </form>
+      )}
+      {enabled && (
+        <form className="in-actions" onSubmit={(e) => { e.preventDefault(); run(async () => { await api.twoFactorDisable(code); setOn(false); }); }}>
+          <span className="in-tag">Two-factor sign-in is on.</span>
+          <input className="in-input" placeholder="Current code to turn off" aria-label="Current code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" required />
+          <button className="in-btn in-btn-quiet" type="submit" disabled={busy}>Turn off</button>
+        </form>
+      )}
+    </>
+  );
+}
+
 export default function AccountPage() {
   const { user } = useAuth();
   const admin = user?.role === 'admin';
@@ -217,6 +263,11 @@ export default function AccountPage() {
       <section className="in-section">
         <h2 className="in-h2">Today</h2>
         <Usage />
+      </section>
+      <section className="in-section">
+        <h2 className="in-h2">Two-factor sign-in</h2>
+        <p className="in-sub">{admin ? 'Strongly recommended for administrators; the service can require it.' : 'Ask for a code from an authenticator app after your password.'}</p>
+        <TwoFactor />
       </section>
       <section className="in-section">
         <h2 className="in-h2">API keys</h2>
