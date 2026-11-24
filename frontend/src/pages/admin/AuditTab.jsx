@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { LoadState, shortId, when } from './shared';
+import { LoadMore, LoadState, shortId, when } from './shared';
 
 /** The audit log, newest first. GET /audit/events?limit=100 (everyone's events for an admin). */
 export default function AuditTab({ events, userNames }) {
@@ -41,7 +41,7 @@ export default function AuditTab({ events, userNames }) {
             </tbody>
           </table>
         </div>
-        {list.length >= 100 && <p className="in-hint">Showing the newest 100 events.</p>}
+        <LoadMore resource={events} what="events" />
       </LoadState>
     </>
   );

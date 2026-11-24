@@ -23,6 +23,13 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (username, password, requiredRole = null) => {
     const result = await api.login(username, password, requiredRole);
+    if (result.two_factor_required) return { two_factor_required: true, challenge: result.challenge };   // second step: verifyTwoFactor
+    setUser(result.user); setSessionError(null);
+    return result.user;
+  }, []);
+
+  const verifyTwoFactor = useCallback(async (challenge, code) => {
+    const result = await api.verifyTwoFactor(challenge, code);
     setUser(result.user); setSessionError(null);
     return result.user;
   }, []);
@@ -36,8 +43,8 @@ export function AuthProvider({ children }) {
   const isUser = Boolean(user && user.role !== 'admin');
 
   const value = useMemo(
-    () => ({ user, loading, sessionError, recheck: check, login, logout, isAdmin, isUser }),
-    [user, loading, sessionError, check, login, logout, isAdmin, isUser]
+    () => ({ user, loading, sessionError, recheck: check, login, verifyTwoFactor, logout, isAdmin, isUser }),
+    [user, loading, sessionError, check, login, verifyTwoFactor, logout, isAdmin, isUser]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
