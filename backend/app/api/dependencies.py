@@ -35,7 +35,35 @@ from app.core.rate_limit import make_limiter
 
 # ── Database init ─────────────────────────────────────────────────────────────
 db.init_db()
-db.purge_older_than(settings.retention_days)   # retention: runs once per process start
+
+# Retention (VERITAS_RETENTION_DAYS): purged at start and then every RETENTION_EVERY while the process runs
+# (main.py's lifespan checks hourly), so a server that stays up does not keep results past the promised age.
+from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+
+RETENTION_EVERY = _td(hours=6)
+_retention_lock = threading.Lock()
+_last_purge: _dt | None = None
+
+
+def purge_if_due(now: _dt | None = None) -> bool:
+    """Purge results older than the retention period if the last purge is RETENTION_EVERY old. True when it ran."""
+    global _last_purge
+    now = now or _dt.now(_tz.utc)
+    with _retention_lock:
+        if _last_purge is not None and now - _last_purge < RETENTION_EVERY:
+            return False
+        _last_purge = now
+    purged = db.purge_older_than(settings.retention_days)
+    if any(purged.values()):
+        # a purged result may still sit in a latest-result cache; the caches fall back to the database, so empty them
+        for cache in (globals().get("upload_result_cache"), globals().get("demo_result_cache")):
+            if cache is not None:
+                with cache._lock:
+                    cache._data.clear()
+    return True
+
+
+purge_if_due()
 
 
 # ── Shared worker pool ────────────────────────────────────────────────────────

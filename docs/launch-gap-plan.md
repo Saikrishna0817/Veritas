@@ -84,7 +84,7 @@ Order: security and data integrity, broken core flows, launch blockers, missing 
 | # | Task | Scope and files | Test | Size | Status |
 |---|---|---|---|---|---|
 | S1 | Admin 2FA requirement also covers reading other people's data | `api/dependencies.py` (`owner_scope`), `api/routes/upload.py` (`_owned`), `api/routes/reports.py` (`/audit/events`): an admin who must enroll and has not sees only their own rows | new `backend/tests/test_admin_2fa_scope.py` (fails before: 200 instead of 404) | S | done |
-| S2 | Retention purge runs on a schedule, not only at start | `api/dependencies.py`, `main.py` lifespan: purge when due (every 6 h) | new `backend/tests/test_retention_schedule.py` | S | pending |
+| S2 | Retention purge runs on a schedule, not only at start | `api/dependencies.py`, `main.py` lifespan: purge when due (every 6 h) | new `backend/tests/test_retention_schedule.py` (3 tests, all fail before) | S | done; also empties the latest-result caches when a purge deletes rows |
 | C1 | Frontend unit tests run, and run in CI | `frontend/package.json` test script, `.github/workflows/ci.yml` | `npm test` passes on Node 22 and 24; CI step | S | pending |
 | B1 | Launch blockers that need accounts or a person | deploy secrets, SMTP, Turnstile, Sentry, R2, domain, legal review, P14 in production | — | — | NOT DOABLE HERE: decisions D1–D3 |
 | F1 | Admin resets another person's 2FA | `services/auth.py`, `api/routes/users.py` (new `POST /users/{id}/2fa/reset`, admin, not self, audited), `models/database.py`, `pages/admin/UsersTab.jsx`, `services/api.js` | backend test; browser check desktop and mobile | M | pending |

@@ -1,6 +1,7 @@
 """
 AI Trust Forensics Platform v2.2 — FastAPI Main Application
 """
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,8 +36,25 @@ async def lifespan(app: FastAPI):
                     stats.get("total_analyses", 0), stats.get("by_source", {}))
     except Exception as exc:
         logger.warning("SQLite stats unavailable at startup: %s", exc)
+    app.state.retention_task = asyncio.create_task(_retention_loop())
     yield
+    app.state.retention_task.cancel()
+    try:
+        await app.state.retention_task
+    except asyncio.CancelledError:
+        pass
     logger.info("AI Trust Forensics Platform shutting down")
+
+
+async def _retention_loop(check_every_s: float = 3600):
+    """Retention while the process runs: every hour, purge if the last purge is old enough (dependencies.purge_if_due)."""
+    from app.api import dependencies as deps
+    while True:
+        await asyncio.sleep(check_every_s)
+        try:
+            await asyncio.to_thread(deps.purge_if_due)
+        except Exception:                                      # a failed purge must not end the schedule
+            logger.exception("Retention purge failed; will try again in an hour")
 
 
 observability.init_sentry()
