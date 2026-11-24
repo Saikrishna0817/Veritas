@@ -46,11 +46,37 @@ so the API never carries the bytes. With local storage `/uploads/presign` answer
 
 Bucket setup, once:
 - **R2:** set `VERITAS_S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com`, `AWS_DEFAULT_REGION=auto`, and an R2 API token as `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Presigned URLs use SigV4 with the size signed in.
-- **Lifecycle rule:** expire objects under `upload/` and `model/` after 1 day. The worker deletes uploads it processes; this removes ones that were presigned and never completed.
+- **Lifecycle rule:** expire objects under `upload/` and `model/` after 1 day (exact rule and check command below). The worker deletes uploads it processes; this removes ones that were presigned and never completed.
 - **CORS (only when a browser uploads):** allow `PUT` from your site origin with header `Content-Length`. The CLI needs no CORS.
 - The bucket must not be public. The API checks that an uploaded object exists, belongs to the caller, is used once and matches the declared size before queuing it; it never trusts the client's word.
 
 Not verified against real S3 or R2 (tests use a mocked bucket): check that a PUT with a different size than declared is refused by the bucket.
+
+### Lifecycle rule for abandoned uploads
+
+Keys are `upload/<uuid>` and `model/<uuid>` (`app/core/storage.py: new_key`). Presigned objects that are never completed
+stay in the bucket unless a rule expires them. Save as `lifecycle.json` (R2 expiry is whole days, so 1 is the minimum):
+
+```json
+{"Rules": [
+  {"ID": "expire-abandoned-uploads", "Status": "Enabled", "Filter": {"Prefix": "upload/"}, "Expiration": {"Days": 1}, "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}},
+  {"ID": "expire-abandoned-models",  "Status": "Enabled", "Filter": {"Prefix": "model/"},  "Expiration": {"Days": 1}, "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}}
+]}
+```
+
+Apply (omit `--endpoint-url` for AWS S3; for R2 use `https://<account>.r2.cloudflarestorage.com`):
+
+```bash
+aws s3api put-bucket-lifecycle-configuration --bucket BUCKET --endpoint-url ENDPOINT --lifecycle-configuration file://lifecycle.json
+```
+
+Check that it exists (should list both rules, status `Enabled`; `NoSuchLifecycleConfiguration` means it is missing):
+
+```bash
+aws s3api get-bucket-lifecycle-configuration --bucket BUCKET --endpoint-url ENDPOINT --query 'Rules[].[ID,Status,Filter.Prefix,Expiration.Days]' --output table
+```
+
+R2 ignores `AbortIncompleteMultipartUpload` (single PUTs only), which is harmless. Run the check after each bucket change.
 
 ## Backups and restore
 - `scripts/backup.sh` writes `backups/veritas-<utc>.dump` (pg_dump custom format), keeps the newest 14, optionally uploads to S3/R2.
