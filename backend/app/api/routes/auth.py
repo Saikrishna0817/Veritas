@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.config import settings
-from app.core.security import require_user
+from app.core.security import REFRESH_COOKIE, require_user
 from app.services import auth as service
 from app.services.auth import login_rate_limiter, login_user_rate_limiter, mail_rate_limiter, signup_rate_limiter  # noqa: F401  (tests clear these)
 
@@ -80,10 +80,16 @@ async def token(credentials: LoginRequest, request: Request, response: Response)
     return service.issue_session(response, user)
 
 
+@router.post("/auth/refresh")
+async def refresh(request: Request, response: Response):
+    """Trade the refresh cookie for a new access session. The cookie is SameSite=strict and only sent to /auth/*."""
+    return service.refresh_session(response, request.cookies.get(REFRESH_COOKIE), _ip(request))
+
+
 @router.post("/auth/logout")
-async def logout(response: Response):
-    """Clears this browser's cookies. The token itself stays valid until it expires; /auth/logout-all ends it."""
-    service.sign_out(response)
+async def logout(request: Request, response: Response):
+    """Clears this browser's cookies and ends its refresh family. The access token stays valid until it expires; /auth/logout-all ends it."""
+    service.sign_out(response, request.cookies.get(REFRESH_COOKIE))
     return {"message": "Signed out."}
 
 

@@ -116,9 +116,19 @@ def set_session_cookies(response, token: str) -> str:
     return csrf
 
 
+REFRESH_COOKIE = "veritas_refresh"      # httpOnly, only sent to /auth/* (refresh and logout), SameSite strict
+REFRESH_PATH = "/api/v1/auth"
+
+
+def set_refresh_cookie(response, token: str) -> None:
+    response.set_cookie(REFRESH_COOKIE, token, httponly=True, max_age=settings.refresh_expiry_days * 86400,
+                        secure=settings.cookie_secure, samesite="strict", path=REFRESH_PATH)
+
+
 def clear_session_cookies(response) -> None:
     response.delete_cookie(SESSION_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
+    response.delete_cookie(REFRESH_COOKIE, path=REFRESH_PATH)
 
 
 def require_user(request: Request, credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> dict[str, Any]:

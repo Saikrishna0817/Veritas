@@ -340,6 +340,7 @@ def end_all_sessions(user_id: str) -> None:
     """Every token issued so far for this account stops working (security.decode_access_token checks the version)."""
     conn = _get_conn()
     conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = ?", (user_id,))
+    _revoke_refresh(conn, user_id=user_id)
     conn.commit()
 
 
@@ -347,7 +348,68 @@ def set_password_hash(user_id: str, password_hash: str) -> None:
     conn = _get_conn()
     # a new password ends every session: tokens carrying the old version are rejected (security.decode_access_token)
     conn.execute("UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?", (password_hash, user_id))
+    _revoke_refresh(conn, user_id=user_id)
     conn.commit()
+
+
+# ── Refresh tokens (P3): hashed, rotated on every use, grouped in families ───
+
+def _hash_token(raw: str) -> str:
+    import hashlib
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _revoke_refresh(conn, user_id: str | None = None, family_id: str | None = None) -> None:
+    col, val = ("user_id", user_id) if user_id else ("family_id", family_id)
+    conn.execute(f"UPDATE refresh_tokens SET revoked_at = ? WHERE {col} = ? AND revoked_at IS NULL",
+                 (datetime.now(timezone.utc).isoformat(), val))
+
+
+def create_refresh_token(user_id: str, family_id: str | None = None) -> str:
+    """Return a new random refresh token (only its SHA-256 is stored). A new sign-in starts a new family."""
+    import secrets
+    raw = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    conn = _get_conn()
+    conn.execute(
+        "INSERT INTO refresh_tokens (id, user_id, family_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+        (str(uuid.uuid4()), user_id, family_id or str(uuid.uuid4()), _hash_token(raw), now.isoformat(),
+         (now + timedelta(days=settings.refresh_expiry_days)).isoformat()),
+    )
+    conn.commit()
+    return raw
+
+
+def use_refresh_token(raw: str) -> tuple[str, Dict | None]:
+    """Spend a refresh token. Returns (outcome, row): "ok" (row is the spent token, its family continues),
+    "reuse" (it was already spent or revoked: the whole family is now revoked), or "invalid" (unknown or expired)."""
+    conn = _get_conn()
+    h = _hash_token(raw)
+    row = conn.execute("SELECT * FROM refresh_tokens WHERE token_hash = ?", (h,)).fetchone()
+    if row is None:
+        return "invalid", None
+    row = dict(row)
+    now = datetime.now(timezone.utc).isoformat()
+    if row["revoked_at"]:
+        return "invalid", row
+    if row["expires_at"] <= now:
+        return "invalid", row
+    claimed = conn.execute("UPDATE refresh_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL RETURNING id", (now, row["id"])).fetchone()
+    if claimed is None:       # someone spent it first: a stolen copy and the real one are both in play, end the family
+        _revoke_refresh(conn, family_id=row["family_id"])
+        conn.commit()
+        return "reuse", row
+    conn.commit()
+    return "ok", row
+
+
+def revoke_refresh_family(raw: str) -> None:
+    """Sign-out of this browser: end the family the presented token belongs to (unknown tokens are ignored)."""
+    conn = _get_conn()
+    row = conn.execute("SELECT family_id FROM refresh_tokens WHERE token_hash = ?", (_hash_token(raw),)).fetchone()
+    if row:
+        _revoke_refresh(conn, family_id=row["family_id"])
+        conn.commit()
 
 
 # ── One-time tokens (email verification, password reset) ─────────────────────
@@ -453,6 +515,7 @@ def set_user_disabled(user_id: str, disabled: bool) -> bool:
     if disabled:
         cur = conn.execute("UPDATE users SET disabled_at = ?, token_version = token_version + 1 WHERE id = ?",
                            (datetime.now(timezone.utc).isoformat(), user_id))
+        _revoke_refresh(conn, user_id=user_id)
     else:
         cur = conn.execute("UPDATE users SET disabled_at = NULL WHERE id = ?", (user_id,))
     conn.commit()
@@ -471,7 +534,7 @@ def delete_account(user_id: str) -> Dict[str, int]:
     conn = _get_conn()
     try:                                  # one transaction: a failure part-way leaves the account and its data whole
         counts = _delete_owner_rows(conn, user_id)
-        for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("jobs", "owner_id"),
+        for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("refresh_tokens", "user_id"), ("jobs", "owner_id"),
                            ("audit_events", "actor_id"), ("users", "id")):
             counts[table] = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,)).rowcount
         conn.execute("INSERT INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",

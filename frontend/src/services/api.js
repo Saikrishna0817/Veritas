@@ -1,4 +1,6 @@
 // Veritas API client. Every page goes through this file; none calls fetch itself.
+import { fetchWithRefresh, singleFlight } from './refresh.js';
+
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -63,24 +65,36 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
     throw e;
 }
 
-async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
-    const res = await fetch(`${BASE_URL}${path}`, {
+// A 401 on a signed-in call first tries to renew the session with the refresh cookie (one renewal shared by
+// every call that fails at the same time); only if that fails does the person go to sign-in.
+const renewSession = singleFlight(async () => {
+    try {
+        const res = await fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
+        return res.ok;
+    } catch {
+        return false;
+    }
+});
+const withRefresh = (send, renew = true) => (renew ? fetchWithRefresh(send, renewSession) : send());
+
+async function apiFetch(path, { skipAuth = false, renew = !skipAuth, headers, ...options } = {}) {
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
-    });
+    }), renew);
     await failIfNotOk(res, 'API error', skipAuth);
     return res.json();
 }
 
 async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData }));
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' });
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' }));
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
@@ -100,7 +114,7 @@ export const api = {
         body: JSON.stringify({ username, password, required_role: requiredRole }),
     }),
 
-    me: () => apiFetch('/auth/me', { skipAuth: true }),
+    me: () => apiFetch('/auth/me', { skipAuth: true, renew: true }),   // the page-load check also renews an expired access session
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
     // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
     signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),

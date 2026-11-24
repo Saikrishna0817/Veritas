@@ -16,7 +16,7 @@ from app.core.config import settings
 from app.core.observability import LOGIN_FAILURES
 from app.core.rate_limit import make_limiter
 from app.core.security import (authenticate_user, clear_session_cookies, create_access_token, hash_password,
-                               set_session_cookies)
+                               set_refresh_cookie, set_session_cookies)
 from app.models import database as db
 
 logger = logging.getLogger(__name__)
@@ -63,15 +63,41 @@ def check_password_login(username: str, password: str, ip: str, required_role: O
     return user
 
 
-def issue_session(response: Response, user: dict) -> dict:
-    """Sign the access token, set the browser cookies, and return the sign-in body. API clients can keep using the bearer token."""
+def issue_session(response: Response, user: dict, family_id: Optional[str] = None) -> dict:
+    """Sign the access token, set the browser cookies (session, CSRF, refresh), and return the sign-in body.
+    API clients can keep using the bearer token. A new sign-in starts a new refresh family; a refresh continues its own."""
     access = create_access_token(user)
     csrf = set_session_cookies(response, access)
+    set_refresh_cookie(response, db.create_refresh_token(user["id"], family_id))
     return {"access_token": access, "token_type": "bearer", "user": user, "csrf_token": csrf}
 
 
-def sign_out(response: Response) -> None:
-    """This browser only: the token itself stays valid until it expires; sign_out_everywhere ends it."""
+def refresh_session(response: Response, raw_refresh: Optional[str], ip: str) -> dict:
+    """Spend the refresh token and issue a new access session plus the next refresh token (rotation).
+    Presenting a token that was already spent ends its whole family and is audited."""
+    def refuse():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session ended: sign in again")
+    if not raw_refresh:
+        refuse()
+    outcome, row = db.use_refresh_token(raw_refresh)
+    if outcome == "reuse":
+        db.log_audit_event(row["user_id"], "auth.refresh_reuse_detected", "account", row["user_id"],
+                           {"ip": ip, "family_id": row["family_id"]})
+        logger.warning("Refresh token reuse for account %s from %s: family %s revoked", row["user_id"], ip, row["family_id"])
+    if outcome != "ok":
+        refuse()
+    stored = db.get_user_by_id(row["user_id"])
+    if stored is None or stored.get("disabled_at"):
+        refuse()
+    user = {"id": stored["id"], "name": stored["username"], "role": stored["role"]}
+    return issue_session(response, user, family_id=row["family_id"])
+
+
+def sign_out(response: Response, raw_refresh: Optional[str] = None) -> None:
+    """This browser only: the access token stays valid until it expires, but its refresh family is ended;
+    sign_out_everywhere ends every token."""
+    if raw_refresh:
+        db.revoke_refresh_family(raw_refresh)
     clear_session_cookies(response)
 
 
