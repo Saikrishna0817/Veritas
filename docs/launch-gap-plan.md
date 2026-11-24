@@ -90,9 +90,9 @@ Order: security and data integrity, broken core flows, launch blockers, missing 
 | F1 | Admin resets another person's 2FA | `services/auth.py`, `api/routes/users.py` (new `POST /users/{id}/2fa/reset`, admin, not self, audited), `models/database.py`, `pages/admin/UsersTab.jsx`, `services/api.js` | `backend/tests/test_admin_2fa_reset.py` (2 tests, fail before: 404); browser check 1440 and 390 px | M | done. Found while checking: an open confirm sat inline beside the row buttons and pushed the accounts table wider than its frame (sideways scroll, text cut off at 1440 px); it now opens under the buttons (`argilla.css`), 0 px overflow at both widths |
 | F2 | Download a copy of my data | new `GET /account/export` (JSON attachment: account, analyses and scans with full results, defence actions, review cases, my audit events, key names and prefixes, today's usage; columns named one by one so no hash or secret can appear), audited `account.data_exported`; "Download my data" on the Account page | `backend/tests/test_account_export.py` (2 tests, fail before: 404); browser check 1440 and 390 px: file saved, holds the user's analyses, no `password_hash` / `totp_secret` / `key_hash` | M | done |
 | F3 | QR code for 2FA enrollment | needs a QR library | — | — | PROPOSAL (D5) |
-| P1 | Remove the stale `// Federated` comment | `services/api.js` | lint | S | pending |
-| D1 | README API table brought up to date | `README.md` | — | S | pending |
-| D2 | Superseding entries in `decisions.md` for K4, K5 | `docs/decisions.md` | — | S | pending |
+| P1 | Remove the stale `// Federated` comment | `services/api.js` | lint | S | done |
+| D1 | README API table brought up to date | `README.md` (also `/account/export`, `/users/{id}/2fa/reset`); `docs/legal/privacy-policy.md` names the download; `docs/backend-plan.md` P12 row | — | S | done |
+| D2 | Superseding entries in `decisions.md` for K4, K5 | `docs/decisions.md` | — | S | done |
 
 ## 5. Decisions left for the owner
 

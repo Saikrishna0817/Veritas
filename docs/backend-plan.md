@@ -111,7 +111,7 @@ single-use and size-checked; WebSocket origin checking.
 | P13 | Load test at production volume | `/loadtest` exists. Run it against staging with PostgreSQL to measure the 0007 indexes. |
 | P14 | Delete abandoned direct-upload blobs | Docs part done 2026-11-24: exact lifecycle rule and check command in `docs/runbook.md`. Still to do: apply it and run the check on the production bucket. |
 | P11 | Admin UI for disable/enable, sign out everywhere, and paging | Done 2026-11-24. Disable / Enable with inline confirm, "Sign out on every device" on the Account page, "Load more" on users, audit log, stored results, History and model scans. |
-| P12 | Admin 2FA (TOTP) | Done: see section 3c. Not yet done: QR code in the UI (no QR library installed), admin UI to reset another person's 2FA, requiring 2FA on the data endpoints an admin reaches through `require_user` (only `require_admin` endpoints are gated). |
+| P12 | Admin 2FA (TOTP) | Done: see section 3c. Not yet done: QR code in the UI (no QR library installed). Done 2026-11-25 on `launch/gap-plan` (see `docs/launch-gap-plan.md`): an admin can reset another person's 2FA (`POST /users/{id}/2fa/reset`, Accounts tab), and with `VERITAS_REQUIRE_ADMIN_2FA` an admin who has not enrolled reads only their own data through the `require_user` endpoints too. |
 
 ## 3c. Fourth batch (branch `backend/auth-refresh-2fa`)
 

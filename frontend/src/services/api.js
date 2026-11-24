@@ -189,8 +189,6 @@ export const api = {
     submitReviewDecision: (caseId, decision) =>
         apiFetch('/defense/hitl/decide', { method: 'POST', body: JSON.stringify({ case_id: caseId, decision }) }),
 
-    // Federated
-
     // Reports
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
 

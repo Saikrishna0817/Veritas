@@ -262,7 +262,10 @@ sign-in routes, every route needs a session or an API key.
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/health`, `/` (no prefix) | Health check and service info |
+| `GET` | `/ready` (no prefix) | Readiness: 200 when the database (and Redis, when set) answers, 503 otherwise |
 | `POST` | `/auth/token`, `/auth/logout` | Sign in (sets the session cookie), sign out |
+| `POST` | `/auth/refresh`, `/auth/logout-all` | Renew the session from the refresh cookie; sign out on every device |
+| `POST` | `/auth/2fa/setup`, `/auth/2fa/enable`, `/auth/2fa/disable`, `/auth/2fa/verify` | Two-factor sign-in: enroll, confirm, turn off, and the second sign-in step |
 | `GET` | `/auth/me` | The signed-in user |
 | `POST` | `/auth/signup`, `/auth/verify-email`, `/auth/resend-verification` | Create an account and confirm its email |
 | `POST` | `/auth/password-reset/request`, `/auth/password-reset/confirm` | Reset a password by email |
@@ -270,6 +273,7 @@ sign-in routes, every route needs a session or an API key.
 | `GET`, `POST`, `DELETE` | `/account/api-keys`, `/account/api-keys/{key_id}` | List, create and revoke API keys |
 | `DELETE` | `/account/data` | Erase your stored results, scans, defence actions, review cases and usage counters; the account stays |
 | `POST` | `/account/delete` | Delete your account |
+| `GET` | `/account/export` | Download a copy of everything stored about you (JSON file) |
 | `POST` | `/analyze/upload` | Check a CSV (`?background=true` returns a job id) |
 | `POST` | `/analyze/images`, `/analyze/audio`, `/analyze/video` | Check a zip; always a background job |
 | `GET` | `/analyze/upload/latest`, `/analyze/upload/{dataset_id}` | Your latest upload result, or one of yours by id |
@@ -288,6 +292,9 @@ sign-in routes, every route needs a session or an API key.
 | `GET` | `/blueteam/status`, `/blueteam/incidents`, `/blueteam/playbooks`, `/blueteam/playbook/{attack_type}` | Response summary, incident log and playbooks |
 | `GET` | `/users` | List users (admin) |
 | `POST` | `/users` | Create a user (admin) |
+| `PATCH` | `/users/{user_id}` | Change a user's role (admin, not your own) |
+| `POST` | `/users/{user_id}/disable`, `/users/{user_id}/enable` | Suspend or restore an account, keeping its data (admin) |
+| `POST` | `/users/{user_id}/2fa/reset` | Turn off someone's two-factor sign-in and end their sessions (admin, not your own) |
 | `DELETE` | `/users/{user_id}` | Delete a user (admin) |
 | `POST` | `/demo/run` | Run the synthetic sample batch |
 | `GET` | `/datasets/demo`, `/datasets/demo/samples` | The synthetic sample data |
