@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
+from app.core.errors import ApiError
 
 from app.core.config import settings
 from app.models import database as db
@@ -14,8 +15,8 @@ def charge(user: dict, kind: str, amount: int, limit: int) -> dict:
         return {}
     allowed, used = db.charge_usage(user["id"], kind, amount, limit)
     if not allowed:
-        raise HTTPException(
-            status_code=429,
+        raise ApiError(
+            429, code="quota_exceeded",
             detail=f"Daily {kind.replace('_', ' ')} quota reached ({used} of {limit} used today, UTC). It resets at 00:00 UTC.",
         )
     return {"day": datetime.now(timezone.utc).strftime("%Y-%m-%d"), kind: amount}
