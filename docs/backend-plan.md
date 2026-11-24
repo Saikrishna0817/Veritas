@@ -18,7 +18,7 @@ Full suite: 255 passed, 6 skipped, on SQLite on Windows. The 6 skipped tests nee
 | Sign-in, sessions, CSRF, API keys | Complete | Refresh tokens (P3) and TOTP 2FA (P12) done on `backend/auth-refresh-2fa` |
 | Sign-up, email verification, password reset | Complete | none known |
 | Account self-service (usage, erase data, delete, keys) | Complete | none known (erasure is now one transaction) |
-| Admin user management (list, create, role, delete, disable) | Complete in the API; needs UI | P11 admin screens |
+| Admin user management (list, create, role, delete, disable) | Complete in the API and UI | P11 |
 | Analyses (CSV, images, audio, video, model scan, demo, real datasets) | Complete | detector quality is out of scope here (see model card) |
 | Direct-to-storage upload | Complete | quota refund fixed (B7) |
 | Background jobs | Complete | no automatic retry (analyses are deterministic, so a retry would fail the same way); stale jobs fail after 30 min |
@@ -78,7 +78,7 @@ torchaudio / ffmpeg on this machine; CI runs them.
 | P7 | Done | Admin-created duplicate usernames answered 400; sign-up 409. | 409 for both. The frontend shows the message and does not read the code. | `test_cache_and_usernames.py` |
 | P8 | Done (check only) | `Alice` and `alice` could both exist. | Sign-up and admin creation refuse a name that matches an existing one in any letter case. No unique index on `lower(username)` yet: existing duplicates (if any) would make that migration fail, so check production data first. Sign-in stays exact-match. | `test_cache_and_usernames.py` |
 | P9 | Done | Failed sign-ins were not in the audit log. | `auth.login_failed` with the IP: as the account's own event when the name exists (its owner sees it), as `anonymous` with no name when it does not (people type passwords into the name field). Also logged as warnings. Alerting on bursts is still to do. | `test_sessions_and_login_audit.py` |
-| P10 | Done | No way to suspend an account without erasing it. | `POST /users/{id}/disable` and `/enable` (admin, not your own account, audited). Disabled: sign-in refused (403, only after the right password), sessions ended, API keys stop working, data kept. Migration 0008; `GET /users` adds `disabled_at`. No admin UI yet. | `test_account_disable.py` |
+| P10 | Done | No way to suspend an account without erasing it. | `POST /users/{id}/disable` and `/enable` (admin, not your own account, audited). Disabled: sign-in refused (403, only after the right password), sessions ended, API keys stop working, data kept. Migration 0008; `GET /users` adds `disabled_at`. Admin UI in P11. | `test_account_disable.py` |
 
 Full suite after the second batch: 237 passed, 8 skipped (SQLite, Windows).
 
@@ -110,7 +110,7 @@ single-use and size-checked; WebSocket origin checking.
 | P8b | Unique index on `lower(username)` | First run `SELECT lower(username), count(*) FROM users GROUP BY 1 HAVING count(*) > 1` on production. If it returns no rows, the index can be added as migration 0009; if it does, rename those accounts first. |
 | P13 | Load test at production volume | `/loadtest` exists. Run it against staging with PostgreSQL to measure the 0007 indexes. |
 | P14 | Delete abandoned direct-upload blobs | The `pending_uploads` rows go with the account, but the S3 objects rely on a bucket lifecycle rule. Check that the rule exists in production. |
-| P11 | Admin UI for disable/enable, sign out everywhere, and paging | Frontend work. |
+| P11 | Admin UI for disable/enable, sign out everywhere, and paging | Done 2026-11-24. Disable / Enable with inline confirm, "Sign out on every device" on the Account page, "Load more" on users, audit log, stored results, History and model scans. |
 | P12 | Admin 2FA (TOTP) | Done: see section 3c. Not yet done: QR code in the UI (no QR library installed), admin UI to reset another person's 2FA, requiring 2FA on the data endpoints an admin reaches through `require_user` (only `require_admin` endpoints are gated). |
 
 ## 3c. Fourth batch (branch `backend/auth-refresh-2fa`)
@@ -158,3 +158,4 @@ items under decision 3.
 - 2026-11-19: second batch on `backend/plan-features`: P1, P2 (logout-all), P4–P10, one commit each with tests.
 - 2026-11-20: PR #43 CI green. Third batch on `backend/continuation` (main merged in): B5–B9 fixed, P9b done.
 - 2026-11-24: fourth batch on `backend/auth-refresh-2fa`: auth service extracted, P3 refresh tokens, P12 admin 2FA.
+- 2026-11-24: P11 on `frontend/admin-p11`: disable/enable, sign out everywhere, Load more on paged lists.

@@ -77,14 +77,14 @@ const renewSession = singleFlight(async () => {
 });
 const withRefresh = (send, renew = true) => (renew ? fetchWithRefresh(send, renewSession) : send());
 
-async function apiFetch(path, { skipAuth = false, renew = !skipAuth, headers, ...options } = {}) {
+async function apiFetch(path, { skipAuth = false, renew = !skipAuth, raw = false, headers, ...options } = {}) {
     const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
     }), renew);
     await failIfNotOk(res, 'API error', skipAuth);
-    return res.json();
+    return raw ? { data: await res.json(), headers: res.headers } : res.json();
 }
 
 async function apiFormData(path, formData) {
@@ -105,6 +105,13 @@ async function downloadFile(path, filename) {
 }
 
 
+// Paged lists: the cursor is a created_at that can contain '+', so it always goes through URLSearchParams.
+function paged(path, limit, before, extra = {}) {
+    const params = new URLSearchParams({ limit, ...extra });
+    if (before) params.set('before', before);
+    return `${path}?${params}`;
+}
+
 export const api = {
 
     BASE_URL,
@@ -121,6 +128,7 @@ export const api = {
     twoFactorEnable: (code) => apiFetch('/auth/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) }),
     twoFactorDisable: (code) => apiFetch('/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ code }) }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
+    logoutAll: () => apiFetch('/auth/logout-all', { method: 'POST', skipAuth: true }),
     // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
     signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
@@ -135,7 +143,10 @@ export const api = {
     revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),
 
     // User management (Admin only)
-    getUsers: () => apiFetch('/users'),
+    // the body is a plain list; the next cursor is in the X-Next-Before header. Resolves to { items, next }.
+    getUsers: (before) => apiFetch(paged('/users', 200, before), { raw: true }).then(({ data, headers }) => ({ items: data, next: headers.get('X-Next-Before') })),
+    disableUser: (userId) => apiFetch(`/users/${userId}/disable`, { method: 'POST' }),
+    enableUser: (userId) => apiFetch(`/users/${userId}/enable`, { method: 'POST' }),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
     setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
@@ -218,16 +229,16 @@ export const api = {
         formData.append('model_file', file);
         return apiFormData('/analyze/model', formData);
     },
-    getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
+    getModelScanHistory: (limit = 20, before) => apiFetch(paged('/analyze/model/history', limit, before)),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 
     // Analysis History & Audit
-    getHistory: (source = null, limit = 20) =>
-        apiFetch(`/history?limit=${limit}${source ? `&source=${source}` : ''}`),
-    getAnalysisHistory: (limit = 20) => apiFetch(`/history?limit=${limit}`),
+    getHistory: (source = null, limit = 20, before) =>
+        apiFetch(paged('/history', limit, before, source ? { source } : {})),
+    getAnalysisHistory: (limit = 20, before) => apiFetch(paged('/history', limit, before)),
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
     deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
-    getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
+    getAuditEvents: (limit = 50, before) => apiFetch(paged('/audit/events', limit, before)),
 
     // Red Team
 

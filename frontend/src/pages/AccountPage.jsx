@@ -116,6 +116,34 @@ function ApiKeys() {
   );
 }
 
+function SignOutEverywhere() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const run = async () => {
+    setBusy(true); setError(null);
+    try {
+      await api.logoutAll();
+      await logout();                       // clears this browser's cookies and the signed-in state
+      navigate(user?.role === 'admin' ? '/admin/login' : '/login', { replace: true });
+    } catch (err) { setError(err.message); setBusy(false); }
+  };
+  return (
+    <>
+      <p className="in-sub">Ends every session of this account, on every device, including this one. API keys keep working.</p>
+      {open ? (
+        <div className="in-actions">
+          <button type="button" className="in-btn" onClick={run} disabled={busy}>{busy ? 'Signing out…' : 'Yes, sign out everywhere'}</button>
+          <button type="button" className="in-btn in-btn-quiet" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+        </div>
+      ) : <button type="button" className="in-btn in-btn-quiet" onClick={() => setOpen(true)}>Sign out on every device</button>}
+      {error && <p className="in-error" role="alert">{error}</p>}
+    </>
+  );
+}
+
 function DeleteData() {
   const [step, setStep] = useState('idle');   // idle → confirm → done
   const [counts, setCounts] = useState(null);
@@ -245,6 +273,10 @@ export default function AccountPage() {
         <h2 className="in-h2">API keys</h2>
         <p className="in-sub">For the command-line tool and CI. At most 10 active keys. A key signs in as you; it cannot create other keys.</p>
         <ApiKeys />
+      </section>
+      <section className="in-section">
+        <h2 className="in-h2">Sessions</h2>
+        <SignOutEverywhere />
       </section>
       <section className="in-section">
         <h2 className="in-h2">Your data</h2>
