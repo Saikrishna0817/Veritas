@@ -20,6 +20,24 @@ async def my_usage(user: dict = Depends(require_user)):
             "retention_days": settings.retention_days}
 
 
+@router.get("/account/export")
+async def export_my_data(user: dict = Depends(require_user)):
+    """A copy of everything Veritas stores about the caller, as a JSON file to save: account details, analyses and
+    model scans with their full results, defence actions, review cases, the caller's audit events, API keys (name and
+    prefix only) and today's usage. Never a password hash, 2FA secret or key. Logged as account.data_exported."""
+    import json
+    from datetime import datetime, timezone
+
+    from app.core.config import settings
+    now = datetime.now(timezone.utc)
+    body = {"exported_at": now.isoformat(), "retention_days": settings.retention_days, **deps.db.export_owner_data(user["id"])}
+    deps.db.log_audit_event(user["id"], "account.data_exported", "account", user["id"],
+                            {"analyses": len(body["analyses"]), "model_scans": len(body["model_scans"])})
+    return Response(content=json.dumps(body, default=str, indent=1), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="veritas-my-data-{now:%Y-%m-%d}.json"',
+                             "Cache-Control": "no-store"})
+
+
 def _forget_cached(user_id: str) -> None:
     for cache in (deps.upload_result_cache, deps.demo_result_cache):
         with cache._lock:

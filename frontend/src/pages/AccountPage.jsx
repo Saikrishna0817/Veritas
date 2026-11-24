@@ -144,6 +144,36 @@ function SignOutEverywhere() {
   );
 }
 
+function DownloadData() {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const [error, setError] = useState(null);
+  const run = async () => {
+    setBusy(true); setError(null); setDone(null);
+    try {
+      const data = await api.exportMyData();
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `veritas-my-data-${(data.exported_at || '').slice(0, 10) || 'export'}.json`; a.click();
+      URL.revokeObjectURL(url);
+      setDone({ analyses: data.analyses?.length || 0, scans: data.model_scans?.length || 0 });
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  };
+  const count = (n, one, many) => `${fmt(n)} ${n === 1 ? one : many}`;
+  return (
+    <div className="in-data-copy">
+      <h3 className="in-h3">Download my data</h3>
+      <p>A JSON file with your account details, every stored analysis and model scan with its full result, your review cases, your audit log and your API key names. Passwords, keys and two-factor secrets are never included.</p>
+      <div className="in-actions">
+        <button type="button" className="in-btn in-btn-quiet" onClick={run} disabled={busy}>{busy ? 'Preparing…' : 'Download my data'}</button>
+      </div>
+      {done && <p className="in-ok" role="status">Saved: {count(done.analyses, 'analysis', 'analyses')} and {count(done.scans, 'model scan', 'model scans')}.</p>}
+      {error && <p className="in-error" role="alert">{error}</p>}
+    </div>
+  );
+}
+
 function DeleteData() {
   const [step, setStep] = useState('idle');   // idle → confirm → done
   const [counts, setCounts] = useState(null);
@@ -280,6 +310,7 @@ export default function AccountPage() {
       </section>
       <section className="in-section">
         <h2 className="in-h2">Your data</h2>
+        <DownloadData />
         <DeleteData />
         <DeleteAccount admin={admin} />
       </section>

@@ -389,6 +389,8 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 .in-key-once code { display: block; padding: 10px 12px; border-radius: 8px; background: var(--paper); overflow-wrap: anywhere; user-select: all; }
 .in-danger { padding: 18px 0; border-top: 1px solid var(--rule-soft); max-width: 760px; }
 .in-danger p { color: var(--ink-2); }
+.in-data-copy { padding: 0 0 18px; max-width: 760px; }   /* "Download my data": same measure as the blocks under it */
+.in-data-copy p:not(.in-ok):not(.in-error) { color: var(--ink-2); }
 .in-btn-danger { background: transparent; color: var(--error); border-color: var(--error); box-shadow: none; }
 .in-btn-danger:hover:not(:disabled) { background: var(--accent-wash); }
 .in-footer-links { display: inline-flex; flex-wrap: wrap; gap: 6px 18px; }
