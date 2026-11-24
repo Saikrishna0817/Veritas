@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { api } from '../../services/api';
-import { ConfirmAction, LoadState, when } from './shared';
+import { ConfirmAction, LoadMore, LoadState, when } from './shared';
 
 const ROLE_WORDS = { admin: 'Administrator', analyst: 'Analyst', user: 'User' };
 
@@ -96,12 +96,21 @@ export default function UsersTab({ users, self, notify, onChanged }) {
       notify({ error: true, text: `“${u.username}” was not deleted: ${err.message || 'the server refused it.'}` });
     }
   };
+  const setDisabled = async (u, disable) => {
+    try {
+      await (disable ? api.disableUser(u.id) : api.enableUser(u.id));
+      notify({ text: disable ? `“${u.username}” is disabled. Their sessions and API keys stopped working; their data is kept.` : `“${u.username}” can sign in again.` });
+      onChanged();
+    } catch (err) {
+      notify({ error: true, text: `“${u.username}” was not ${disable ? 'disabled' : 'enabled'}: ${err.message || 'the server refused it.'}` });
+    }
+  };
   return (
     <>
       <div className="in-tab-head">
         <div>
           <h2 className="in-h2">Accounts</h2>
-          <p className="in-sub">Everyone who can sign in. A role change applies from the person's next request. Deleting an account removes its sign-in; their stored results stay until you delete them under Stored results.</p>
+          <p className="in-sub">Everyone who can sign in. A role change applies from the person's next request. Disabling an account blocks sign-in and keeps its data; you can enable it again. Deleting an account removes its sign-in; their stored results stay until you delete them under Stored results.</p>
         </div>
         {!creating && <button type="button" className="in-btn" onClick={() => setCreating(true)}>Create an account</button>}
       </div>
@@ -110,7 +119,7 @@ export default function UsersTab({ users, self, notify, onChanged }) {
         <div className="in-table-wrap">
           <table className="in-table in-table-stack">
             <caption className="in-sr">Accounts, newest first</caption>
-            <thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Created</th><th scope="col">ID</th><th scope="col"><span className="in-sr">Actions</span></th></tr></thead>
+            <thead><tr><th scope="col">Username</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Created</th><th scope="col">ID</th><th scope="col"><span className="in-sr">Actions</span></th></tr></thead>
             <tbody>
               {(users.data || []).map((u) => {
                 const isSelf = u.id === self?.id;
@@ -118,9 +127,25 @@ export default function UsersTab({ users, self, notify, onChanged }) {
                   <tr key={u.id}>
                     <td data-label="Username"><b>{u.username}</b>{isSelf && <span className="in-tag"> · you</span>}</td>
                     <td data-label="Role"><RoleCell key={u.role} u={u} isSelf={isSelf} notify={notify} onChanged={onChanged} /></td>
+                    <td data-label="Status" className="in-tag">{u.disabled_at ? `Disabled ${when(u.disabled_at)}` : 'Active'}</td>
                     <td data-label="Created" className="in-tag">{when(u.created_at)}</td>
                     <td data-label="ID" className="in-path in-tag">{u.id}</td>
                     <td data-label="" className="in-cell-actions">
+                      {!isSelf && (u.disabled_at ? (
+                        <ConfirmAction
+                          label="Enable"
+                          confirmLabel={`Enable ${u.username}`}
+                          message={`Let “${u.username}” sign in again? Their old sessions and API keys stay ended.`}
+                          onConfirm={() => setDisabled(u, false)}
+                        />
+                      ) : (
+                        <ConfirmAction
+                          label="Disable"
+                          confirmLabel={`Disable ${u.username}`}
+                          message={`Disable “${u.username}”? They are signed out everywhere and their API keys stop working. Their data is kept.`}
+                          onConfirm={() => setDisabled(u, true)}
+                        />
+                      ))}
                       <ConfirmAction
                         label="Delete"
                         confirmLabel={`Delete ${u.username}`}
@@ -137,7 +162,7 @@ export default function UsersTab({ users, self, notify, onChanged }) {
             </tbody>
           </table>
         </div>
-        {users.data?.length >= 200 && <p className="in-hint">Showing the newest 200 accounts, the most the server returns.</p>}
+        <LoadMore resource={users} what="accounts" />
       </LoadState>
     </>
   );
