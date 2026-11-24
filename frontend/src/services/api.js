@@ -147,6 +147,8 @@ export const api = {
     getUsers: (before) => apiFetch(paged('/users', 200, before), { raw: true }).then(({ data, headers }) => ({ items: data, next: headers.get('X-Next-Before') })),
     disableUser: (userId) => apiFetch(`/users/${userId}/disable`, { method: 'POST' }),
     enableUser: (userId) => apiFetch(`/users/${userId}/enable`, { method: 'POST' }),
+    // Turns off another person's 2FA (lost phone and recovery codes) and ends their sessions. Answers { message }.
+    resetUserTwoFactor: (userId) => apiFetch(`/users/${userId}/2fa/reset`, { method: 'POST' }),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
     setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),

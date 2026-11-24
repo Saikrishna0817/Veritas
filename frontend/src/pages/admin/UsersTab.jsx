@@ -84,7 +84,8 @@ function RoleCell({ u, isSelf, notify, onChanged }) {
   );
 }
 
-/** Accounts: list, create, change role, delete. GET /users, POST /users, PATCH /users/{id}, DELETE /users/{id}. */
+/** Accounts: list, create, change role, disable, reset 2FA, delete. GET /users, POST /users, PATCH /users/{id},
+ *  POST /users/{id}/disable | enable | 2fa/reset, DELETE /users/{id}. */
 export default function UsersTab({ users, self, notify, onChanged }) {
   const [creating, setCreating] = useState(false);
   const remove = async (u) => {
@@ -103,6 +104,14 @@ export default function UsersTab({ users, self, notify, onChanged }) {
       onChanged();
     } catch (err) {
       notify({ error: true, text: `“${u.username}” was not ${disable ? 'disabled' : 'enabled'}: ${err.message || 'the server refused it.'}` });
+    }
+  };
+  const resetTwoFactor = async (u) => {
+    try {
+      const r = await api.resetUserTwoFactor(u.id);
+      notify({ text: r.message });     // says so when the person did not use two-factor sign-in
+    } catch (err) {
+      notify({ error: true, text: `Two-factor sign-in of “${u.username}” was not reset: ${err.message || 'the server refused it.'}` });
     }
   };
   return (
@@ -146,6 +155,14 @@ export default function UsersTab({ users, self, notify, onChanged }) {
                           onConfirm={() => setDisabled(u, true)}
                         />
                       ))}
+                      {!isSelf && (
+                        <ConfirmAction
+                          label="Reset 2FA"
+                          confirmLabel={`Reset 2FA of ${u.username}`}
+                          message={`Turn off two-factor sign-in for “${u.username}”? Do this only when they have lost their phone and recovery codes and you have checked it is them. They are signed out and sign in with their password alone until they turn it on again.`}
+                          onConfirm={() => resetTwoFactor(u)}
+                        />
+                      )}
                       <ConfirmAction
                         label="Delete"
                         confirmLabel={`Delete ${u.username}`}

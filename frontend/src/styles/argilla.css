@@ -457,7 +457,8 @@ html.has-cursor, html.has-cursor * { cursor: none !important; }
 .in-kv-wide dd { margin: 0; color: var(--ink); }
 .in-cell-actions { text-align: right; white-space: nowrap; }
 .in-cell-actions > * + * { margin-left: 8px; }
-.in-cell-actions .in-confirm { display: inline-grid; }
+/* an open confirm sits under the row's buttons, right-aligned, so the row never grows wider than the table */
+.in-cell-actions > .in-confirm { display: grid; margin: 8px 0 0 auto; }
 .in-row-detail td { background: var(--paper); }
 
 /* Tables marked .in-table-stack become one card per row below 860px, each value labelled from data-label,

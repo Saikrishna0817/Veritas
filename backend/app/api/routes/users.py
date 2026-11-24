@@ -115,6 +115,23 @@ async def enable_user_account(user_id: str, admin: dict = Depends(require_admin)
     return _set_disabled(user_id, False, admin)
 
 
+@router.post("/users/{user_id}/2fa/reset")
+async def reset_user_two_factor(user_id: str, admin: dict = Depends(require_admin)):
+    """Turn off another person's two-factor sign-in when they have lost their phone and recovery codes. Their
+    sessions end; they sign in with their password and can enroll again. Your own 2FA is turned off under Account."""
+    if user_id == admin.get("id"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Turn off your own two-factor sign-in under Account.")
+    target = db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+    if not target.get("totp_enabled_at") and not target.get("totp_secret"):
+        return {"message": f"'{target['username']}' does not use two-factor sign-in; nothing changed."}
+    db.reset_totp(user_id)
+    db.log_audit_event(admin["id"], "user.2fa_reset", "user", user_id, {"username": target["username"]})
+    return {"message": f"Two-factor sign-in is off for '{target['username']}'. Their sessions have ended; "
+                       "they sign in with their password and can turn it on again under Account."}
+
+
 @router.patch("/users/{user_id}")
 async def change_user_role(user_id: str, payload: RoleRequest, admin: dict = Depends(require_admin)):
     """Change another account's role. An admin cannot change their own, so the last admin cannot lock everyone out."""

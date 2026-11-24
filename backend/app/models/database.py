@@ -377,6 +377,21 @@ def disable_totp(user_id: str) -> None:
     conn.commit()
 
 
+def reset_totp(user_id: str) -> None:
+    """An admin's reset of someone else's 2FA (lost phone and recovery codes): turn it off and end their sessions,
+    in one transaction, so the person signs in again with their password and can enroll again."""
+    conn = _get_conn()
+    try:
+        conn.execute("UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = 0, "
+                     "token_version = token_version + 1 WHERE id = ?", (user_id,))
+        conn.execute("DELETE FROM recovery_codes WHERE user_id = ?", (user_id,))
+        _revoke_refresh(conn, user_id=user_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def claim_totp_step(user_id: str, step: int) -> bool:
     """Record the accepted step; False if another request got there first (the same code used twice)."""
     conn = _get_conn()
