@@ -167,4 +167,9 @@ def require_admin(user: dict[str, Any] = Depends(require_user)) -> dict[str, Any
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required for this operation.",
         )
+    if settings.require_admin_2fa:
+        from app.models import database as db
+        if not (db.get_user_by_id(user["id"]) or {}).get("totp_enabled_at"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="Two-factor sign-in is required for admins. Turn it on under Account first.")
     return user

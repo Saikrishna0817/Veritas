@@ -115,6 +115,11 @@ export const api = {
     }),
 
     me: () => apiFetch('/auth/me', { skipAuth: true, renew: true }),   // the page-load check also renews an expired access session
+    // Second sign-in step when /auth/token answers {two_factor_required, challenge}; code is an authenticator or recovery code.
+    verifyTwoFactor: (challenge, code) => apiFetch('/auth/2fa/verify', { method: 'POST', skipAuth: true, body: JSON.stringify({ challenge, code }) }),
+    twoFactorSetup: () => apiFetch('/auth/2fa/setup', { method: 'POST' }),
+    twoFactorEnable: (code) => apiFetch('/auth/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) }),
+    twoFactorDisable: (code) => apiFetch('/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ code }) }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
     // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
     signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),

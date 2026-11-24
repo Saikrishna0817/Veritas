@@ -293,7 +293,7 @@ def _ensure_bootstrap_admin(conn: Database) -> None:
     conn.commit()
 
 
-_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version, disabled_at"
+_USER_COLS = "id, username, password_hash, role, created_at, email, email_verified, token_version, disabled_at, totp_secret, totp_enabled_at, totp_last_step"
 
 
 def get_user_by_username(username: str) -> Optional[Dict]:
@@ -350,6 +350,47 @@ def set_password_hash(user_id: str, password_hash: str) -> None:
     conn.execute("UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?", (password_hash, user_id))
     _revoke_refresh(conn, user_id=user_id)
     conn.commit()
+
+
+# ── Two-factor (P12) ─────────────────────────────────────────────────────────
+
+def set_totp_pending(user_id: str, encrypted_secret: str) -> None:
+    """Store a not-yet-confirmed secret (replaces an earlier pending one). Does nothing for an enrolled account."""
+    conn = _get_conn()
+    conn.execute("UPDATE users SET totp_secret = ?, totp_last_step = 0 WHERE id = ? AND totp_enabled_at IS NULL", (encrypted_secret, user_id))
+    conn.commit()
+
+
+def enable_totp(user_id: str, step: int, recovery_hashes: list[str]) -> None:
+    conn = _get_conn()
+    conn.execute("UPDATE users SET totp_enabled_at = ?, totp_last_step = ? WHERE id = ?", (datetime.now(timezone.utc).isoformat(), step, user_id))
+    conn.execute("DELETE FROM recovery_codes WHERE user_id = ?", (user_id,))
+    for h in recovery_hashes:
+        conn.execute("INSERT INTO recovery_codes (id, user_id, code_hash) VALUES (?, ?, ?)", (str(uuid.uuid4()), user_id, h))
+    conn.commit()
+
+
+def disable_totp(user_id: str) -> None:
+    conn = _get_conn()
+    conn.execute("UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = 0 WHERE id = ?", (user_id,))
+    conn.execute("DELETE FROM recovery_codes WHERE user_id = ?", (user_id,))
+    conn.commit()
+
+
+def claim_totp_step(user_id: str, step: int) -> bool:
+    """Record the accepted step; False if another request got there first (the same code used twice)."""
+    conn = _get_conn()
+    cur = conn.execute("UPDATE users SET totp_last_step = ? WHERE id = ? AND totp_last_step < ?", (step, user_id, step))
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def use_recovery_code(user_id: str, code_hash: str) -> bool:
+    conn = _get_conn()
+    row = conn.execute("UPDATE recovery_codes SET used_at = ? WHERE user_id = ? AND code_hash = ? AND used_at IS NULL RETURNING id",
+                       (datetime.now(timezone.utc).isoformat(), user_id, code_hash)).fetchone()
+    conn.commit()
+    return row is not None
 
 
 # ── Refresh tokens (P3): hashed, rotated on every use, grouped in families ───
@@ -534,7 +575,7 @@ def delete_account(user_id: str) -> Dict[str, int]:
     conn = _get_conn()
     try:                                  # one transaction: a failure part-way leaves the account and its data whole
         counts = _delete_owner_rows(conn, user_id)
-        for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("refresh_tokens", "user_id"), ("jobs", "owner_id"),
+        for table, col in (("api_keys", "owner_id"), ("auth_tokens", "user_id"), ("refresh_tokens", "user_id"), ("recovery_codes", "user_id"), ("jobs", "owner_id"),
                            ("audit_events", "actor_id"), ("users", "id")):
             counts[table] = conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (user_id,)).rowcount
         conn.execute("INSERT INTO deleted_accounts (user_id, deleted_at) VALUES (?, ?) ON CONFLICT (user_id) DO NOTHING",

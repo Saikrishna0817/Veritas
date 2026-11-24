@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.config import settings
 from app.core.security import REFRESH_COOKIE, require_user
+from app.models import database as db
 from app.services import auth as service
 from app.services.auth import login_rate_limiter, login_user_rate_limiter, mail_rate_limiter, signup_rate_limiter  # noqa: F401  (tests clear these)
 
@@ -32,6 +33,14 @@ class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=256)
     required_role: Optional[str] = Field(default=None, pattern="^(user|analyst|admin)$")
+
+
+class CodeRequest(BaseModel):
+    code: str = Field(min_length=1, max_length=32)
+
+
+class VerifyRequest(CodeRequest):
+    challenge: str = Field(min_length=10, max_length=2000)
 
 
 class SignupRequest(BaseModel):
@@ -77,7 +86,7 @@ async def _check_turnstile(token: Optional[str], request: Request) -> None:
 @router.post("/auth/token")
 async def token(credentials: LoginRequest, request: Request, response: Response):
     user = service.check_password_login(credentials.username, credentials.password, _ip(request), credentials.required_role)
-    return service.issue_session(response, user)
+    return service.sign_in(response, user)
 
 
 @router.post("/auth/refresh")
@@ -136,6 +145,28 @@ async def password_reset_confirm(body: ResetConfirm):
     return {"message": "Password changed. You can sign in."}
 
 
+@router.post("/auth/2fa/verify")
+async def two_factor_verify(body: VerifyRequest, request: Request, response: Response):
+    """Second sign-in step: the challenge from /auth/token plus an authenticator code or a recovery code."""
+    return service.complete_two_factor(response, body.challenge, body.code, _ip(request))
+
+
+@router.post("/auth/2fa/setup")
+async def two_factor_setup(user: dict = Depends(require_user)):
+    return service.two_factor_setup(user)
+
+
+@router.post("/auth/2fa/enable")
+async def two_factor_enable(body: CodeRequest, request: Request, user: dict = Depends(require_user)):
+    return service.two_factor_enable(user, body.code, _ip(request))
+
+
+@router.post("/auth/2fa/disable")
+async def two_factor_disable(body: CodeRequest, request: Request, user: dict = Depends(require_user)):
+    service.two_factor_disable(user, body.code, _ip(request))
+    return {"message": "Two-factor sign-in is off."}
+
+
 @router.get("/auth/me")
 async def me(user: dict = Depends(require_user)):
-    return {"user": user}
+    return {"user": user, "two_factor_enabled": bool((db.get_user_by_id(user["id"]) or {}).get("totp_enabled_at"))}

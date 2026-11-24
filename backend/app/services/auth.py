@@ -6,12 +6,17 @@ IP is passed in) and the Response whose cookies are set.
 from __future__ import annotations
 
 import logging
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+import jwt
 
 from fastapi import HTTPException, Response, status
 from starlette.concurrency import run_in_threadpool
 
-from app.core import mailer
+from app.core import mailer, totp
 from app.core.config import settings
 from app.core.observability import LOGIN_FAILURES
 from app.core.rate_limit import make_limiter
@@ -24,6 +29,10 @@ login_rate_limiter = make_limiter("login", 5, 60)
 login_user_rate_limiter = make_limiter("login-user", 10, 900)   # per username, so guessing spread over many IPs is slowed too
 signup_rate_limiter = make_limiter("signup", 5, 3600)
 mail_rate_limiter = make_limiter("mail", 5, 3600)
+twofa_ip_limiter = make_limiter("2fa-ip", 10, 300)
+twofa_user_limiter = make_limiter("2fa-user", 5, 300)     # wrong codes per account: 6 digits must not be guessable
+CHALLENGE_TTL_MIN = 5
+RECOVERY_CODES = 8
 
 VERIFY_TTL_MIN, RESET_TTL_MIN = 24 * 60, 60
 
@@ -70,6 +79,14 @@ def issue_session(response: Response, user: dict, family_id: Optional[str] = Non
     csrf = set_session_cookies(response, access)
     set_refresh_cookie(response, db.create_refresh_token(user["id"], family_id))
     return {"access_token": access, "token_type": "bearer", "user": user, "csrf_token": csrf}
+
+
+def sign_in(response: Response, user: dict) -> dict:
+    """Password was right. Accounts with 2FA get a short-lived challenge instead of a session."""
+    stored = db.get_user_by_id(user["id"]) or {}
+    if stored.get("totp_enabled_at"):
+        return {"two_factor_required": True, "challenge": _make_challenge(user["id"])}
+    return issue_session(response, user)
 
 
 def refresh_session(response: Response, raw_refresh: Optional[str], ip: str) -> dict:
@@ -186,3 +203,84 @@ def confirm_password_reset(token: str, new_password: str) -> None:
     db.set_password_hash(user_id, hash_password(new_password))
     db.set_email_verified(user_id)      # receiving the reset mail proves the address
     db.log_audit_event(user_id, "account.password_reset", "account", user_id, {})
+
+
+# ── Two-factor (TOTP) ────────────────────────────────────────────────────────
+
+def _make_challenge(user_id: str) -> str:
+    """Signed, five minutes, and carries neither name nor role, so decode_access_token refuses it as a session."""
+    exp = datetime.now(timezone.utc) + timedelta(minutes=CHALLENGE_TTL_MIN)
+    return jwt.encode({"sub": user_id, "typ": "2fa", "exp": exp}, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def _read_challenge(challenge: str) -> str:
+    try:
+        claims = jwt.decode(challenge, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail="This sign-in step expired. Enter your password again.") from exc
+    if claims.get("typ") != "2fa" or not claims.get("sub"):
+        raise HTTPException(status_code=401, detail="This sign-in step expired. Enter your password again.")
+    return claims["sub"]
+
+
+def _hash_recovery(code: str) -> str:
+    return hashlib.sha256(code.strip().lower().replace(" ", "").encode()).hexdigest()
+
+
+def _check_code(stored: dict, code: str) -> bool:
+    """A current authenticator code (each 30 s step works once) or an unused recovery code."""
+    step = totp.verify(totp.decrypt_secret(stored["totp_secret"]), code, stored.get("totp_last_step") or 0)
+    if step is not None and db.claim_totp_step(stored["id"], step):
+        return True
+    return db.use_recovery_code(stored["id"], _hash_recovery(code))
+
+
+def _attempt(stored: dict, code: str, ip: str, event: str) -> None:
+    """Rate-limited code check for verify and disable; wrong codes are audited."""
+    if not twofa_ip_limiter.allow(ip) or not twofa_user_limiter.allow(stored["id"]):
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again in a few minutes.")
+    if not _check_code(stored, code):
+        db.log_audit_event(stored["id"], event, "account", stored["id"], {"ip": ip})
+        raise HTTPException(status_code=401, detail="That code is not right.")
+
+
+def complete_two_factor(response: Response, challenge: str, code: str, ip: str) -> dict:
+    user_id = _read_challenge(challenge)
+    stored = db.get_user_by_id(user_id)
+    if stored is None or stored.get("disabled_at") or not stored.get("totp_enabled_at"):
+        raise HTTPException(status_code=401, detail="This sign-in step expired. Enter your password again.")
+    _attempt(stored, code, ip, "auth.2fa_failed")
+    return issue_session(response, {"id": stored["id"], "name": stored["username"], "role": stored["role"]})
+
+
+def two_factor_setup(user: dict) -> dict:
+    stored = db.get_user_by_id(user["id"])
+    if stored.get("totp_enabled_at"):
+        raise HTTPException(status_code=409, detail="Two-factor sign-in is already on.")
+    secret = totp.new_secret()
+    db.set_totp_pending(user["id"], totp.encrypt_secret(secret))
+    return {"secret": secret, "otpauth_uri": totp.otpauth_uri(secret, stored["username"])}   # the only time the secret leaves the server
+
+
+def two_factor_enable(user: dict, code: str, ip: str) -> dict:
+    stored = db.get_user_by_id(user["id"])
+    if stored.get("totp_enabled_at") or not stored.get("totp_secret"):
+        raise HTTPException(status_code=409, detail="Start setup first." if not stored.get("totp_secret") else "Two-factor sign-in is already on.")
+    if not twofa_user_limiter.allow(user["id"]):
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again in a few minutes.")
+    step = totp.verify(totp.decrypt_secret(stored["totp_secret"]), code)
+    if step is None:
+        raise HTTPException(status_code=400, detail="That code is not right. Check the clock on your phone and try the next one.")
+    codes = [f"{secrets.token_hex(3)}-{secrets.token_hex(3)}" for _ in range(RECOVERY_CODES)]
+    db.enable_totp(user["id"], step, [_hash_recovery(c) for c in codes])
+    db.log_audit_event(user["id"], "auth.2fa_enabled", "account", user["id"], {"ip": ip})
+    return {"recovery_codes": codes}           # shown once; only their hashes are kept
+
+
+def two_factor_disable(user: dict, code: str, ip: str) -> None:
+    stored = db.get_user_by_id(user["id"])
+    if not stored.get("totp_enabled_at"):
+        raise HTTPException(status_code=409, detail="Two-factor sign-in is not on.")
+    _attempt(stored, code, ip, "auth.2fa_failed")
+    db.disable_totp(user["id"])
+    db.log_audit_event(user["id"], "auth.2fa_disabled", "account", user["id"], {"ip": ip})
