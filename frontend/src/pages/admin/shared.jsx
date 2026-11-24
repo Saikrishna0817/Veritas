@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Skeleton } from '../../components/Skeleton';
 
 // Shared pieces of the admin console: data loading, tabs, an inline confirm step, load states and notices.
@@ -16,6 +16,39 @@ export function useResource(fetcher) {
   }, [fetcher, settle]);
   useEffect(() => { settle(fetcher()); }, [fetcher, settle]);   // first load: the initial state already says "loading"
   return { ...state, reload };
+}
+
+/**
+ * A resource whose list the API pages with a cursor. page(before) resolves to { items, next }.
+ * data is every page loaded so far; loadMore() fetches the next one; reload() starts again from the newest.
+ */
+export function usePagedResource(page) {
+  const [more, setMore] = useState({ items: [], next: null, busy: false, error: null });
+  const first = useCallback(() => page().then((r) => { setMore({ items: [], next: r.next, busy: false, error: null }); return r.items; }), [page]);
+  const res = useResource(first);
+  const loadMore = async () => {
+    setMore((m) => ({ ...m, busy: true, error: null }));
+    try {
+      const r = await page(more.next);
+      setMore((m) => ({ items: [...m.items, ...r.items], next: r.next, busy: false, error: null }));
+    } catch (error) {
+      setMore((m) => ({ ...m, busy: false, error }));
+    }
+  };
+  const data = useMemo(() => (res.data ? [...res.data, ...more.items] : res.data), [res.data, more.items]);
+  return { ...res, data, next: more.next, loadingMore: more.busy, moreError: more.error, loadMore };
+}
+
+/** "Load more" under a paged list; renders nothing on the last page. */
+export function LoadMore({ resource, what }) {
+  const { next, loadingMore, moreError, loadMore } = resource;
+  if (!next) return null;
+  return (
+    <div className="in-actions">
+      <button type="button" className="in-btn in-btn-quiet" onClick={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : `Load more ${what}`}</button>
+      {moreError && <span className="in-error" role="alert">More {what} could not be loaded: {moreError.message}</span>}
+    </div>
+  );
 }
 
 export const when = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—');

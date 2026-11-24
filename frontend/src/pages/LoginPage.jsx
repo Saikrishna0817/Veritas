@@ -14,7 +14,7 @@ function destination(next, role) {
 
 /** Sign-in for users and, with ``admin``, for the admin console (same form, different role check). */
 export default function LoginPage({ admin = false }) {
-  const { login, user } = useAuth();
+  const { login, verifyTwoFactor, user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get('next');
@@ -22,17 +22,38 @@ export default function LoginPage({ admin = false }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [challenge, setChallenge] = useState(null);   // set once the password was right and a second step is needed
+  const [code, setCode] = useState('');
 
   useEffect(() => {                                   // already signed in: go straight to the right home
     if (user) navigate(destination(next, user.role), { replace: true });
   }, [user, navigate, next]);
+
+  const finish = (who) => {
+    if (admin && who?.role !== 'admin') setError('This account is not an administrator.');
+    else navigate(destination(next, who?.role), { replace: true });
+  };
+
+  const submitCode = async (e) => {
+    e.preventDefault();
+    setError(''); setBusy(true);
+    try {
+      finish(await verifyTwoFactor(challenge, code));
+    } catch (err) {
+      setError(err.message || 'That code did not work.');
+      if (err.status === 401 && /expired/i.test(err.message || '')) { setChallenge(null); setPassword(''); }
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setError(''); setBusy(true);
     try {
       const who = await login(username, password, admin ? 'admin' : 'user');
-      if (admin && who?.role !== 'admin') setError('This account is not an administrator.');
+      if (who?.two_factor_required) { setChallenge(who.challenge); setCode(''); }
+      else if (admin && who?.role !== 'admin') setError('This account is not an administrator.');
       else navigate(destination(next, who?.role), { replace: true });
     } catch (err) {
       setError(err.message || 'Sign-in failed.');
@@ -47,12 +68,23 @@ export default function LoginPage({ admin = false }) {
       intro={admin ? 'For managing accounts and the service.' : 'Check training data for poisoning before you train on it.'}
       busy={busy}
     >
+        {challenge ? (
+          <form className="in-auth-form" onSubmit={submitCode}>
+            <label>Authenticator code or recovery code
+              <input className="in-input" placeholder="123456" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="one-time-code" inputMode="text" autoFocus required />
+            </label>
+            {error && <p className="in-error" role="alert" style={{ margin: 0 }}>{error}</p>}
+            <button className="in-btn" type="submit" disabled={busy}>{busy ? 'Checking…' : 'Verify'}</button>
+            <button className="in-btn in-btn-quiet" type="button" onClick={() => { setChallenge(null); setError(''); }}>Back</button>
+          </form>
+        ) : (
         <form className="in-auth-form" onSubmit={submit}>
           <label>Username<input className="in-input" placeholder="Your username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required /></label>
           <label>Password<input className="in-input" type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required /></label>
           {error && <p className="in-error" role="alert" style={{ margin: 0 }}>{error}</p>}
           <button className="in-btn" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         </form>
+        )}
         <div className="in-auth-alt">
           {admin ? <Link to="/login" className="in-link-text">User sign-in</Link> : (
             <>

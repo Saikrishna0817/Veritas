@@ -32,6 +32,8 @@ class Settings:
     jwt_secret: str = os.getenv("VERITAS_JWT_SECRET", "")
     jwt_algorithm: str = "HS256"
     jwt_expiry_minutes: int = int(os.getenv("VERITAS_JWT_EXPIRY_MINUTES", "60"))
+    refresh_expiry_days: int = int(os.getenv("VERITAS_REFRESH_EXPIRY_DAYS", "14"))   # how long a browser stays signed in
+    require_admin_2fa: bool = os.getenv("VERITAS_REQUIRE_ADMIN_2FA", "false").lower() == "true"
     admin_username: str = os.getenv("VERITAS_ADMIN_USERNAME", "")
     admin_password: str = os.getenv("VERITAS_ADMIN_PASSWORD", "")
     # Shared state for rate limits and the job queue; empty keeps everything in-process (development, tests).
