@@ -29,7 +29,7 @@ def test_0009_renames_case_duplicates_then_index_rejects_variants(tmp_path):
                           ("cccccc333", "BOB", "2026-01-03"), ("dddddd444", "alice", "2026-01-01")]:
         db.execute("INSERT INTO users (id, username, password_hash, role, created_at) VALUES (?, ?, 'x', 'user', ?)", (uid, name, ts))
     db.commit()
-    assert migrate(db) == ["0009_username_case_insensitive"]
+    assert migrate(db)[0] == "0009_username_case_insensitive"   # later migrations may follow
     names = {r["id"]: r["username"] for r in db.execute("SELECT id, username FROM users").fetchall()}
     assert names == {"bbbbbb222": "bob", "aaaaaa111": "Bob-aaaaaa", "cccccc333": "BOB-cccccc", "dddddd444": "alice"}
     with pytest.raises(Exception):
