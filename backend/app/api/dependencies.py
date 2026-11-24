@@ -127,8 +127,10 @@ def forget_result(result_id: str) -> int:
     return dropped
 
 def owner_scope(user: dict) -> str:
-    """Whose rows a list/read endpoint may show: everyone's for an admin, otherwise only the caller's."""
-    return db.ALL_OWNERS if user.get("role") == "admin" else user["id"]
+    """Whose rows a list/read endpoint may show: everyone's for an admin (enrolled in 2FA when that is required),
+    otherwise only the caller's."""
+    from app.core.security import sees_everyone
+    return db.ALL_OWNERS if sees_everyone(user) else user["id"]
 
 
 def latest_key(owner_id: str) -> str:

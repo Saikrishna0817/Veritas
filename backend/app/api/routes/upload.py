@@ -226,8 +226,9 @@ async def analyze_video_zip(
 
 
 def _owned(result: dict | None, user: dict) -> dict | None:
-    """A cached result is returned only to the user who made it (admins can read any)."""
-    if result and (result.get("owner_id") == user["id"] or user.get("role") == "admin"):
+    """A cached result is returned only to the user who made it (admins can read any, see security.sees_everyone)."""
+    from app.core.security import sees_everyone
+    if result and (result.get("owner_id") == user["id"] or sees_everyone(user)):
         return result
     return None
 

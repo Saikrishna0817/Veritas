@@ -96,7 +96,8 @@ async def get_my_audit_events(
 ):
     """Return recent audit activity (all system activity for admins, user's own activity for regular users).
     ``next_before`` is the cursor for the next older page (null on the last page)."""
-    actor_id = None if user.get("role") == "admin" else user["id"]
+    from app.core.security import sees_everyone
+    actor_id = None if sees_everyone(user) else user["id"]
     events = deps.db.get_audit_events(actor_id=actor_id, limit=limit, before=before)
     return {"events": events, "next_before": next_cursor(events, limit)}
 
