@@ -10,7 +10,7 @@ import { useMore } from '../hooks/useMore';
 import { LoadMoreButton } from '../components/LoadMoreButton';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
-import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
+import { MAX_KEYS, setHot, useStage, useStageValue } from '../scene/stage';
 
 const EXTENSIONS = ['.pkl', '.pickle', '.joblib', '.pt', '.pth', '.bin', '.ckpt', '.safetensors', '.onnx', '.npy', '.npz', '.gguf', '.h5', '.keras', '.zip'];
 const MAX_MB = 200;
@@ -54,7 +54,7 @@ function ImportKeys({ imports }) {
 
 function ScanResult({ result, actions }) {
   const scan = result.scan || {};
-  const { hot } = useStageState();
+  const hot = useStageValue('hot');
   // An unknown code is shown as it is, never as another verdict.
   const [title, note] = VERDICTS[result.verdict] || [result.verdict ? `Verdict: ${String(result.verdict).replace(/_/g, ' ').toLowerCase()}` : 'No verdict in this result', 'This verdict is not one the interface recognises. Download the scan to read it in full.'];
   const findings = scan.findings || [];

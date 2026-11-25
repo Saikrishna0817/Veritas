@@ -116,6 +116,7 @@ function FogSheets() {
     [color],
   )
   useEffect(() => () => mats.forEach((m) => m.dispose()), [mats])
+  const group = useRef<THREE.Group>(null)
 
   useFrame(({ scene }) => {
     const fade = 1 - store.w.environment
@@ -125,10 +126,12 @@ function FogSheets() {
       m.uniforms.uOpacity.value = SHEETS[i].o * fade
       if (fogCol) (m.uniforms.uColor.value as THREE.Color).copy(fogCol).multiplyScalar(1.18)
     })
+    // once the valley has dissolved the sheets draw at zero alpha (no depth write): skip their noise, same pixels
+    if (group.current) group.current.visible = fade > 0
   })
 
   return (
-    <group>
+    <group ref={group}>
       {SHEETS.map((s, i) => (
         <mesh key={i} position={[0, s.y, s.z]} material={mats[i]} renderOrder={5 + (SHEETS.length - i)} frustumCulled={false}>
           <planeGeometry args={[s.w, s.h]} />

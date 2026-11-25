@@ -1,26 +1,31 @@
 /**
  * Canvas + renderer setup.
  *  - sRGB output, ACES filmic applied in the post chain (renderer itself is `flat`: NoToneMapping);
- *  - soft PCF shadows (keys only), DPR capped once at start (never switched at runtime).
+ *  - soft PCF shadows (keys only), DPR capped once at start (never switched at runtime);
+ *  - no frame is drawn until the shaders are compiled (ShaderWarmup), so compiling never freezes the preloader.
  */
-import { Suspense, useState } from 'react'
+import { Suspense, useCallback, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
 import { config } from '../config'
 import { store } from '../state/store'
 import { patchFogChunks } from './environment/fogChunks'
 import { Scene } from './Scene'
+import { ShaderWarmup } from './ShaderWarmup'
 import styles from '../App.module.css'
 
 patchFogChunks()
 
 export function Experience() {
   const [dpr] = useState<number>(() => Math.min(window.devicePixelRatio || 1, config.performance.dpr[1]))
+  const [compiled, setCompiled] = useState(false)
+  const onCompiled = useCallback(() => setCompiled(true), [])
 
   return (
     <Canvas
       className={styles.webgl}
       dpr={dpr}
+      frameloop={compiled ? 'always' : 'never'}
       flat
       shadows="soft"
       gl={{ antialias: false, powerPreference: 'high-performance', stencil: false, alpha: false, depth: true }}
@@ -43,6 +48,7 @@ export function Experience() {
           the post targets, which shows up as a black frame (it used to fire right as the preloader left). */}
       <Suspense fallback={null}>
         <Scene />
+        <ShaderWarmup onReady={onCompiled} />
       </Suspense>
     </Canvas>
   )

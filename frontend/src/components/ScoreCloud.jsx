@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { token } from '../scene/tokens';
+import { useFrameCap } from '../../shared/argilla/frameCap';
 
 /**
  * The batch's real row scores as a point cloud: one point per row, laid out in file order on a disc, standing higher
@@ -55,6 +56,13 @@ function Cloud({ scores, flagged, still, onScreen }) {
   );
 }
 
+// Turning: drawn about 60 times a second at most (FrameCap), and only while the cloud is on screen; off screen the
+// last frame stays on the canvas and nothing is drawn (it used to redraw every display refresh, visible or not).
+function Turning({ onScreen }) {
+  useFrameCap(onScreen);
+  return null;
+}
+
 export default function ScoreCloud({ scores, flagged }) {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [onScreen, setOnScreen] = useState(true);
@@ -68,7 +76,8 @@ export default function ScoreCloud({ scores, flagged }) {
   }, []);
   return (
     <div ref={box} style={{ height: '100%' }}>
-      <Canvas dpr={[1, 2]} camera={{ fov: 40 }} frameloop={still ? 'demand' : 'always'} gl={{ alpha: true }}>
+      <Canvas dpr={[1, 2]} camera={{ fov: 40 }} frameloop={still ? 'demand' : 'never'} gl={{ alpha: true }}>
+        {!still && <Turning onScreen={onScreen} />}
         <Cloud scores={scores} flagged={flagged} still={still} onScreen={onScreen} />
       </Canvas>
     </div>

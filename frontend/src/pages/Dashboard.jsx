@@ -8,7 +8,7 @@ import ReviewQueue from '../components/ReviewQueue';
 import { useLoad } from '../hooks/useLoad';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
-import { setHot, useStage, useStageState } from '../scene/stage';
+import { setHot, useStage, useStageValue } from '../scene/stage';
 
 const VERDICT_WORDS = { CONFIRMED_POISONED: 'Strong evidence of poisoning', SUSPICIOUS: 'Evidence of poisoning', LOW_RISK: 'Weak evidence', CLEAN: 'No evidence found', SCREENED: 'Screened, no reference' };
 
@@ -33,7 +33,7 @@ function LatestKeys({ latest }) {
 }
 
 export default function Dashboard() {
-  const { hot } = useStageState();
+  const hot = useStageValue('hot');
   const { data: latest, error, retry } = useLoad(useCallback(() => api.getAnalysisHistory(200).then((d) => {
     const byKind = {};
     for (const r of d.results || []) {

@@ -7,7 +7,7 @@ import { skyFrag, skyVert } from '../../shared/argilla/glsl/sky.glsl';
 import { dustFrag, dustVert } from '../../shared/argilla/glsl/dust.glsl';
 import { gradeFrag } from '../../shared/argilla/glsl/grade.glsl';
 import { mulberry32, token } from './tokens';
-import { useStageState } from './stage';
+import { useStageValue } from './stage';
 
 /** The page's own subject (the keycap sphere, a result's keys); its own chunk, loaded when needed. */
 const KeySphere = lazy(() => import('./KeySphere'));
@@ -65,20 +65,47 @@ function Sky() {
   }, []);
   useEffect(() => () => material.dispose(), [material]);
 
+  // The sky never changes between resizes (the camera stands still, the curtains are frozen), so it is drawn once per
+  // size into a half-float texture, the same format the composer draws into, and shown as the scene background. A frame
+  // that only moves a key, follows a scroll or dips a keystroke no longer re-runs the sky shader for every pixel; the
+  // background copies the texture pixel for pixel, so the picture is the same.
+  const sky = useMemo(() => {
+    const skyScene = new THREE.Scene();
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(3000, 48, 24), material);
+    mesh.frustumCulled = false;
+    skyScene.add(mesh);
+    const target = new THREE.WebGLRenderTarget(1, 1, {
+      type: THREE.HalfFloatType,
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      generateMipmaps: false,
+      depthBuffer: false,
+    });
+    return { scene: skyScene, mesh, target };
+  }, [material]);
+  useEffect(() => () => { sky.mesh.geometry.dispose(); sky.target.dispose(); }, [sky]);
+
   // the curtains sit 150 screen px lower than the shader's default, at any viewport size (as on the landing page)
   const invalidate = useThree((s) => s.invalidate);
+  const scene = useThree((s) => s.scene);
+  const dpr = useThree((s) => s.viewport.dpr);
   useEffect(() => {
+    const buffer = gl.getDrawingBufferSize(new THREE.Vector2());
     const u = material.uniforms;
-    u.uViewH.value = gl.getDrawingBufferSize(new THREE.Vector2()).y;
+    u.uViewH.value = buffer.y;
     u.uAuroraShift.value = (150 / Math.max(1, size.height)) * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+    sky.target.setSize(buffer.x, buffer.y);
+    sky.mesh.position.copy(camera.position);
+    const previous = gl.getRenderTarget();
+    gl.setRenderTarget(sky.target);
+    gl.render(sky.scene, camera);
+    gl.setRenderTarget(previous);
+    scene.background = sky.target.texture;
     invalidate();
-  }, [material, gl, size, camera, invalidate]);
+  }, [material, sky, scene, gl, size, dpr, camera, invalidate]);
+  useEffect(() => () => { scene.background = null; }, [scene]);
 
-  return (
-    <mesh material={material} position={camera.position} renderOrder={-10} frustumCulled={false}>
-      <sphereGeometry args={[3000, 48, 24]} />
-    </mesh>
-  );
+  return null;
 }
 
 function Dust() {
@@ -141,7 +168,7 @@ class GradeEffect extends Effect {
 }
 
 function Subject() {
-  const { kind } = useStageState();
+  const kind = useStageValue('kind');
   if (kind === 'sphere') return <Suspense fallback={null}><KeySphere /></Suspense>;
   if (kind === 'keys') return <Suspense fallback={null}><ResultKeys /></Suspense>;
   return null;
