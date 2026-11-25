@@ -123,6 +123,15 @@ test('admin creates an account, changes its role, reviews the queue, deletes it,
   await expect(page.getByRole('status')).toContainText(`“${name}” is now analyst`);
   await expect(row.getByLabel(`Role of ${name}`)).toHaveValue('analyst');
 
+  // disable, then enable (your own row offers neither)
+  await row.getByRole('button', { name: 'Disable' }).click();
+  await page.getByRole('button', { name: `Disable ${name}` }).click();
+  await expect(page.getByRole('status')).toContainText(`“${name}” is disabled`);
+  await expect(row).toContainText('Disabled');
+  await row.getByRole('button', { name: 'Enable' }).click();
+  await page.getByRole('button', { name: `Enable ${name}` }).click();
+  await expect(page.getByRole('status')).toContainText(`“${name}” can sign in again`);
+  await expect(row).toContainText('Active');
 
   // review queue: decide the newest case when there is one, else the empty state
   await page.getByRole('tab', { name: /Review queue/ }).click();
@@ -147,8 +156,8 @@ test('admin creates an account, changes its role, reviews the queue, deletes it,
   await expect(page.getByRole('heading', { name: 'Audit log' })).toBeVisible();
   const events = (await (await page.request.get('/api/v1/audit/events?limit=200')).json()).events
     .filter((e) => e.details?.username === name).map((e) => e.action).sort();
-  expect(events).toEqual(['user.created', 'user.deleted', 'user.role_changed']);
-  for (const action of ['user.created', 'user.role_changed', 'user.deleted']) {
+  expect(events).toEqual(['user.created', 'user.deleted', 'user.disabled', 'user.enabled', 'user.role_changed']);
+  for (const action of ['user.created', 'user.role_changed', 'user.disabled', 'user.enabled', 'user.deleted']) {
     await expect(page.locator('td', { hasText: action }).first()).toBeVisible();
   }
 });

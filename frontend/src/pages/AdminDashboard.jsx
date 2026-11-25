@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
-import { Notice, TabPanel, Tabs, useResource } from './admin/shared';
+import { Notice, TabPanel, Tabs, usePagedResource, useResource } from './admin/shared';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import UsersTab from './admin/UsersTab';
 import DefenseTab from './admin/DefenseTab';
@@ -9,11 +9,11 @@ import AuditTab from './admin/AuditTab';
 import RegistryTab from './admin/RegistryTab';
 
 // Stable fetchers, so each resource loads once on mount and again on reload().
-const fetchUsers = () => api.getUsers();
+const fetchUsers = (before) => api.getUsers(before);
 const fetchStatus = () => api.getDefenseStatus();
 const fetchCases = () => api.getPendingReviews().then((d) => d.cases || []);
-const fetchEvents = () => api.getAuditEvents(100).then((d) => d.events || []);
-const fetchRecords = () => api.getAnalysisHistory(100).then((d) => d.results || []);
+const fetchEvents = (before) => api.getAuditEvents(100, before).then((d) => ({ items: d.events || [], next: d.next_before }));
+const fetchRecords = (before) => api.getAnalysisHistory(100, before).then((d) => ({ items: d.results || [], next: d.next_before }));
 
 /** Admin console: accounts, recorded defence actions and the review queue, the audit log, stored results. */
 export default function AdminDashboard() {
@@ -21,14 +21,14 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState('users');
   const [notice, setNotice] = useState(null);
 
-  const users = useResource(fetchUsers);
+  const users = usePagedResource(fetchUsers);
   const status = useResource(fetchStatus);
   const cases = useResource(fetchCases);
-  const events = useResource(fetchEvents);
-  const records = useResource(fetchRecords);
+  const events = usePagedResource(fetchEvents);
+  const records = usePagedResource(fetchRecords);
 
   const userNames = useMemo(() => Object.fromEntries((users.data || []).map((u) => [u.id, u.username])), [users.data]);
-  const count = (r) => (r.data ? r.data.length : null);
+  const count = (r) => (r.data ? `${r.data.length}${r.next ? '+' : ''}` : null);
   const tabs = [
     { id: 'users', label: 'Accounts', count: count(users) },
     { id: 'defense', label: 'Review queue', count: count(cases) },

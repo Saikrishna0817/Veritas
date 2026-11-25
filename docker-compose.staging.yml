@@ -1,0 +1,10 @@
+# Staging on one machine: the same stack as docker-compose.yml under its own project name, ports and volumes, with
+# memory caps so it can run next to other work. Secrets in .env.staging (git-ignored; see docs/staging.md).
+#   docker compose -p veritas-staging --env-file .env.staging -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+services:
+  postgres: { mem_limit: 384m }
+  redis: { mem_limit: 64m }
+  backend: { mem_limit: 768m }
+  worker: { mem_limit: 768m }
+  worker-media: { mem_limit: 1g, cpus: 1 }
+  frontend: { mem_limit: 64m }

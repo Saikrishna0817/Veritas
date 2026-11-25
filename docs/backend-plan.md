@@ -15,10 +15,10 @@ Full suite: 255 passed, 6 skipped, on SQLite on Windows. The 6 skipped tests nee
 
 | Area | Status | Missing before "done" |
 |---|---|---|
-| Sign-in, sessions, CSRF, API keys | Partly complete | P3 refresh tokens; P12 admin 2FA |
+| Sign-in, sessions, CSRF, API keys | Complete | Refresh tokens (P3) and TOTP 2FA (P12) done on `backend/auth-refresh-2fa` |
 | Sign-up, email verification, password reset | Complete | none known |
 | Account self-service (usage, erase data, delete, keys) | Complete | none known (erasure is now one transaction) |
-| Admin user management (list, create, role, delete, disable) | Complete in the API; needs UI | P11 admin screens |
+| Admin user management (list, create, role, delete, disable) | Complete in the API and UI | P11 |
 | Analyses (CSV, images, audio, video, model scan, demo, real datasets) | Complete | detector quality is out of scope here (see model card) |
 | Direct-to-storage upload | Complete | quota refund fixed (B7) |
 | Background jobs | Complete | no automatic retry (analyses are deterministic, so a retry would fail the same way); stale jobs fail after 30 min |
@@ -26,7 +26,7 @@ Full suite: 255 passed, 6 skipped, on SQLite on Windows. The 6 skipped tests nee
 | Defense and HITL review | Complete | double-decision race fixed (B8) |
 | Live detection stream (WebSocket) | Complete | revocation fixed (B5) |
 | Observability | Complete | `/ready`, metrics, sign-in alert rule; no load test of production volume |
-| Error shape and layering | Needs refactoring | decisions 1 and 2 (section 4) |
+| Error shape and layering | Errors done (decision 1a); layering open | decision 2 (section 4) |
 
 "Complete" means: endpoint, validation, authentication, owner scoping, error answers and tests are all there, and
 there are no known bugs. The routes and the data layer were reviewed in depth. The detection engines were not
@@ -71,14 +71,14 @@ torchaudio / ffmpeg on this machine; CI runs them.
 |---|---|---|---|---|
 | P1 | Done | A signed token for an id in neither `users` nor `deleted_accounts` was accepted with the role in its claims, so a leaked `VERITAS_JWT_SECRET` could mint an admin. | `decode_access_token` refuses tokens whose account does not exist. Tests that minted tokens for unstored ids use `tests/auth_helpers.token_for`, which creates the account first. | `test_auth_api.py::test_a_token_for_an_account_that_does_not_exist_is_refused` |
 | P2 | Partly done | Sign-out clears the cookies, but a copied token stays valid until it expires. | `POST /auth/logout-all` ends every session of the account on every device (bumps `token_version`); API keys keep working. Plain `/auth/logout` is unchanged (this browser only). | `test_sessions_and_login_audit.py` |
-| P3 | Pending | No refresh tokens: sessions end hard after 60 minutes. | Proposed: refresh token in its own httpOnly cookie, rotated on use, reuse detection ends the family. Needs a frontend change to renew silently. | — |
+| P3 | Done | No refresh tokens: sessions ended hard after 60 minutes. | `POST /auth/refresh`: refresh token in its own httpOnly, SameSite=strict cookie (`veritas_refresh`, path `/api/v1/auth` so plain logout can end its own family), stored as SHA-256 (migration 0010), rotated on every use, one family per sign-in. Reusing a spent token revokes the family and logs `auth.refresh_reuse_detected`. Logout, logout-all, password change, disable and delete revoke refresh tokens. 14 days (`VERITAS_REFRESH_EXPIRY_DAYS`). `apiFetch` renews once on a 401 (single-flight) and retries. Two tabs refreshing at the same instant look like reuse and end the session (no grace window: the safer choice). | `test_refresh_tokens.py`, `frontend/src/services/refresh.test.js` |
 | P4 | Done | `DELETE /history/{id}` left the result in the in-memory caches, so `/forensics/latest` could still show it. | `dependencies.forget_result()` drops it from both caches. | `test_cache_and_usernames.py` |
 | P5 | Done | No paging past `limit` on `/history`, `/audit/events`, `/users`. | `?before=<created_at>` cursor on all three; `next_before` in the body (`/history`, `/audit/events`) or the `X-Next-Before` header (`/users`, whose body stays a list). Bad cursors are 422. Calls without `before` answer exactly as before. | `test_paging.py` |
 | P6 | Done | Owner-scoped lists filter on `owner_id` and sort by `created_at` with separate single-column indexes. | Migration 0007: `(owner_id, created_at DESC)` on `analysis_results`, `model_scans`, `defense_actions`, `hitl_cases`; `users(created_at)`. Not yet measured on PostgreSQL with production volume. | `test_paging.py::test_owner_and_time_indexes_exist` |
 | P7 | Done | Admin-created duplicate usernames answered 400; sign-up 409. | 409 for both. The frontend shows the message and does not read the code. | `test_cache_and_usernames.py` |
 | P8 | Done (check only) | `Alice` and `alice` could both exist. | Sign-up and admin creation refuse a name that matches an existing one in any letter case. No unique index on `lower(username)` yet: existing duplicates (if any) would make that migration fail, so check production data first. Sign-in stays exact-match. | `test_cache_and_usernames.py` |
 | P9 | Done | Failed sign-ins were not in the audit log. | `auth.login_failed` with the IP: as the account's own event when the name exists (its owner sees it), as `anonymous` with no name when it does not (people type passwords into the name field). Also logged as warnings. Alerting on bursts is still to do. | `test_sessions_and_login_audit.py` |
-| P10 | Done | No way to suspend an account without erasing it. | `POST /users/{id}/disable` and `/enable` (admin, not your own account, audited). Disabled: sign-in refused (403, only after the right password), sessions ended, API keys stop working, data kept. Migration 0008; `GET /users` adds `disabled_at`. No admin UI yet. | `test_account_disable.py` |
+| P10 | Done | No way to suspend an account without erasing it. | `POST /users/{id}/disable` and `/enable` (admin, not your own account, audited). Disabled: sign-in refused (403, only after the right password), sessions ended, API keys stop working, data kept. Migration 0008; `GET /users` adds `disabled_at`. Admin UI in P11. | `test_account_disable.py` |
 
 Full suite after the second batch: 237 passed, 8 skipped (SQLite, Windows).
 
@@ -107,21 +107,32 @@ single-use and size-checked; WebSocket origin checking.
 
 | # | Item | Notes |
 |---|---|---|
-| P3 | Refresh tokens | Design above; needs the frontend. |
-| P8b | Unique index on `lower(username)` | First run `SELECT lower(username), count(*) FROM users GROUP BY 1 HAVING count(*) > 1` on production. If it returns no rows, the index can be added as migration 0009; if it does, rename those accounts first. |
+| P8b | ~~Unique index on `lower(username)`~~ | Done 2026-11-24: migration 0009 renames later case-duplicates (`<name>-<first 6 of id>`), then adds the index. |
 | P13 | Load test at production volume | `/loadtest` exists. Run it against staging with PostgreSQL to measure the 0007 indexes. |
-| P14 | Delete abandoned direct-upload blobs | The `pending_uploads` rows go with the account, but the S3 objects rely on a bucket lifecycle rule. Check that the rule exists in production. |
-| P11 | Admin UI for disable/enable, sign out everywhere, and paging | Frontend work. |
-| P12 | Admin 2FA (TOTP) | Planned under decision 3. |
+| P14 | Delete abandoned direct-upload blobs | Docs part done 2026-11-24: exact lifecycle rule and check command in `docs/runbook.md`. Still to do: apply it and run the check on the production bucket. |
+| P11 | Admin UI for disable/enable, sign out everywhere, and paging | Done 2026-11-24. Disable / Enable with inline confirm, "Sign out on every device" on the Account page, "Load more" on users, audit log, stored results, History and model scans. |
+| P12 | Admin 2FA (TOTP) | Done: see section 3c. Not yet done: QR code in the UI (no QR library installed), admin UI to reset another person's 2FA, requiring 2FA on the data endpoints an admin reaches through `require_user` (only `require_admin` endpoints are gated). |
+
+## 3c. Fourth batch (branch `backend/auth-refresh-2fa`)
+
+- Auth service extracted (decision 2, auth part): `app/services/auth.py` holds sign-in checks, session issue and end, sign-up and mail flows; routes call it.
+- P3 refresh tokens: see the P3 row above. Migration 0010.
+- P12 TOTP 2FA (RFC 6238, standard library only, RFC vectors tested). Migration 0011. `POST /auth/2fa/setup` returns the secret and
+  an `otpauth://` URI once; `/enable` confirms with a code and returns 8 one-time recovery codes (stored hashed); `/disable` needs a
+  current code. With 2FA on, `POST /auth/token` answers `{"two_factor_required": true, "challenge": ...}` (5 minutes, not usable as
+  a session) and `POST /auth/2fa/verify` takes the challenge plus an authenticator or recovery code. Verify is limited per IP (10 per
+  5 min) and per account (5 per 5 min); each 30 s step works once. The secret is stored encrypted with a key derived from
+  `VERITAS_JWT_SECRET`: changing that secret makes people re-enroll. `VERITAS_REQUIRE_ADMIN_2FA=true` makes `require_admin`
+  endpoints answer 403 until the admin has enrolled. `GET /auth/me` adds `two_factor_enabled`.
 
 ## 4. Brief items that need a decision before work starts
 
-1. **Standard response envelope** (`{"success", "data", "message"}` / `{"success": false, "error": {...}}`). Every
+1. **Standard response envelope** (decided 2026-11-24: option (a), done. Every error body is `{"detail", "code"}`, see `app/core/errors.py`.) (`{"success", "data", "message"}` / `{"success": false, "error": {...}}`). Every
    endpoint and every caller changes shape at once: the frontend (`services/api.js`), the CLI and the e2e tests.
    Options: (a) keep the current shapes, and only standardise errors to `{"detail", "code"}` additively; (b) add it as
    `/api/v2` and move clients over; (c) switch in place in one coordinated change with the frontend.
    Recommendation: (a) now, (b) only if a public API is planned.
-2. **Service and repository layers.** Routes call `database.py` directly. Extracting services is worth doing module by
+2. **Service and repository layers.** Auth part done (`app/services/auth.py`, 2026-11-24); other modules still to do. Routes call `database.py` directly. Extracting services is worth doing module by
    module when a module changes (auth first), not as one big refactor of a codebase someone else is also working on.
 3. **Payments, push notifications, OAuth sign-in, 2FA, feature flags.** Nothing in the product needs payments today.
    2FA for admins is the one item worth planning.
@@ -130,13 +141,13 @@ single-use and size-checked; WebSocket origin checking.
 ## 5. Feature plan (phased)
 
 **Phase 1: foundation.** Mostly in place: config from env, migrations, central request IDs, logging, `/health`,
-`/metrics`, `/api/v1`, CI. Remaining: `/ready` (done above), consistent error codes (decision 1), and a written
-environment-variable reference (`.env.example` exists).
+`/metrics`, `/api/v1`, CI. Remaining: `/ready` (done above), consistent error codes (done 2026-11-24), and a written
+environment-variable reference (done: `docs/environment.md`).
 
-**Phase 2: core.** Done: P1, P2 (sign out everywhere), P5, P6, P10. Remaining: P3 refresh tokens, admin 2FA.
+**Phase 2: core.** Done: P1, P2 (sign out everywhere), P3, P5, P6, P10, P12.
 
 **Phase 3: security and stability.** Done: P4, P7, P8 (check), P9, P9b and B5 to B9. The backup and restore
-procedure is already in `docs/runbook.md`. Remaining: P8b, P13 load test, P14.
+procedure is already in `docs/runbook.md`. Remaining: P13 load test, P14 (apply the rule in production).
 
 **Phase 4: advanced.** Only what the product needs: notification preferences for finished jobs, data export, then the
 items under decision 3.
@@ -146,3 +157,6 @@ items under decision 3.
 - 2026-11-19: review of main at `3e84659`; fixes 1–4 with tests on `backend/review-fixes`; pending list P1–P10.
 - 2026-11-19: second batch on `backend/plan-features`: P1, P2 (logout-all), P4–P10, one commit each with tests.
 - 2026-11-20: PR #43 CI green. Third batch on `backend/continuation` (main merged in): B5–B9 fixed, P9b done.
+- 2026-11-24: fourth batch on `backend/auth-refresh-2fa`: auth service extracted, P3 refresh tokens, P12 admin 2FA.
+- 2026-11-24: P11 on `frontend/admin-p11`: disable/enable, sign out everywhere, Load more on paged lists.
+- 2026-11-24: branch `backend/errors-envdocs`: decision 1 (a) done (error `code`), `docs/environment.md`, P8b (migration 0009), P14 docs part.

@@ -6,6 +6,8 @@ import { MODEL_VERDICTS as VERDICTS } from '../components/results';
 import { Skeleton } from '../components/Skeleton';
 import { LoadError } from '../components/LoadError';
 import { useLoad } from '../hooks/useLoad';
+import { useMore } from '../hooks/useMore';
+import { LoadMoreButton } from '../components/LoadMoreButton';
 import { PageIntro, PageTitle } from '../ui/Reveal';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
 import { MAX_KEYS, setHot, useStage, useStageValue } from '../scene/stage';
@@ -144,6 +146,8 @@ function ScanDetail({ id }) {
   );
 }
 
+const fetchScans = (before) => api.getModelScanHistory(10, before).then((d) => ({ items: d.scans || [], next: d.next_before }));
+
 export default function ModelScanPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -152,8 +156,9 @@ export default function ModelScanPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const { data: recent, error: recentError, retry: reloadRecent } = useLoad(useCallback(() => (id ? Promise.resolve(null)
-    : api.getModelScanHistory(10).then((d) => d.scans || [])), [id]));
+  const { data: firstScans, error: recentError, retry: reloadRecent } = useLoad(useCallback(() => (id ? Promise.resolve(null) : fetchScans()), [id]));
+  const moreScans = useMore(fetchScans, firstScans?.next);
+  const recent = firstScans && [...firstScans.items, ...moreScans.items];
   const stop = useRef(() => {});
   useEffect(() => () => stop.current(), []);
   if (id) return <ScanDetail id={id} />;
@@ -228,6 +233,7 @@ export default function ModelScanPage() {
             </table>
           </div>
         )}
+        <LoadMoreButton more={moreScans} what="scans" />
       </section>
     </div></main>
   );

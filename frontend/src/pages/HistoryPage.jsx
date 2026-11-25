@@ -1,4 +1,6 @@
 import { useCallback, useState } from 'react';
+import { useMore } from '../hooks/useMore';
+import { LoadMoreButton } from '../components/LoadMoreButton';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { KINDS, KIND_OF_SOURCE, Result, fmt } from '../components/results';
@@ -29,13 +31,17 @@ function Detail({ id }) {
   );
 }
 
+const fetchPage = (before) => api.getAnalysisHistory(200, before)
+  .then((d) => ({ items: (d.results || []).filter((r) => KIND_OF_SOURCE[r.source]), next: d.next_before }));
+
 export default function HistoryPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
-  const { data: rows, error, retry } = useLoad(useCallback(() => (id ? Promise.resolve(null)
-    : api.getAnalysisHistory(200).then((d) => (d.results || []).filter((r) => KIND_OF_SOURCE[r.source]))), [id]));
+  const { data: first, error, retry } = useLoad(useCallback(() => (id ? Promise.resolve(null) : fetchPage()), [id]));
+  const more = useMore(fetchPage, first?.next);
   if (id) return <Detail id={id} />;
+  const rows = first && [...first.items, ...more.items];
   const shown = (rows || []).filter((r) => filter === 'all' || KIND_OF_SOURCE[r.source] === filter);
   return (
     <main className="in-main"><div className="in-page">
@@ -68,6 +74,7 @@ export default function HistoryPage() {
           </table>
         </div>
       )}
+      <LoadMoreButton more={more} what="analyses" />
     </div></main>
   );
 }

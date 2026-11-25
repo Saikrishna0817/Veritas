@@ -1,4 +1,6 @@
 // Veritas API client. Every page goes through this file; none calls fetch itself.
+import { fetchWithRefresh, singleFlight } from './refresh.js';
+
 export const BASE_URL =
     import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -63,24 +65,36 @@ async function failIfNotOk(res, fallback, skipAuth = false) {
     throw e;
 }
 
-async function apiFetch(path, { skipAuth = false, headers, ...options } = {}) {
-    const res = await fetch(`${BASE_URL}${path}`, {
+// A 401 on a signed-in call first tries to renew the session with the refresh cookie (one renewal shared by
+// every call that fails at the same time); only if that fails does the person go to sign-in.
+const renewSession = singleFlight(async () => {
+    try {
+        const res = await fetch(`${BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'same-origin' });
+        return res.ok;
+    } catch {
+        return false;
+    }
+});
+const withRefresh = (send, renew = true) => (renew ? fetchWithRefresh(send, renewSession) : send());
+
+async function apiFetch(path, { skipAuth = false, renew = !skipAuth, raw = false, headers, ...options } = {}) {
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, {
         credentials: 'same-origin',
         ...options,
         headers: { 'Content-Type': 'application/json', ...authHeaders(options.method || 'GET'), ...headers },
-    });
+    }), renew);
     await failIfNotOk(res, 'API error', skipAuth);
-    return res.json();
+    return raw ? { data: await res.json(), headers: res.headers } : res.json();
 }
 
 async function apiFormData(path, formData) {
-    const res = await fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData });
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, { method: 'POST', credentials: 'same-origin', headers: authHeaders('POST'), body: formData }));
     await failIfNotOk(res, 'Upload failed');
     return res.json();
 }
 
 async function downloadFile(path, filename) {
-    const res = await fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' });
+    const res = await withRefresh(() => fetch(`${BASE_URL}${path}`, { credentials: 'same-origin' }));
     await failIfNotOk(res, 'Download failed');
     const url = URL.createObjectURL(await res.blob());
     const link = document.createElement('a');
@@ -91,6 +105,13 @@ async function downloadFile(path, filename) {
 }
 
 
+// Paged lists: the cursor is a created_at that can contain '+', so it always goes through URLSearchParams.
+function paged(path, limit, before, extra = {}) {
+    const params = new URLSearchParams({ limit, ...extra });
+    if (before) params.set('before', before);
+    return `${path}?${params}`;
+}
+
 export const api = {
 
     BASE_URL,
@@ -100,8 +121,14 @@ export const api = {
         body: JSON.stringify({ username, password, required_role: requiredRole }),
     }),
 
-    me: () => apiFetch('/auth/me', { skipAuth: true }),
+    me: () => apiFetch('/auth/me', { skipAuth: true, renew: true }),   // the page-load check also renews an expired access session
+    // Second sign-in step when /auth/token answers {two_factor_required, challenge}; code is an authenticator or recovery code.
+    verifyTwoFactor: (challenge, code) => apiFetch('/auth/2fa/verify', { method: 'POST', skipAuth: true, body: JSON.stringify({ challenge, code }) }),
+    twoFactorSetup: () => apiFetch('/auth/2fa/setup', { method: 'POST' }),
+    twoFactorEnable: (code) => apiFetch('/auth/2fa/enable', { method: 'POST', body: JSON.stringify({ code }) }),
+    twoFactorDisable: (code) => apiFetch('/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ code }) }),
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
+    logoutAll: () => apiFetch('/auth/logout-all', { method: 'POST', skipAuth: true }),
     // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
     signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
@@ -116,7 +143,10 @@ export const api = {
     revokeApiKey: (id) => apiFetch(`/account/api-keys/${id}`, { method: 'DELETE' }),
 
     // User management (Admin only)
-    getUsers: () => apiFetch('/users'),
+    // the body is a plain list; the next cursor is in the X-Next-Before header. Resolves to { items, next }.
+    getUsers: (before) => apiFetch(paged('/users', 200, before), { raw: true }).then(({ data, headers }) => ({ items: data, next: headers.get('X-Next-Before') })),
+    disableUser: (userId) => apiFetch(`/users/${userId}/disable`, { method: 'POST' }),
+    enableUser: (userId) => apiFetch(`/users/${userId}/enable`, { method: 'POST' }),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
     setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
@@ -199,16 +229,16 @@ export const api = {
         formData.append('model_file', file);
         return apiFormData('/analyze/model', formData);
     },
-    getModelScanHistory: (limit = 20) => apiFetch(`/analyze/model/history?limit=${limit}`),
+    getModelScanHistory: (limit = 20, before) => apiFetch(paged('/analyze/model/history', limit, before)),
     getModelScan: (scanId) => apiFetch(`/analyze/model/${scanId}`),
 
     // Analysis History & Audit
-    getHistory: (source = null, limit = 20) =>
-        apiFetch(`/history?limit=${limit}${source ? `&source=${source}` : ''}`),
-    getAnalysisHistory: (limit = 20) => apiFetch(`/history?limit=${limit}`),
+    getHistory: (source = null, limit = 20, before) =>
+        apiFetch(paged('/history', limit, before, source ? { source } : {})),
+    getAnalysisHistory: (limit = 20, before) => apiFetch(paged('/history', limit, before)),
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
     deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
-    getAuditEvents: (limit = 50) => apiFetch(`/audit/events?limit=${limit}`),
+    getAuditEvents: (limit = 50, before) => apiFetch(paged('/audit/events', limit, before)),
 
     // Red Team
 
