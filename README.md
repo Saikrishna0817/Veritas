@@ -280,6 +280,8 @@ sign-in routes, every route needs a session or an API key.
 | `GET` | `/trust/score` | Headline numbers of your latest analysis |
 | `GET` | `/history`, `/history/{result_id}` | Your analyses and model scans (all of them, for an admin) |
 | `DELETE` | `/history/{result_id}` | Delete a stored analysis |
+| `GET`, `PUT` | `/results/{result_id}/marks` | Your trial marks ("real problem" or "fine") on the flagged items of your own result; a null verdict clears one |
+| `GET` | `/marks/export` | All trial marks as CSV (admin) |
 | `GET` | `/audit/events` | Audit log (your own events, or everyone's for an admin) |
 | `POST` | `/reports/generate` | Build a report from the latest result (`?source=auto\|demo\|upload\|real_dataset`) |
 | `GET` | `/forensics/latest`, `/forensics/narrative`, `/forensics/timeline`, `/blast-radius/latest` | Forensic views of the latest result |

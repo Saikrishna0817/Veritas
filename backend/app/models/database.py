@@ -742,7 +742,7 @@ def get_usage(owner_id: str) -> Dict[str, int]:
 
 # ── Data deletion and retention ───────────────────────────────────────────────
 
-_OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases", "pending_uploads")
+_OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases", "pending_uploads", "item_marks")
 
 
 def delete_owner_data(owner_id: str) -> Dict[str, int]:
@@ -779,6 +779,42 @@ def purge_older_than(days: int) -> Dict[str, int]:
         counts[table] = conn.execute(f"DELETE FROM {table} WHERE created_at < ?", (cutoff,)).rowcount
     conn.commit()
     return counts
+
+
+# ── Trial marks ───────────────────────────────────────────────────────────────
+
+def upsert_mark(owner_id: str, result_id: str, item: str, rank: int | None, verdict: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO item_marks (id, owner_id, result_id, item, rank, verdict, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (owner_id, result_id, item) DO UPDATE SET rank=excluded.rank, verdict=excluded.verdict, updated_at=excluded.updated_at""",
+        (str(uuid.uuid4()), owner_id, result_id, item, rank, verdict, now, now))
+    conn.commit()
+
+
+def delete_mark(owner_id: str, result_id: str, item: str) -> None:
+    conn = _get_conn()
+    conn.execute("DELETE FROM item_marks WHERE owner_id = ? AND result_id = ? AND item = ?", (owner_id, result_id, item))
+    conn.commit()
+
+
+def list_marks(owner_id: str, result_id: str) -> List[Dict]:
+    rows = _get_conn().execute(
+        "SELECT item, rank, verdict, updated_at FROM item_marks WHERE owner_id = ? AND result_id = ? ORDER BY rank, item",
+        (owner_id, result_id)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def export_marks() -> List[Dict]:
+    """Every mark with who made it and its result (columns stay blank if the result was since deleted)."""
+    rows = _get_conn().execute(
+        """SELECT u.username AS username, m.result_id AS result_id, r.source AS source, r.filename AS filename,
+                  r.created_at AS result_created_at, m.item AS item, m.rank AS rank, m.verdict AS verdict, m.updated_at AS updated_at
+           FROM item_marks m LEFT JOIN users u ON u.id = m.owner_id LEFT JOIN analysis_results r ON r.id = m.result_id
+           ORDER BY m.updated_at""").fetchall()
+    return [dict(r) for r in rows]
 
 
 # ── Direct uploads ────────────────────────────────────────────────────────────

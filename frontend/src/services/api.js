@@ -238,6 +238,10 @@ export const api = {
         apiFetch(paged('/history', limit, before, source ? { source } : {})),
     getAnalysisHistory: (limit = 20, before) => apiFetch(paged('/history', limit, before)),
     getHistoricalResult: (id) => apiFetch(`/history/${id}`),
+    // Trial marks: verdict is 'bad' | 'fine' | null (clears the mark). Export is an admin download.
+    getMarks: (resultId) => apiFetch(`/results/${encodeURIComponent(resultId)}/marks`),
+    setMark: (resultId, item, rank, verdict) => apiFetch(`/results/${encodeURIComponent(resultId)}/marks`, { method: 'PUT', body: JSON.stringify({ item, rank, verdict }) }),
+    downloadMarks: () => downloadFile('/marks/export', 'trial-marks.csv'),
     deleteAnalysisHistory: (runId) => apiFetch(`/history/${runId}`, { method: 'DELETE' }),
     getAuditEvents: (limit = 50, before) => apiFetch(paged('/audit/events', limit, before)),
 

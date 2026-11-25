@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { api } from '../services/api';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
 import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
 import ScoreCloudSlot from './ScoreCloudSlot';
@@ -218,8 +219,31 @@ function ReviewHead({ kind, rows, children }) {
   );
 }
 
-function FlaggedTable({ kind, res, keys = false }) {
+// The id the result is stored under (same order as the server's save_result).
+const resultIdOf = (raw) => raw.job_id || raw.dataset_id || raw.dataset_info?.dataset_id || null;
+
+// Trial marks: the person's own "real problem" / "fine" per listed item. Null while unavailable (no id, or not theirs).
+function useMarks(resultId) {
+  const [loaded, setLoaded] = useState({ id: null, map: {} });
+  useEffect(() => {
+    let live = true;
+    if (resultId) api.getMarks(resultId).then((d) => live && setLoaded({ id: resultId, map: Object.fromEntries(d.marks.map((m) => [m.item, m.verdict])) })).catch(() => {});
+    return () => { live = false; };
+  }, [resultId]);
+  const marks = resultId && loaded.id === resultId ? loaded.map : null;
+  const mark = (item, rank, verdict) => {
+    const before = marks[item];
+    const next = before === verdict ? null : verdict;       // clicking the active one clears it
+    const put = (v) => setLoaded((l) => { const map = { ...l.map }; if (v) map[item] = v; else delete map[item]; return { ...l, map }; });
+    put(next);
+    api.setMark(resultId, item, rank, next).catch(() => put(before));
+  };
+  return [marks, mark];
+}
+
+function FlaggedTable({ kind, res, keys = false, resultId = null }) {
   const [showAll, setShowAll] = useState(false);
+  const [marks, mark] = useMarks(resultId);
   const { hot } = useStageState();
   const table = kind === 'table';
   const rows = table ? res.cells : res.items;
@@ -242,12 +266,21 @@ function FlaggedTable({ kind, res, keys = false }) {
         <table className="in-table in-table-stack">
           <thead>
             {table
-              ? <tr><th className="in-right">Line</th><th className="in-right">Row score</th><th>Most suspicious cells (column, value, score)</th></tr>
-              : <tr><th>File</th><th>Class</th><th className="in-right">Score</th><th>Flagged by</th></tr>}
+              ? <tr><th className="in-right">Line</th><th className="in-right">Row score</th><th>Most suspicious cells (column, value, score)</th>{marks && <th>Your check</th>}</tr>
+              : <tr><th>File</th><th>Class</th><th className="in-right">Score</th><th>Flagged by</th>{marks && <th>Your check</th>}</tr>}
           </thead>
           <tbody>
             {shown.map((r, i) => {
               // the first rows have keys in the world: the row and its key light up together
+              const item = table ? `line ${r.csv_line}` : r.file;
+              const check = marks && (
+                <td data-label="Your check"><span className="in-actions">
+                  {[['bad', 'Real problem'], ['fine', 'Fine']].map(([v, label]) => (
+                    <button key={v} type="button" className="in-btn in-btn-quiet" aria-pressed={marks[item] === v}
+                      aria-label={`${label}: ${item}`} onClick={() => mark(item, i, v)}>{label}</button>
+                  ))}
+                </span></td>
+              );
               const sync = keys && i < MAX_KEYS ? { onMouseEnter: () => setHot(i), onMouseLeave: () => setHot(-1), 'data-hot': hot === i || undefined } : {};
               return table ? (
               <tr key={i} {...sync}>
@@ -256,6 +289,7 @@ function FlaggedTable({ kind, res, keys = false }) {
                 <td data-label="Most suspicious cells">{r.cells.map((c) => (
                   <span key={c.column} className="in-cell"><b>{c.column}</b><em>{String(c.value)}</em><small>{c.score.toFixed(1)}</small></span>
                 ))}</td>
+                {check}
               </tr>
             ) : (
               <tr key={i} {...sync}>
@@ -263,12 +297,14 @@ function FlaggedTable({ kind, res, keys = false }) {
                 <td className="in-tag" data-label="Class">{r.class ?? 'none'}</td>
                 <td className="in-num" data-label="Score">{r.score.toFixed(2)}</td>
                 <td className="in-tag" data-label="Flagged by">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
+                {check}
               </tr>
             );
             })}
           </tbody>
         </table>
       </div>
+      {marks && <p className="in-sub">Your marks are saved with this result and used to measure how often listed items are real problems.</p>}
       <div className="in-table-foot">
         <span className="in-num">{fmt(rows.length)} listed{!table && res.nFlagged > rows.length ? ` of ${fmt(res.nFlagged)} flagged` : ''}, most suspicious first.{table ? ' Line 1 is the header row.' : ''}</span>
         <span className="in-actions">
@@ -309,7 +345,7 @@ function Screening({ kind, raw }) {
         return (
           <section key={key} className="in-section">
             {li === 0 ? <ReviewHead kind={kind} rows={items}>{head}</ReviewHead> : head}
-            <FlaggedTable kind={kind} res={kind === 'table' ? { cells: items } : { items, nFlagged: items.length }} keys={li === 0} />
+            <FlaggedTable kind={kind} res={kind === 'table' ? { cells: items } : { items, nFlagged: items.length }} keys={li === 0} resultId={resultIdOf(raw)} />
           </section>
         );
       })}
@@ -352,7 +388,7 @@ export function Result({ kind, raw }) {
         <ReviewHead kind={kind} rows={kind === 'table' ? res.cells : res.items}>
           <h2 className="in-h2">{kind === 'table' ? 'Rows to review' : `${KINDS[kind].label} to review`}</h2>
         </ReviewHead>
-        <FlaggedTable kind={kind} res={res} keys />
+        <FlaggedTable kind={kind} res={res} keys resultId={resultIdOf(raw)} />
       </section>
       {res.notes.length > 0 && (
         <section className="in-section">
