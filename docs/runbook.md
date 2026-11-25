@@ -98,7 +98,7 @@ R2 ignores `AbortIncompleteMultipartUpload` (single PUTs only), which is harmles
 - Real restore: stop `backend` and `worker`, `docker compose exec -T postgres pg_restore -U veritas -d veritas --clean --if-exists < dump`, start them.
 
 ## Monitoring and alerts
-- Uptime: point UptimeRobot / Better Stack at `https://<host>/health` (alert on non-200 or `"status":"degraded"`).
+- Uptime: point UptimeRobot / Better Stack at `https://<host>/ready` (alert on non-200: it answers 503 when the database or Redis is down). nginx routes `/health` and `/ready` to the API; every other unknown path returns the app page with 200, so never monitor `/`.
 - Metrics: set `VERITAS_METRICS_TOKEN`; Prometheus / Grafana Agent scrapes `/metrics` with `Authorization: Bearer <token>`
   (hidden without a token). Series: `veritas_http_requests_total`, `veritas_http_request_seconds`, `veritas_jobs_total`,
   `veritas_auth_login_failures_total{outcome="wrong_password"|"unknown_account"|"rate_limited"}`.
