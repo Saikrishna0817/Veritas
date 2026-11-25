@@ -1,0 +1,63 @@
+# Production on one VM (Oracle Ampere A1, 4 OCPU / 24 GB): HTTPS edge, secure cookies, memory caps, log rotation.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Needs VERITAS_DOMAIN and ACME_EMAIL in .env besides the usual values (docs/runbook.md, "First deploy").
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+x-prod-env: &prod-env
+  VERITAS_COOKIE_SECURE: "true"
+  VERITAS_PUBLIC_URL: https://${VERITAS_DOMAIN:?Set VERITAS_DOMAIN in .env}
+  CORS_ALLOW_ORIGINS: https://${VERITAS_DOMAIN}
+
+services:
+  edge:
+    image: caddy:2.11-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      VERITAS_DOMAIN: ${VERITAS_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (certificate expiry notices)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]            # its subnet is the only one nginx takes a client address from
+    depends_on: [frontend]
+    mem_limit: 256m
+    logging: *logging
+
+  frontend:
+    ports: !reset []            # only the edge is published
+    networks: [web, edge]
+    volumes:
+      - ./deploy/nginx-realip.conf:/etc/nginx/conf.d/00-realip.conf:ro
+    mem_limit: 128m
+    logging: *logging
+
+  backend:
+    environment: *prod-env
+    mem_limit: 3g
+    logging: *logging
+  worker:
+    environment: *prod-env
+    mem_limit: 3g
+    logging: *logging
+  worker-media:
+    environment: *prod-env
+    logging: *logging           # memory and CPU caps are set in docker-compose.yml (MEDIA_WORKER_MEMORY / _CPUS)
+  postgres:
+    mem_limit: 2g
+    logging: *logging
+  redis:
+    mem_limit: 256m
+    logging: *logging
+
+networks:
+  edge:
+    ipam:
+      config: [{ subnet: 172.31.250.0/24 }]
+
+volumes:
+  caddy_data:
+  caddy_config:
