@@ -2,61 +2,77 @@
 
 > **Draft for review by a person qualified to review it. Not legal advice.** Fill every `[PLACEHOLDER]`, delete the
 > sub-processors you do not use, and have the result read before publishing. This text describes what the Veritas
-> software does as shipped; if you change the software or the hosting, change this.
+> software does as shipped (checked against the code on 2026-11-25); if you change the software or the hosting, change
+> this.
 
 **Operator:** [OPERATOR NAME AND ADDRESS] · **Contact:** [PRIVACY EMAIL] · **Effective:** [DATE]
 
-## What we collect
+Veritas is in an invite-only beta. This policy covers the hosted service at [DOMAIN].
+
+## What we collect, why, and for how long
 
 | Data | Why | How long |
 |---|---|---|
-| Email address, username, password (stored only as a salted hash) | To run your account and send verification and password-reset emails | Until you delete your account |
-| Files you upload (CSV training data, model files) | To analyse them | Deleted as soon as the analysis job finishes |
-| Analysis results: verdicts, scores, row numbers and reasons, dataset name, column names, summary statistics | To show you your results and history | [30] days (`VERITAS_RETENTION_DAYS`), or until you delete them |
-| Usage counters (analyses, rows, megabytes scanned per day) | To enforce fair-use quotas | Until you delete your data or account |
-| Audit log (what action, when, which account) | Security and support | Until you delete your account |
-| IP address | Rate limiting and abuse prevention; held in short-lived memory (Redis), plus web-server logs | [LOG RETENTION] |
-| API keys (stored only as hashes) | To authenticate your scripts and CI | Until you revoke them |
+| Username, email address, password (stored only as a salted hash) | To run your account and send sign-up confirmation and password-reset emails | Until you delete your account |
+| Two-factor sign-in, if you turn it on: the authenticator secret (stored encrypted) and recovery codes (stored only as hashes) | To check your second factor | Until you turn it off or delete your account |
+| Files you upload: tables (CSV), image, audio and video collections (zip), model files | To analyse them | Deleted as soon as the analysis job finishes |
+| Analysis results: verdicts, scores, the rows or file names listed and why, dataset and column names, summary statistics | To show you your results and history | [30] days (`VERITAS_RETENTION_DAYS`), or until you delete them |
+| Your marks on listed items ("real problem" / "fine"), if you take part in the beta trial | To measure how often listed items are real problems | With the result they belong to; until you delete them or your account |
+| Usage counters (analyses, rows, megabytes per day) | Fair-use quotas | Until you delete your data or account |
+| Audit log: what was done, when, by which account; for sign-in events also the IP address (failed sign-ins for unknown usernames keep only the IP address) | Security, abuse prevention, support | [180] days (`VERITAS_AUDIT_RETENTION_DAYS`), or until you delete your account |
+| IP address in rate-limit counters | Abuse prevention | At most one hour, in memory (Redis) |
+| IP address and request line in web-server logs | Operating and securing the service | Rotated by size (the newest 50 MB per service), usually a few days |
+| API keys (stored only as hashes) | To authenticate your scripts and CI | Until you revoke them or delete your account |
+| Sign-in sessions (refresh tokens, stored only as hashes) | To keep you signed in | [14] days, or until you sign out |
 
-Your uploaded files are not used to train any model, are not shared with other users, and are not read by us except
-to investigate abuse or at your request for support.
+Expired results and audit entries are deleted when the service starts, which happens at least with every update.
+
+Your uploads and results are not used to train any model, are not shared with other users, and are not read by us
+except to investigate abuse or when you ask us for support.
 
 ## Cookies
 
-Two cookies, both strictly necessary: a session cookie (httpOnly) that keeps you signed in and a CSRF token that
-protects your requests. We set no advertising or analytics cookies, so no cookie banner is needed. If that changes,
-this section and the banner change first.
+Three cookies, all strictly necessary: a session cookie and a sign-in renewal cookie (both httpOnly, so scripts cannot
+read them) that keep you signed in, and a CSRF token that protects your requests. We set no advertising or analytics
+cookies, so there is no cookie banner. If that changes, this section and a banner change first.
 
 ## Who processes data for us (sub-processors)
 
-Keep only the rows that apply to your deployment.
+Keep only the rows that apply to the deployment.
 
-| Provider | Role | Data |
-|---|---|---|
-| [HOSTING PROVIDER, e.g. Oracle Cloud] | Servers | All of the above |
-| [Cloudflare] | DNS, TLS, CDN, bot protection (Turnstile on sign-up) | IP address, request metadata, sign-up challenge |
-| [Neon / Supabase] | Managed Postgres, if used | Account and result data |
-| [Cloudflare R2 / S3] | Upload storage and backups, if used | Uploaded files (briefly), database backups |
-| [Resend / Brevo / SMTP provider] | Transactional email | Email address, message content |
-| [Sentry] | Error reports, if enabled | Error traces, request metadata; no file contents are sent deliberately |
+| Provider | Role | Data | Where |
+|---|---|---|---|
+| [Oracle Cloud Infrastructure] | Servers: the app, its database and uploads while they are analysed | Everything above | [REGION] |
+| [Cloudflare] | DNS, TLS, proxy and DDoS protection; human check on sign-up (Turnstile) if enabled | IP address, request metadata, sign-up challenge | Global network |
+| [Cloudflare R2] | Upload storage during analysis (if direct uploads are on) and database backups (encrypted at rest by the provider) | Uploads (briefly), database backups | [REGION] |
+| [Resend / Brevo] | Transactional email | Email address, the email's content | [REGION] |
+| [Sentry] | Error reports, if enabled | Error traces and request metadata; personal data is not sent on purpose (`send_default_pii` is off) | [REGION] |
+| [Neon] | Managed PostgreSQL, only if used instead of the database on our server | Account and result data | [REGION] |
+
+Database backups are kept for [14] days and then deleted, so data you delete disappears from backups within
+[14] days.
 
 ## Your rights
 
-You can see your usage and history in the app. **Delete your data** (`DELETE /api/v1/account/data`) erases all results, scans,
-review cases and usage counters but keeps the account, its API keys and its audit log. **Delete your account**
-(`POST /api/v1/account/delete`, needs your password) erases all of that plus the account, API keys, pending email tokens,
-job records and audit log. We keep only an opaque account id so that any still-valid login token stops working; it
-identifies no one. Backups made before deletion age out on the backup schedule ([BACKUP RETENTION]). To ask for a
-copy of your data, or to correct or object to processing, email [PRIVACY EMAIL]. If you are in
-the EU/UK, you also have the right to complain to your data-protection authority. Our legal bases are contract
-(providing the service you signed up for) and legitimate interest (security and abuse prevention).
+You can see your usage and history in the app.
+
+- **Delete your data** (Account page, or `DELETE /api/v1/account/data`): erases all results, scans, review cases, trial
+  marks and usage counters, and keeps the account, its API keys and its audit log.
+- **Delete your account** (Account page, needs your password): erases all of that plus the account, two-factor
+  settings, API keys, sign-in sessions, pending email links, job records and audit log. We keep only an opaque account
+  id so that a sign-in still open somewhere stops working; it identifies no one.
+
+To get a copy of your data, or to correct or object to processing, email [PRIVACY EMAIL]. In the EU/UK you can also
+complain to your data-protection authority. Our legal bases are contract (providing the service you signed up for) and
+legitimate interest (security and abuse prevention). [Reviewer: add the controller representative if needed.]
 
 ## Security
 
-Sessions use httpOnly cookies with CSRF protection; passwords are hashed; API keys are stored hashed; each account can
-read only its own data; model files are analysed without being loaded, in a sandboxed process. No system is perfectly
-secure. Report a vulnerability to [SECURITY EMAIL]. If a breach affects your data we will tell you without undue
-delay, and the authorities where the law requires.
+Sessions use httpOnly cookies with CSRF protection; passwords, API keys, recovery codes and sign-in sessions are stored
+hashed; each account can read only its own data; uploaded image, audio, video and model files are processed in an
+isolated worker without internet access, and model files are inspected without being loaded. The service is reached
+only over HTTPS. No system is perfectly secure. Report a vulnerability to [SECURITY EMAIL]. If a breach affects your
+data we will tell you without undue delay, and the authorities where the law requires.
 
 ## Children
 

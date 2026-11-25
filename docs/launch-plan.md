@@ -60,8 +60,8 @@ All free tier. Turn on 2FA everywhere; store credentials in a password manager, 
 
 | # | Task | Owner | Done when |
 |---|---|---|---|
-| 4.1 | Make the privacy policy match the app: what is stored (accounts, uploads, results, audit log), where (VM region, R2, Sentry, email provider), retention (uploads after N days, results until deleted), deletion (the delete-account flow). | Claude | Diff against `frontend/src/content/legal/` lists every data flow with its retention. |
-| 4.2 | Terms: beta, no warranty, results are screening aids not verdicts, upload content policy, MIT licence for the code, governing law. | Claude | Draft ready for review. |
+| 4.1 | ~~Make the privacy policy match the app~~ (drafted 2026-11-25; placeholders for operator, region and providers): what is stored (accounts, uploads, results, audit log), where (VM region, R2, Sentry, email provider), retention (uploads after N days, results until deleted), deletion (the delete-account flow). | Claude | Diff against `frontend/src/content/legal/` lists every data flow with its retention. |
+| 4.2 | ~~Terms~~ (drafted 2026-11-25): beta, no warranty, results are screening aids not verdicts, upload content policy, MIT licence for the code, governing law. | Claude | Draft ready for review. |
 | 4.3 | One human review: a lawyer, or a vetted template service, against the drafts. | You | Reviewed versions published; date on both pages. |
 
 ## Stage 5. Trial (you, 1-2 weeks of waiting)

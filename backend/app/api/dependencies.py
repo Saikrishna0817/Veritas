@@ -36,6 +36,7 @@ from app.core.rate_limit import make_limiter
 # ── Database init ─────────────────────────────────────────────────────────────
 db.init_db()
 db.purge_older_than(settings.retention_days)   # retention: runs once per process start
+db.purge_audit_older_than(settings.audit_retention_days)
 
 
 # ── Shared worker pool ────────────────────────────────────────────────────────

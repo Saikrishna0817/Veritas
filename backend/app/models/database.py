@@ -781,6 +781,17 @@ def purge_older_than(days: int) -> Dict[str, int]:
     return counts
 
 
+def purge_audit_older_than(days: int) -> int:
+    """Retention for the audit log, which holds IP addresses of sign-in events (0 keeps everything)."""
+    if days <= 0:
+        return 0
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    conn = _get_conn()
+    n = conn.execute("DELETE FROM audit_events WHERE created_at < ?", (cutoff,)).rowcount
+    conn.commit()
+    return n
+
+
 # ── Trial marks ───────────────────────────────────────────────────────────────
 
 def upsert_mark(owner_id: str, result_id: str, item: str, rank: int | None, verdict: str) -> None:
