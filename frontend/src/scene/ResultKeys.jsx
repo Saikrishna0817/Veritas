@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { setHot, stage, useStageState } from './stage';
+import { setHot, stage, useStageValue } from './stage';
 import { token } from './tokens';
 import { ease, KEY_SCALE, KeyLight, still, useKeycapGeometry, useKeycapMaterial } from './keycaps';
 
@@ -32,7 +32,7 @@ function Keys({ items }) {
   const base = useKeycapGeometry();
   const material = useKeycapMaterial();
   const { camera, size, invalidate } = useThree();
-  const { hot } = useStageState();
+  const hot = useStageValue('hot');
   const n = items.length;
   const rows = Math.ceil(n / PER_ROW);
   // clusters (Overview): items carry group (a slot of a 2-column grid, `groups` slots in all) and their own glaze
@@ -186,7 +186,7 @@ function Keys({ items }) {
 }
 
 export default function ResultKeys() {
-  const { items } = useStageState();
+  const items = useStageValue('items');
   if (!items?.length) return null;
   return (
     <>

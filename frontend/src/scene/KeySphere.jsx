@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RANDOM_POOL, glyphIndex } from '../../shared/argilla/keys/glyphs';
-import { stage, useStageState } from './stage';
+import { stage, useStageValue } from './stage';
 import { mulberry32, token } from './tokens';
 import { ease, KEY_H, KEY_SCALE, KeyLight, still, useKeycapGeometry, useKeycapMaterial } from './keycaps';
 
@@ -59,7 +59,8 @@ function keyBasis(dir, az) {
 function Sphere() {
   const base = useKeycapGeometry();
   const { camera, size, invalidate } = useThree();
-  const { busy, presses } = useStageState();
+  const busy = useStageValue('busy');
+  const presses = useStageValue('presses');
 
   const keys = useMemo(() => buildKeys(), []);
   const material = useKeycapMaterial();

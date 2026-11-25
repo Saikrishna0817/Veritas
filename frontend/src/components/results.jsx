@@ -1,6 +1,6 @@
-import { Fragment, useMemo, useRef, useState } from 'react';
+import { Fragment, memo, useMemo, useRef, useState } from 'react';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
-import { MAX_KEYS, setHot, useStage, useStageState } from '../scene/stage';
+import { MAX_KEYS, setHot, useStage, useStageValue } from '../scene/stage';
 import ScoreCloudSlot from './ScoreCloudSlot';
 
 // Results of any analysis (table, images, audio, video), shared by the upload page, History and the dashboard.
@@ -217,9 +217,30 @@ function ReviewHead({ kind, rows, children }) {
   );
 }
 
+// One listed row. Memoised: hovering a row changes `isHot` for two rows only, so the other rows are not re-rendered.
+const FlaggedRow = memo(function FlaggedRow({ r, i, table, sync, isHot }) {
+  const props = sync ? { onMouseEnter: () => setHot(i), onMouseLeave: () => setHot(-1), 'data-hot': isHot || undefined } : {};
+  return table ? (
+    <tr {...props}>
+      <td className="in-num" data-label="Line in your file">{r.csv_line}</td>
+      <td className="in-num" data-label="Row score">{r.row_score.toFixed(2)}</td>
+      <td data-label="Most suspicious cells">{r.cells.map((c) => (
+        <span key={c.column} className="in-cell"><b>{c.column}</b><em>{String(c.value)}</em><small>{c.score.toFixed(1)}</small></span>
+      ))}</td>
+    </tr>
+  ) : (
+    <tr {...props}>
+      <td className="in-path" data-label="File">{r.file}</td>
+      <td className="in-tag" data-label="Class">{r.class ?? 'none'}</td>
+      <td className="in-num" data-label="Score">{r.score.toFixed(2)}</td>
+      <td className="in-tag" data-label="Flagged by">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
+    </tr>
+  );
+});
+
 function FlaggedTable({ kind, res, keys = false }) {
   const [showAll, setShowAll] = useState(false);
-  const { hot } = useStageState();
+  const hot = useStageValue('hot');
   const table = kind === 'table';
   const rows = table ? res.cells : res.items;
   if (!rows.length) {
@@ -242,23 +263,8 @@ function FlaggedTable({ kind, res, keys = false }) {
           <tbody>
             {shown.map((r, i) => {
               // the first rows have keys in the world: the row and its key light up together
-              const sync = keys && i < MAX_KEYS ? { onMouseEnter: () => setHot(i), onMouseLeave: () => setHot(-1), 'data-hot': hot === i || undefined } : {};
-              return table ? (
-              <tr key={i} {...sync}>
-                <td className="in-num" data-label="Line in your file">{r.csv_line}</td>
-                <td className="in-num" data-label="Row score">{r.row_score.toFixed(2)}</td>
-                <td data-label="Most suspicious cells">{r.cells.map((c) => (
-                  <span key={c.column} className="in-cell"><b>{c.column}</b><em>{String(c.value)}</em><small>{c.score.toFixed(1)}</small></span>
-                ))}</td>
-              </tr>
-            ) : (
-              <tr key={i} {...sync}>
-                <td className="in-path" data-label="File">{r.file}</td>
-                <td className="in-tag" data-label="Class">{r.class ?? 'none'}</td>
-                <td className="in-num" data-label="Score">{r.score.toFixed(2)}</td>
-                <td className="in-tag" data-label="Flagged by">{(CHECK_NAMES[r.check] || [r.check])[0]}</td>
-              </tr>
-            );
+              const sync = keys && i < MAX_KEYS;
+              return <FlaggedRow key={i} r={r} i={i} table={table} sync={sync} isHot={sync && hot === i} />;
             })}
           </tbody>
         </table>

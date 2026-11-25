@@ -47,6 +47,12 @@ export function useStageState() {
   return useSyncExternalStore(stage.subscribe, stage.get);
 }
 
+/** One field of the stage: the component re-renders only when that field changes (a keystroke or a hovered row
+ *  no longer re-renders every page and scene part that reads some other field). */
+export function useStageValue(name) {
+  return useSyncExternalStore(stage.subscribe, () => state[name]);
+}
+
 export function useStage(kind, ref, { busy = false, items = null } = {}) {
   useEffect(() => {
     const el = ref.current;
