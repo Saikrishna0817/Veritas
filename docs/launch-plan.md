@@ -12,13 +12,28 @@ accounts, money, identity or judgement; *Claude* = can be done in the repo or on
 
 | # | Task | Owner | Done when |
 |---|---|---|---|
-| 0.1 | Set the trial bar: how many people, which dataset types, and what counts as a pass (proposal: at least 3 of 5 people say the top 20 flagged items were worth reviewing, and at least one dataset where they confirm real problems). | You | Written into this file under "Trial bar". |
-| 0.2 | Set the stop rule: what happens if the trial fails (proposal: narrow the claim in the model card and app to what passed, or present Veritas as a benchmark plus research demo; no new detector research). | You | Written under "Stop rule". |
-| 0.3 | Set a deadline for the whole plan (proposal: 3 weeks from the start of stage 1). | You | Date written below. |
+| 0.1 | (done 2026-11-25) Set the trial bar: how many people, which dataset types, and what counts as a pass (proposal: at least 3 of 5 people say the top 20 flagged items were worth reviewing, and at least one dataset where they confirm real problems). | You | Written into this file under "Trial bar". |
+| 0.2 | (done 2026-11-25) Set the stop rule: what happens if the trial fails (proposal: narrow the claim in the model card and app to what passed, or present Veritas as a benchmark plus research demo; no new detector research). | You | Written under "Stop rule". |
+| 0.3 | (done 2026-11-25) Set a deadline for the whole plan (proposal: 3 weeks from the start of stage 1). | You | Date written below. |
 
-Trial bar: _to fill_ · Stop rule: _to fill_ · Deadline: _to fill_
+Decided 2026-11-25 (the proposals above, adopted; change them here before the trial starts, not after):
+
+- **Trial bar (pass):** at least 3 of 5 participants (or 3 of however many take part, minimum 3) mark the top 20
+  listed items of one of their own datasets and say they were worth reviewing, and at least one dataset where a
+  participant confirms real problems ("real problem" marks) among the top 20. Measured from the exported marks.
+- **Stop rule (fail):** no new detector research. Narrow the claim in the model card and the app to the data types
+  and attacks that passed, or, if none passed, present Veritas as a benchmark plus research demo and close the beta.
+- **Deadline:** 2026-12-16 (3 weeks from 2026-11-25). Whatever is not done by then is written down as not done.
 
 ## Stage 1. Accounts (you, 1-2 h)
+
+**Before you start (15 min):** a password manager with 2FA on; a payment card (Oracle and some registrars verify with a
+card even on free tiers; nothing is charged if you stay in the free tier); your phone for verification codes; the
+domain name you want (check it is free); an SSH key for the VM (`ssh-keygen -t ed25519 -f ~/.ssh/veritas`, the
+`.pub` file goes to Oracle, the private one never leaves your machine); and the Oracle **home region**, chosen once
+and permanently: pick one near your users with free Ampere A1 capacity (if creating the VM says "out of capacity",
+try another availability domain, or later). Start recruiting trial participants now (5.1): it has the longest lead
+time.
 
 All free tier. Turn on 2FA everywhere; store credentials in a password manager, never in the repo or chat.
 
