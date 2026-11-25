@@ -84,7 +84,7 @@ All free tier. Turn on 2FA everywhere; store credentials in a password manager, 
 | # | Task | Owner | Done when |
 |---|---|---|---|
 | 5.1 | Recruit 3-5 people with their own data (classmates, colleagues, ML communities); short consent text: what they upload, how long it is kept, that marks are used to measure precision. | You | Names and consent recorded. |
-| 5.2 | Onboarding: one-page guide (what to upload, how to read the list, how to mark items), and a feedback channel (a form or email). | Claude | Guide linked from the app for trial accounts. |
+| 5.2 | ~~Onboarding~~ (done 2026-11-25, `docs/trial-guide.md`): one-page guide (what to upload, how to read the list, how to mark items), and a feedback channel (a form or email). | Claude | Guide linked from the app for trial accounts. |
 | 5.3 | Run: each person checks one dataset and marks the top of the list. Ask what they expected Veritas to find and it did not. | You | Marks exported. |
 | 5.4 | Score against the trial bar; write `docs/trial-results.md`; every reported miss becomes a named limit or a new attack in the benchmark. | Claude | Results file and model card updated. |
 | 5.5 | Apply the stop rule if the bar is missed. | You | Decision written in this file. |
