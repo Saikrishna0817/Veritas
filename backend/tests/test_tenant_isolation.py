@@ -140,3 +140,16 @@ def test_retention_purge_drops_only_old_rows(tmp_path):
     assert db.purge_older_than(30)["analysis_results"] >= 1
     assert db.get_result("old-one", "ret-user") is None and db.get_result("keep-me", "ret-user") is not None
     assert db.purge_older_than(0) == {}
+
+
+def test_audit_retention_drops_only_old_entries():
+    from app.models import database as db
+    conn = db._get_conn()
+    conn.execute("INSERT INTO audit_events (id, actor_id, action, resource_type, resource_id, details_json, created_at) VALUES "
+                 "('audit-old', 'anonymous', 'auth.login_failed', 'account', NULL, '{\"ip\": \"203.0.113.9\"}', '2000-01-01T00:00:00+00:00')")
+    conn.commit()
+    db.log_audit_event("ret-user", "analysis.uploaded", "dataset", "x", {})
+    assert db.purge_audit_older_than(180) >= 1
+    ids = {r["id"] for r in conn.execute("SELECT id FROM audit_events").fetchall()}
+    assert "audit-old" not in ids and ids
+    assert db.purge_audit_older_than(0) == 0

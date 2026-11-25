@@ -40,7 +40,8 @@ The server refuses to start unless these are set (`validate_security_settings`).
 | `VERITAS_S3_ENDPOINT` | empty | Custom S3 endpoint (R2: `https://<account>.r2.cloudflarestorage.com`); empty for AWS. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | Bucket credentials (read by boto3, S3 only). |
 | `AWS_DEFAULT_REGION` | none | Set to `auto` for R2 (read by boto3). |
-| `VERITAS_RETENTION_DAYS` | `30` | Days results and uploads are kept before cleanup. |
+| `VERITAS_RETENTION_DAYS` | `30` | Days results (and trial marks) are kept; older ones are deleted when the API starts. 0 keeps them. During the beta trial set it above the trial length so marks are not lost before export. |
+| `VERITAS_AUDIT_RETENTION_DAYS` | `180` | Days audit log entries (including IP addresses of sign-in events) are kept; deleted when the API starts. 0 keeps them. |
 | `VERITAS_QUOTA_ANALYSES_PER_DAY` | `50` | Analyses per user per UTC day. `0` disables. Admins are exempt. |
 | `VERITAS_QUOTA_ROWS_PER_DAY` | `2000000` | Table rows analysed per user per UTC day. `0` disables. |
 | `VERITAS_QUOTA_SCAN_MB_PER_DAY` | `1000` | Model-file megabytes scanned per user per UTC day. `0` disables. |

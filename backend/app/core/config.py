@@ -58,6 +58,8 @@ class Settings:
     cookie_secure: bool = os.getenv("VERITAS_COOKIE_SECURE", "true").lower() == "true"   # false only for http://localhost
     # Stored results older than this many days are deleted at startup (0 keeps everything).
     retention_days: int = int(os.getenv("VERITAS_RETENTION_DAYS", "30"))
+    # Audit log entries (who did what; IP address on sign-in events) are kept this long; 0 keeps them forever.
+    audit_retention_days: int = int(os.getenv("VERITAS_AUDIT_RETENTION_DAYS", "180"))
     # Per-user daily quotas (UTC day). Admins are exempt. 0 disables a limit.
     quota_analyses_per_day: int = int(os.getenv("VERITAS_QUOTA_ANALYSES_PER_DAY", "50"))
     quota_rows_per_day: int = int(os.getenv("VERITAS_QUOTA_ROWS_PER_DAY", "2000000"))
