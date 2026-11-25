@@ -20,7 +20,7 @@ export default function AuthFrame({ title, intro, busy = false, children }) {
         <PageTitle className="in-auth-title">{title}</PageTitle>
         {intro && <PageIntro className="in-hint">{intro}</PageIntro>}
         {children}
-        <p className="in-auth-legal"><a href="/welcome/">About Veritas</a> · <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> (drafts)</p>
+        <p className="in-auth-legal">Beta, no warranty · <a href="/welcome/">About Veritas</a> · <Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy</Link> (drafts)</p>
       </div>
       <div className="in-auth-stage" ref={stageRef} aria-hidden="true" />
     </main>

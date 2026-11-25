@@ -37,6 +37,8 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Rows to review')).toBeVisible();
   await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
+  await expect(page.getByTestId('list-caveat').first()).toContainText('check each item before you act');   // beta: a list, not proof
+  await expect(page.locator('.in-footer')).toContainText('Beta, no warranty');
 
   // a user account has no admin console, and the admin API answers 403
   await page.goto('/admin');
@@ -66,6 +68,15 @@ test('sign-up page validates and explains the next step', async ({ page }) => {
   await page.getByPlaceholder(/Password/).fill('a-long-enough-password');
   await page.getByRole('button', { name: /create account/i }).click();
   await expect(page.getByRole('status')).toContainText(/check your email|account created/i);
+});
+
+test('with sign-up closed (invite-only beta) the page says how to get an account instead of a form', async ({ page }) => {
+  await page.route('**/api/v1/auth/signup', (route) => route.request().method() === 'GET'
+    ? route.fulfill({ json: { enabled: false, contact: 'beta@example.com' } }) : route.continue());
+  await page.goto('/signup');
+  await expect(page.getByRole('heading', { name: /invite-only/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'beta@example.com' })).toHaveAttribute('href', 'mailto:beta@example.com');
+  await expect(page.getByPlaceholder('Username')).toHaveCount(0);
 });
 
 test('a deep link survives signing in, and only addresses inside the app are followed', async ({ page }) => {
