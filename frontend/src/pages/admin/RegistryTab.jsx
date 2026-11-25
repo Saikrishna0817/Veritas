@@ -23,6 +23,7 @@ export default function RegistryTab({ records, userNames, notify, onChanged }) {
     <>
       <h2 className="in-h2">Stored results</h2>
       <p className="in-sub">Every dataset check and model scan kept on the server, from all accounts. Deleting one removes it from that person's History and reports.</p>
+      <p><button type="button" className="in-btn in-btn-quiet" onClick={() => api.downloadMarks().catch((err) => notify({ error: true, text: `The marks were not downloaded: ${err.message}` }))}>Download trial marks (CSV)</button></p>
       <LoadState resource={records} what="stored results" isEmpty={(d) => !d?.length} empty="No results are stored.">
         <div className="in-table-wrap">
           <table className="in-table in-table-stack">

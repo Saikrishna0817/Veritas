@@ -38,6 +38,13 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   await expect(page.getByText('Rows to review')).toBeVisible();
   await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
 
+  // trial mark: "Real problem" on the first row survives a reload of the stored result
+  await page.locator('.in-table tbody tr').first().getByRole('button', { name: /^Real problem/ }).click();
+  await expect(page.locator('.in-table tbody tr').first().getByRole('button', { name: /^Real problem/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.goto('/history');
+  await page.locator('.in-row-link').first().click();
+  await expect(page.locator('.in-table tbody tr').first().getByRole('button', { name: /^Real problem/ })).toHaveAttribute('aria-pressed', 'true');
+
   // a user account has no admin console, and the admin API answers 403
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'This page is for administrators' })).toBeVisible();
