@@ -21,6 +21,17 @@ Put TLS/CDN (Cloudflare, Caddy) in front; the API and Postgres/Redis ports are n
 3. Check `docker compose ps` (all healthy), sign in as the admin, run one upload and one model scan.
 4. Cron: `0 3 * * * cd /opt/veritas && BACKUP_S3_URL=s3://bucket/veritas BACKUP_S3_ENDPOINT=... scripts/backup.sh`.
 
+## Production overlay (HTTPS edge)
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` adds Caddy on ports 80/443 with
+automatic certificates and HSTS, turns on secure cookies, sets the public URL and CORS from `VERITAS_DOMAIN`, caps memory
+for a 24 GB VM and rotates container logs (10 MB x 5). nginx is no longer published; only Caddy is.
+- Cloudflare: proxy the domain (orange cloud), SSL/TLS mode **Full (strict)**. Caddy trusts the forwarded client address
+  only from Cloudflare's ranges (`deploy/Caddyfile`), and nginx only from Caddy's network (`deploy/nginx-realip.conf`), so
+  rate limits and the audit log see the real visitor. Refresh the ranges from cloudflare.com/ips if Cloudflare adds any.
+- Firewall: open 80 and 443 (and 22 for SSH) only. Optional: allow 80/443 from Cloudflare's ranges only.
+- Check after deploy: `curl -sI https://<domain>/` shows `strict-transport-security`; a failed sign-in sent with a forged
+  `X-Forwarded-For` header is recorded in the audit log with your real address, not the forged one.
+
 ## Deploy / roll back
 - Tag `vX.Y.Z`; CI builds, pushes images and (if secrets are set) deploys over SSH, then takes a backup.
 - Manual: `git fetch --tags && git checkout vX.Y.Z && docker compose up -d --build`.
