@@ -31,6 +31,14 @@ export default function AccountFlowPage({ mode }) {
   const [resendHuman, setResendHuman] = useState('');
   const [resendReset, setResendReset] = useState(0);
 
+  // Invite-only beta: when the server has sign-up off, explain how to get an account instead of showing a form that
+  // can only fail. Until the answer arrives the form is shown (sign-up open is the common case).
+  const [closed, setClosed] = useState(null);
+  useEffect(() => {
+    if (mode !== 'signup') return;
+    api.signupStatus().then((r) => { if (!r.enabled) setClosed({ contact: r.contact }); }).catch(() => {});
+  }, [mode]);
+
   // A link's token works once, so it is sent once per token, even when React runs this effect twice in development.
   const sent = useRef('');
   useEffect(() => {
@@ -80,6 +88,18 @@ export default function AccountFlowPage({ mode }) {
     }
   }
 
+  if (mode === 'signup' && closed) {
+    return (
+      <AuthFrame title="Veritas is invite-only for now" intro="During the beta, accounts are created by the team.">
+        <p role="status" style={{ margin: 0 }}>
+          {closed.contact
+            ? <>To ask for an account, write to <a className="in-link-text" href={`mailto:${closed.contact}`}>{closed.contact}</a>.</>
+            : 'Ask the person who invited you for an account.'}
+        </p>
+        <p style={{ margin: 0 }}>Already have one? <Link to="/login" className="in-link-text">Sign in</Link></p>
+      </AuthFrame>
+    );
+  }
   const copy = COPY[mode];
   return (
     <AuthFrame title={copy.title} intro={mode === 'verify' && error ? 'That link did not work. Enter your email and we will send a new one.' : mode === 'verify' && message ? '' : copy.intro} busy={busy || checking || resend.busy}>

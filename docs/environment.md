@@ -25,7 +25,8 @@ The server refuses to start unless these are set (`validate_security_settings`).
 | `CORS_ALLOW_ORIGINS` | `http://localhost:5173` | Comma-separated origins allowed to call the API. |
 | `VERITAS_PUBLIC_URL` | `http://localhost:5173` | Base URL used in emailed links. |
 | `VERITAS_COOKIE_SECURE` | `true` | Secure flag on cookies. `false` only for plain-HTTP localhost. |
-| `VERITAS_SIGNUP_ENABLED` | `true` | `false` closes public sign-up. |
+| `VERITAS_SIGNUP_ENABLED` | `true` | `false` closes public sign-up (invite-only beta: the admin creates accounts); the sign-up page then explains how to get one. |
+| `VERITAS_ACCESS_CONTACT` | (empty) | While sign-up is closed, the email address the sign-up page gives for account requests. |
 | `VERITAS_REQUIRE_EMAIL_VERIFICATION` | `true` | New accounts must confirm their email before signing in. |
 | `VERITAS_TURNSTILE_SECRET` | empty | Cloudflare Turnstile secret key; empty turns the human check off. |
 | `VERITAS_SMTP_HOST` | empty | SMTP server. Empty: mails are only written to the log (development). |
