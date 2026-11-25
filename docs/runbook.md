@@ -119,6 +119,18 @@ R2 ignores `AbortIncompleteMultipartUpload` (single PUTs only), which is harmles
 - Errors: set `SENTRY_DSN` (backend). Logs: `docker compose logs -f backend worker`.
 - Queue depth: `docker compose exec redis redis-cli llen rq:queue:veritas`.
 
+## Incident: take it offline, stop an abusive account
+- **Whole site offline (kill switch):** on the VM, `touch /opt/veritas/deploy/maintenance/on`. Every request at once
+  gets the maintenance page (503, `Retry-After: 3600`), API included; nothing restarts and no data changes.
+  `rm /opt/veritas/deploy/maintenance/on` brings it back. Uptime monitoring will alert while it is on.
+- **Sign-ups only:** set `VERITAS_SIGNUP_ENABLED=false` in `.env` and `docker compose up -d backend`.
+- **One account:** admin console, Accounts, Disable. Sign-in is refused, every session and API key stops at once, the
+  data is kept for review. Delete the account to erase it.
+- **Abusive or illegal uploads:** uploaded files are deleted when their job finishes; only results stay. Remove a result
+  in the admin console (Stored results, Delete) or `DELETE /api/v1/history/{id}` as admin; it is audited. Disable the
+  account, keep the audit log entries, and report illegal content to the authorities as the law requires.
+- Afterwards: note what happened and when in the runbook log, and check the audit log (`/api/v1/audit/events`).
+
 ## Common incidents
 | Symptom | Check | Fix |
 |---|---|---|

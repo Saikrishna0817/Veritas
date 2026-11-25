@@ -70,3 +70,4 @@ backups/
 
 # ── Benchmark reruns from `make reproduce` (compare with research.claims --fresh; not committed) ─
 backend/research/results/*-repro-*
+deploy/maintenance/on
