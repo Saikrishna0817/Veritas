@@ -57,6 +57,8 @@ The server refuses to start unless these are set (`validate_security_settings`).
 |---|---|---|
 | `POSTGRES_PASSWORD` | none (required) | Database password; compose stops if empty. |
 | `WEB_PORT` | `5173` | Host port nginx is published on. |
+| `VERITAS_DOMAIN` | (none; required with `docker-compose.prod.yml`) | Public host name. Caddy gets its certificate for it; sets `VERITAS_PUBLIC_URL` and `CORS_ALLOW_ORIGINS` to `https://<domain>` and secure cookies. |
+| `ACME_EMAIL` | (none; required with `docker-compose.prod.yml`) | Address for certificate expiry notices. |
 | `MEDIA_WORKER_MEMORY` | `6g` | Memory cap of the media worker. |
 | `MEDIA_WORKER_CPUS` | `2` | CPU cap of the media worker. |
 
