@@ -130,6 +130,7 @@ export const api = {
     logout: () => apiFetch('/auth/logout', { method: 'POST', skipAuth: true }),
     logoutAll: () => apiFetch('/auth/logout-all', { method: 'POST', skipAuth: true }),
     // turnstile_token: the Cloudflare Turnstile answer, sent only when the build shows the human check
+    signupStatus: () => apiFetch('/auth/signup', { skipAuth: true }),
     signup: (username, email, password, turnstile_token) => apiFetch('/auth/signup', { method: 'POST', skipAuth: true, body: JSON.stringify({ username, email, password, turnstile_token }) }),
     verifyEmail: (token) => apiFetch('/auth/verify-email', { method: 'POST', skipAuth: true, body: JSON.stringify({ token }) }),
     resendVerification: (email, turnstile_token) => apiFetch('/auth/resend-verification', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),

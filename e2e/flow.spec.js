@@ -70,6 +70,15 @@ test('sign-up page validates and explains the next step', async ({ page }) => {
   await expect(page.getByRole('status')).toContainText(/check your email|account created/i);
 });
 
+test('with sign-up closed (invite-only beta) the page says how to get an account instead of a form', async ({ page }) => {
+  await page.route('**/api/v1/auth/signup', (route) => route.request().method() === 'GET'
+    ? route.fulfill({ json: { enabled: false, contact: 'beta@example.com' } }) : route.continue());
+  await page.goto('/signup');
+  await expect(page.getByRole('heading', { name: /invite-only/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'beta@example.com' })).toHaveAttribute('href', 'mailto:beta@example.com');
+  await expect(page.getByPlaceholder('Username')).toHaveCount(0);
+});
+
 test('a deep link survives signing in, and only addresses inside the app are followed', async ({ page }) => {
   await page.goto('/history?from=e2e');
   await expect(page).toHaveURL(/\/login\?next=%2Fhistory%3Ffrom%3De2e$/);
