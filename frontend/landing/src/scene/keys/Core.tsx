@@ -110,7 +110,8 @@ export function Core({ onReady }: { onReady?: (mesh: THREE.Mesh | null) => void 
 
   return (
     <group>
-      <pointLight ref={light} color={C.color} intensity={0} distance={C.distance * WORLD_SCALE} decay={C.decay} />
+      {/* hidden from the start, as the first frame sets it: the shader warm-up compiles the variants frame one uses */}
+      <pointLight ref={light} color={C.color} intensity={0} distance={C.distance * WORLD_SCALE} decay={C.decay} visible={false} />
       <mesh ref={glow} material={glowMat} visible={false} renderOrder={3}>
         <icosahedronGeometry args={[R * 0.5, 5]} />
       </mesh>
