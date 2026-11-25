@@ -15,7 +15,9 @@ Put TLS/CDN (Cloudflare, Caddy) in front; the API and Postgres/Redis ports are n
 1. VM with Docker (Oracle Always Free ARM, any VPS). `git clone`, `cp .env.example .env`, fill the required values
    (`POSTGRES_PASSWORD`, `VERITAS_JWT_SECRET`, `VERITAS_ADMIN_*`) and for a public host `VERITAS_PUBLIC_URL`,
    `CORS_ALLOW_ORIGINS`, `VERITAS_COOKIE_SECURE=true`, SMTP settings, `VERITAS_TURNSTILE_SECRET`.
-2. `docker compose up -d --build`. The API container applies database migrations before it starts.
+2. `docker compose up -d --build`. The API container applies database migrations before it starts. On an ARM VM
+   (Oracle Ampere A1) this builds arm64 images natively; every dependency, CPU torch included, has arm64 wheels. Tagged
+   releases also publish amd64 + arm64 images to `ghcr.io/saikrishna0817/veritas/{backend,frontend}:<tag>`.
 3. Check `docker compose ps` (all healthy), sign in as the admin, run one upload and one model scan.
 4. Cron: `0 3 * * * cd /opt/veritas && BACKUP_S3_URL=s3://bucket/veritas BACKUP_S3_ENDPOINT=... scripts/backup.sh`.
 
