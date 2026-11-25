@@ -51,6 +51,8 @@ class Settings:
     mail_from: str = os.getenv("VERITAS_MAIL_FROM", "Veritas <no-reply@localhost>")
     # Self-serve sign-up. Verification can only be disabled for local development.
     signup_enabled: bool = os.getenv("VERITAS_SIGNUP_ENABLED", "true").lower() == "true"
+    # Shown on the sign-up page while sign-up is off (invite-only beta): where to ask for an account. Empty: no contact.
+    access_contact: str = os.getenv("VERITAS_ACCESS_CONTACT", "").strip()
     require_email_verification: bool = os.getenv("VERITAS_REQUIRE_EMAIL_VERIFICATION", "true").lower() == "true"
     turnstile_secret: str = os.getenv("VERITAS_TURNSTILE_SECRET", "")   # Cloudflare Turnstile; empty disables the check
     cookie_secure: bool = os.getenv("VERITAS_COOKIE_SECURE", "true").lower() == "true"   # false only for http://localhost

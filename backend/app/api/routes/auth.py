@@ -109,6 +109,12 @@ async def logout_everywhere(response: Response, user: dict = Depends(require_use
     return {"message": "Signed out on every device."}
 
 
+@router.get("/auth/signup")
+async def signup_status():
+    """Public: whether self sign-up is open, and (when it is not) whom to ask for an account."""
+    return {"enabled": settings.signup_enabled, "contact": None if settings.signup_enabled else (settings.access_contact or None)}
+
+
 @router.post("/auth/signup", status_code=status.HTTP_201_CREATED)
 async def signup(body: SignupRequest, request: Request):
     service.check_signup_allowed(_ip(request))

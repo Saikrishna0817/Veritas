@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { GLYPHS } from '../../shared/argilla/keys/glyphs';
@@ -255,6 +256,11 @@ function FlaggedTable({ kind, res, keys = false, resultId = null }) {
     : [['file', 'class', 'score', 'check'], ...rows.map((r) => [r.file, r.class, r.score, r.check])]));
   return (
     <>
+      {/* The model card's real-error test (human-confirmed label errors in CIFAR-10/100 and MNIST) is image-only. */}
+      <p className="in-hint" data-testid="list-caveat">
+        A screening list, not proof: check each item before you act on it.
+        {kind === 'images' && <> On real, human-confirmed label errors only 2-16% of the listed images were confirmed errors (<Link to="/benchmarks">how it was measured</Link>).</>}
+      </p>
       <div className="in-table-wrap">
         {/* below 860 px each row becomes a labelled card, so a phone never has to scroll sideways or cut a value */}
         <table className="in-table in-table-stack">
