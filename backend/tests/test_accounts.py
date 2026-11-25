@@ -167,3 +167,18 @@ def test_metrics_endpoint_is_hidden_without_a_token_and_exposes_route_templates(
     assert c.get("/metrics", headers={"Authorization": "Bearer nope"}).status_code == 404
     body = c.get("/metrics", headers={"Authorization": "Bearer scrape-secret-123"}).text
     assert 'veritas_http_requests_total{method="GET",route="/health",status="200"}' in body
+
+
+def test_signup_status_tells_the_page_when_signup_is_closed(monkeypatch):
+    import dataclasses
+
+    from app.api.routes import auth as auth_routes
+    from app.core.config import settings
+    from app.services import auth as auth_service
+    c = _client()
+    assert c.get("/api/v1/auth/signup").json() == {"enabled": True, "contact": None}
+    closed = dataclasses.replace(settings, signup_enabled=False, access_contact="beta@example.com")
+    monkeypatch.setattr(auth_routes, "settings", closed)
+    monkeypatch.setattr(auth_service, "settings", closed)
+    assert c.get("/api/v1/auth/signup").json() == {"enabled": False, "contact": "beta@example.com"}
+    assert _signup(c, name="closeduser", email="closed@example.com").status_code == 403
