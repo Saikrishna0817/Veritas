@@ -46,8 +46,9 @@ You can see your usage and history in the app. **Delete your data** (`DELETE /ap
 review cases and usage counters but keeps the account, its API keys and its audit log. **Delete your account**
 (`POST /api/v1/account/delete`, needs your password) erases all of that plus the account, API keys, pending email tokens,
 job records and audit log. We keep only an opaque account id so that any still-valid login token stops working; it
-identifies no one. Backups made before deletion age out on the backup schedule ([BACKUP RETENTION]). To ask for a
-copy of your data, or to correct or object to processing, email [PRIVACY EMAIL]. If you are in
+identifies no one. Backups made before deletion age out on the backup schedule ([BACKUP RETENTION]). **Download a copy of
+your data** under Account (`GET /api/v1/account/export`, a JSON file). To correct or object to processing, or for
+anything the download does not cover, email [PRIVACY EMAIL]. If you are in
 the EU/UK, you also have the right to complain to your data-protection authority. Our legal bases are contract
 (providing the service you signed up for) and legitimate interest (security and abuse prevention).
 

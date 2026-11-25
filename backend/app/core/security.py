@@ -156,6 +156,17 @@ def require_user(request: Request, credentials: HTTPAuthorizationCredentials | N
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"})
 
 
+def sees_everyone(user: dict[str, Any]) -> bool:
+    """Whether a signed-in caller's reads widen to every person's data: admins only, and when admins must use 2FA
+    (VERITAS_REQUIRE_ADMIN_2FA), only an admin who has enrolled. Until then an admin reads their own data, as any user."""
+    if user.get("role") != "admin":
+        return False
+    if settings.require_admin_2fa:
+        from app.models import database as db
+        return bool((db.get_user_by_id(user["id"]) or {}).get("totp_enabled_at"))
+    return True
+
+
 def require_admin(user: dict[str, Any] = Depends(require_user)) -> dict[str, Any]:
     """Dependency that requires role='admin' in addition to a valid token.
 

@@ -377,6 +377,21 @@ def disable_totp(user_id: str) -> None:
     conn.commit()
 
 
+def reset_totp(user_id: str) -> None:
+    """An admin's reset of someone else's 2FA (lost phone and recovery codes): turn it off and end their sessions,
+    in one transaction, so the person signs in again with their password and can enroll again."""
+    conn = _get_conn()
+    try:
+        conn.execute("UPDATE users SET totp_secret = NULL, totp_enabled_at = NULL, totp_last_step = 0, "
+                     "token_version = token_version + 1 WHERE id = ?", (user_id,))
+        conn.execute("DELETE FROM recovery_codes WHERE user_id = ?", (user_id,))
+        _revoke_refresh(conn, user_id=user_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
 def claim_totp_step(user_id: str, step: int) -> bool:
     """Record the accepted step; False if another request got there first (the same code used twice)."""
     conn = _get_conn()
@@ -743,6 +758,44 @@ def get_usage(owner_id: str) -> Dict[str, int]:
 # ── Data deletion and retention ───────────────────────────────────────────────
 
 _OWNED_TABLES = ("analysis_results", "model_scans", "defense_actions", "hitl_cases", "pending_uploads")
+
+
+def export_owner_data(owner_id: str) -> Dict[str, Any]:
+    """Everything stored about one person, for their own download (GET /account/export). Columns are named one by one,
+    so no hash, secret or token can slip in: no password hash, 2FA secret, recovery codes, API key hashes or refresh
+    tokens; API keys appear by name and prefix only."""
+    conn = _get_conn()
+
+    def rows(sql: str) -> List[Dict]:
+        return [dict(r) for r in conn.execute(sql, (owner_id,)).fetchall()]
+
+    def parsed(items: List[Dict], column: str, into: str) -> List[Dict]:
+        for item in items:
+            raw = item.pop(column, None)
+            try:
+                item[into] = json.loads(raw) if raw else None
+            except ValueError:
+                item[into] = None
+        return items
+
+    user = get_user_by_id(owner_id) or {}
+    account = {k: user.get(k) for k in ("id", "username", "email", "role", "created_at", "email_verified", "disabled_at")}
+    account["two_factor_enabled"] = bool(user.get("totp_enabled_at"))
+    return {
+        "account": account,
+        "analyses": parsed(rows("SELECT id, source, filename, verdict, created_at, full_json FROM analysis_results "
+                                "WHERE owner_id = ? ORDER BY created_at DESC"), "full_json", "result"),
+        "model_scans": parsed(rows("SELECT id, model_filename, verdict, created_at, full_json FROM model_scans "
+                                   "WHERE owner_id = ? ORDER BY created_at DESC"), "full_json", "scan"),
+        "defense_actions": parsed(rows("SELECT action_id, action, samples_affected, reason, created_at, details_json "
+                                       "FROM defense_actions WHERE owner_id = ? ORDER BY created_at DESC"), "details_json", "details"),
+        "review_cases": parsed(rows("SELECT case_id, status, n_samples, created_at, deadline, details_json FROM hitl_cases "
+                                    "WHERE owner_id = ? ORDER BY created_at DESC"), "details_json", "details"),
+        "audit_events": parsed(rows("SELECT action, resource_type, resource_id, created_at, details_json FROM audit_events "
+                                    "WHERE actor_id = ? ORDER BY created_at DESC"), "details_json", "details"),
+        "api_keys": list_api_keys(owner_id),
+        "usage": get_usage(owner_id),
+    }
 
 
 def delete_owner_data(owner_id: str) -> Dict[str, int]:

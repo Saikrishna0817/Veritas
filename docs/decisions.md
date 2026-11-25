@@ -28,3 +28,15 @@ The server closes the socket when the token expires.
 **Single worker.** Rate limiters, result caches, the job store and the WebSocket registry
 are process-local, so the container runs one uvicorn worker. Moving to several workers or
 hosts requires a shared store (e.g. Redis) for those pieces first.
+
+## 2026-11-25: Entries above that the code has moved past
+
+Recorded so the two older entries are not read as current (see `docs/launch-gap-plan.md`, K4 and K5).
+
+**Sessions (supersedes 2026-09-02).** The browser session is an httpOnly, SameSite cookie with a double-submit CSRF
+token, renewed from a separate refresh cookie; nothing is kept in `localStorage`. The WebSocket authenticates with
+the session cookie. Bearer tokens and `vk_` API keys remain for the CLI and other non-browser clients.
+
+**Results are owner-scoped (supersedes the first part of 2026-11-06).** Every stored row carries `owner_id` and every
+read filters by it; `backend/tests/test_tenant_isolation.py` checks two users cannot see each other's data. An admin
+reads everyone's, and when `VERITAS_REQUIRE_ADMIN_2FA` is on, only after enrolling in two-factor sign-in.

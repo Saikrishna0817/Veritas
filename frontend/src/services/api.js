@@ -136,6 +136,8 @@ export const api = {
     requestPasswordReset: (email, turnstile_token) => apiFetch('/auth/password-reset/request', { method: 'POST', skipAuth: true, body: JSON.stringify({ email, turnstile_token }) }),
     confirmPasswordReset: (token, new_password) => apiFetch('/auth/password-reset/confirm', { method: 'POST', skipAuth: true, body: JSON.stringify({ token, new_password }) }),
     getUsage: () => apiFetch('/account/usage'),
+    // A copy of everything stored about the signed-in person (account, analyses, scans, audit events, key names).
+    exportMyData: () => apiFetch('/account/export'),
     deleteMyData: () => apiFetch('/account/data', { method: 'DELETE' }),
     deleteAccount: (password) => apiFetch('/account/delete', { method: 'POST', body: JSON.stringify({ password }) }),
     listApiKeys: () => apiFetch('/account/api-keys'),
@@ -147,6 +149,8 @@ export const api = {
     getUsers: (before) => apiFetch(paged('/users', 200, before), { raw: true }).then(({ data, headers }) => ({ items: data, next: headers.get('X-Next-Before') })),
     disableUser: (userId) => apiFetch(`/users/${userId}/disable`, { method: 'POST' }),
     enableUser: (userId) => apiFetch(`/users/${userId}/enable`, { method: 'POST' }),
+    // Turns off another person's 2FA (lost phone and recovery codes) and ends their sessions. Answers { message }.
+    resetUserTwoFactor: (userId) => apiFetch(`/users/${userId}/2fa/reset`, { method: 'POST' }),
     createUser: (data) => apiFetch('/users', { method: 'POST', body: JSON.stringify(data) }),
     deleteUser: (userId) => apiFetch(`/users/${userId}`, { method: 'DELETE' }),
     setUserRole: (userId, role) => apiFetch(`/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
@@ -184,8 +188,6 @@ export const api = {
     // decision: approve_quarantine | mark_safe. The server records the signed-in user as the reviewer.
     submitReviewDecision: (caseId, decision) =>
         apiFetch('/defense/hitl/decide', { method: 'POST', body: JSON.stringify({ case_id: caseId, decision }) }),
-
-    // Federated
 
     // Reports
     generateReport: (source = 'auto') => apiFetch(`/reports/generate?source=${source}`, { method: 'POST' }),
