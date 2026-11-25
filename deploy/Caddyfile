@@ -13,8 +13,25 @@
 {$VERITAS_DOMAIN} {
 	encode gzip
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+	# Kill switch: while deploy/maintenance/on exists, every request gets the maintenance page (503), checked per
+	# request, so `touch` takes the site offline at once and `rm` brings it back; no restart (docs/runbook.md).
+	@maintenance file {
+		root /srv/maintenance
+		try_files /on
+	}
+	handle @maintenance {
+		root * /srv/maintenance
+		rewrite * /index.html
+		file_server {
+			status 503
+		}
+		header Retry-After 3600
+	}
 	# Caddy sets X-Forwarded-For to the client address it determined; whatever the client sent is not passed on.
-	reverse_proxy frontend:5173 {
-		header_up X-Forwarded-For {client_ip}
+	handle {
+		reverse_proxy frontend:5173 {
+			header_up X-Forwarded-For {client_ip}
+		}
 	}
 }

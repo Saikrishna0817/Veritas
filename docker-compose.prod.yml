@@ -20,6 +20,7 @@ services:
       ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (certificate expiry notices)}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/maintenance:/srv/maintenance:ro   # kill switch: touch deploy/maintenance/on
       - caddy_data:/data
       - caddy_config:/config
     networks: [edge]            # its subnet is the only one nginx takes a client address from
