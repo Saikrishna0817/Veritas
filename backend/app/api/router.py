@@ -13,6 +13,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.datasets import router as datasets_router
 from app.api.routes.direct_upload import router as direct_upload_router
 from app.api.routes.jobs import router as jobs_router
+from app.api.routes.marks import router as marks_router
 from app.api.routes.models import router as models_router
 from app.api.routes.reports import router as reports_router
 from app.api.routes.upload import router as upload_router
@@ -31,6 +32,7 @@ api_router.include_router(direct_upload_router, tags=["upload"], dependencies=[D
 api_router.include_router(models_router, tags=["models"], dependencies=[Depends(require_user)])
 api_router.include_router(datasets_router, tags=["datasets"], dependencies=[Depends(require_user)])
 api_router.include_router(reports_router, tags=["reports"], dependencies=[Depends(require_user)])
+api_router.include_router(marks_router, tags=["marks"], dependencies=[Depends(require_user)])
 api_router.include_router(account_router, tags=["account"], dependencies=[Depends(require_user)])
 api_router.include_router(jobs_router, tags=["jobs"], dependencies=[Depends(require_user)])
 
