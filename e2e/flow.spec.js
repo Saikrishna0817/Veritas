@@ -37,6 +37,8 @@ test('sign in, audit a dataset, see the verdict, sign out; session is an httpOnl
   await expect(page.getByRole('heading', { name: /evidence of poisoning/i })).toBeVisible({ timeout: 60000 });
   await expect(page.getByText('Rows to review')).toBeVisible();
   await expect(page.locator('.in-table tbody tr').first()).toBeVisible();   // the flipped rows are listed
+  await expect(page.getByTestId('list-caveat').first()).toContainText('check each item before you act');   // beta: a list, not proof
+  await expect(page.locator('.in-footer')).toContainText('Beta, no warranty');
 
   // a user account has no admin console, and the admin API answers 403
   await page.goto('/admin');
